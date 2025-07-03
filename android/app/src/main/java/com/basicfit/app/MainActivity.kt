@@ -495,8 +495,10 @@ fun ProfileScreen(navController: NavController, onLogout: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("🏋️ Séances totales: ${workoutHistory.size}")
+                Text("📅 Séances cette semaine: $weeklyWorkouts")
+                Text("🔥 Streak actuel: $streak jours")
                 Text("📈 Record poids: ${maxWeight}kg")
-                Text("🔥 Séances excellentes: ${workoutHistory.count { it.performance == "Excellent" }}")
+                Text("⭐ Séances excellentes: ${workoutHistory.count { it.performance == "Excellent" }}")
                 if (workoutHistory.isNotEmpty()) {
                     Text("⏱️ Temps total: ${workoutHistory.sumOf { it.duration }}min")
                     Text("🔥 Calories brûlées: ${workoutHistory.sumOf { it.calories }}kcal")

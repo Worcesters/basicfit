@@ -1,0 +1,7 @@
+# Version sans PostgreSQL (SQLite seulement)
+Django==4.2.7
+djangorestframework==3.14.0
+django-cors-headers==4.3.1
+gunicorn==23.0.0
+dj-database-url==3.0.1
+# psycopg2-binary supprimé temporairement
