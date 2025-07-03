@@ -150,8 +150,8 @@ interface ApiService {
  * Singleton pour gérer l'API
  */
 object ApiClient {
-    private const val BASE_URL = "http://10.0.2.2:8000/" // Émulateur Android
-    // Pour un appareil physique, remplacez par votre IP : "http://192.168.1.XXX:8000/"
+    private const val BASE_URL = "https://basicfit-production.up.railway.app/" // API Railway
+    // Production: votre serveur Django déployé sur Railway
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY

@@ -1,20 +1,19 @@
 ﻿"""
-Configuration Railway PRODUCTION - Django autonome (sans decouple)
-Railway utilise automatiquement ce fichier en mode production
+Configuration Railway PRODUCTION - Django BASIQUE SEULEMENT
+Version ultra-simple pour éliminer toutes les erreurs
 """
 import os
 from pathlib import Path
-import dj_database_url
 
 # Build paths
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Django settings essentiels
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-railway-production')
-DEBUG = False  # Production
-ALLOWED_HOSTS = ['*', '.railway.app']
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-basic-key-123456789')
+DEBUG = True  # True pour voir les erreurs détaillées
+ALLOWED_HOSTS = ['*']
 
-# Applications DJANGO DE BASE + DRF
+# Applications DJANGO DE BASE SEULEMENT
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -22,13 +21,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework',
-    'corsheaders',
 ]
 
-# Middleware
+# Middleware minimal Django
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -58,11 +54,12 @@ TEMPLATES = [
     },
 ]
 
-# Database Railway
+# Database - SQLite simple
 DATABASES = {
-    'default': dj_database_url.config(
-        default=f'sqlite:///{BASE_DIR}/db.sqlite3'
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 }
 
 # Static files
@@ -75,17 +72,7 @@ TIME_ZONE = 'Europe/Paris'
 USE_I18N = True
 USE_TZ = True
 
-# CORS
-CORS_ALLOW_ALL_ORIGINS = True
-
-# REST Framework basique (sans JWT pour éviter les erreurs)
-REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
-    ],
-}
-
 # Default field
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-print("Configuration PRODUCTION Railway (autonome) chargée ")
+print("Configuration PRODUCTION Django BASIQUE chargée ")
