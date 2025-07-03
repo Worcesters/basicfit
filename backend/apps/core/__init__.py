@@ -1,0 +1,1 @@
+# App core - modèles de base et utilitaires communs

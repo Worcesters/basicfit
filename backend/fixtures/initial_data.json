@@ -1,0 +1,225 @@
+[
+  {
+    "model": "core.modeentrainement",
+    "pk": 1,
+    "fields": {
+      "nom": "FORCE",
+      "description": "Entraînement orienté force avec charges lourdes et peu de répétitions",
+      "series_recommandees": 5,
+      "repetitions_min": 1,
+      "repetitions_max": 5,
+      "repos_entre_series": 180,
+      "pourcentage_1rm_min": 0.85,
+      "pourcentage_1rm_max": 0.95,
+      "is_active": true
+    }
+  },
+  {
+    "model": "core.modeentrainement",
+    "pk": 2,
+    "fields": {
+      "nom": "PRISE_MASSE",
+      "description": "Entraînement pour la prise de masse musculaire avec volume modéré",
+      "series_recommandees": 3,
+      "repetitions_min": 8,
+      "repetitions_max": 12,
+      "repos_entre_series": 90,
+      "pourcentage_1rm_min": 0.65,
+      "pourcentage_1rm_max": 0.80,
+      "is_active": true
+    }
+  },
+  {
+    "model": "core.modeentrainement",
+    "pk": 3,
+    "fields": {
+      "nom": "SECHE",
+      "description": "Entraînement pour la sèche avec hautes répétitions",
+      "series_recommandees": 4,
+      "repetitions_min": 12,
+      "repetitions_max": 20,
+      "repos_entre_series": 60,
+      "pourcentage_1rm_min": 0.50,
+      "pourcentage_1rm_max": 0.70,
+      "is_active": true
+    }
+  },
+  {
+    "model": "machines.groupemusculaire",
+    "pk": 1,
+    "fields": {
+      "nom": "Pectoraux",
+      "description": "Muscles de la poitrine",
+      "couleur": "#e74c3c",
+      "icone": "fitness_center",
+      "ordre_affichage": 1,
+      "is_active": true
+    }
+  },
+  {
+    "model": "machines.groupemusculaire",
+    "pk": 2,
+    "fields": {
+      "nom": "Dos",
+      "description": "Muscles du dos",
+      "couleur": "#3498db",
+      "icone": "accessibility",
+      "ordre_affichage": 2,
+      "is_active": true
+    }
+  },
+  {
+    "model": "machines.groupemusculaire",
+    "pk": 3,
+    "fields": {
+      "nom": "Épaules",
+      "description": "Muscles des épaules",
+      "couleur": "#f39c12",
+      "icone": "sports_handball",
+      "ordre_affichage": 3,
+      "is_active": true
+    }
+  },
+  {
+    "model": "machines.groupemusculaire",
+    "pk": 4,
+    "fields": {
+      "nom": "Biceps",
+      "description": "Muscles biceps",
+      "couleur": "#9b59b6",
+      "icone": "fitness_center",
+      "ordre_affichage": 4,
+      "is_active": true
+    }
+  },
+  {
+    "model": "machines.groupemusculaire",
+    "pk": 5,
+    "fields": {
+      "nom": "Triceps",
+      "description": "Muscles triceps",
+      "couleur": "#1abc9c",
+      "icone": "fitness_center",
+      "ordre_affichage": 5,
+      "is_active": true
+    }
+  },
+  {
+    "model": "machines.groupemusculaire",
+    "pk": 6,
+    "fields": {
+      "nom": "Quadriceps",
+      "description": "Muscles avant des cuisses",
+      "couleur": "#27ae60",
+      "icone": "directions_run",
+      "ordre_affichage": 6,
+      "is_active": true
+    }
+  },
+  {
+    "model": "machines.groupemusculaire",
+    "pk": 7,
+    "fields": {
+      "nom": "Ischio-jambiers",
+      "description": "Muscles arrière des cuisses",
+      "couleur": "#e67e22",
+      "icone": "directions_run",
+      "ordre_affichage": 7,
+      "is_active": true
+    }
+  },
+  {
+    "model": "machines.categoriemachine",
+    "pk": 1,
+    "fields": {
+      "nom": "MUSCULATION",
+      "description": "Machines de musculation guidée",
+      "couleur": "#34495e",
+      "icone": "fitness_center",
+      "is_active": true
+    }
+  },
+  {
+    "model": "machines.categoriemachine",
+    "pk": 2,
+    "fields": {
+      "nom": "POIDS_LIBRE",
+      "description": "Exercices avec poids libres",
+      "couleur": "#95a5a6",
+      "icone": "sports_gymnastics",
+      "is_active": true
+    }
+  },
+  {
+    "model": "machines.machine",
+    "pk": 1,
+    "fields": {
+      "nom": "Développé couché",
+      "nom_anglais": "Bench Press",
+      "description": "Exercice de base pour les pectoraux, épaules et triceps",
+      "instructions": "Allongez-vous sur le banc, pieds au sol. Saisissez la barre avec une prise légèrement plus large que les épaules. Descendez la barre jusqu'à la poitrine puis remontez en contrôlant le mouvement.",
+      "categorie": 2,
+      "increment_poids": 2.5,
+      "poids_minimum": 20.0,
+      "poids_maximum": 200.0,
+      "niveau_difficulte": "INTERMEDIAIRE",
+      "popularite": 95,
+      "est_disponible": true,
+      "necessite_supervision": false,
+      "fabricant": "BasicFit",
+      "ordre_affichage": 1,
+      "tags": "pectoraux,triceps,epaules,base,polyarticulaire",
+      "nombre_utilisations": 1250,
+      "note_moyenne": 4.8,
+      "is_active": true
+    }
+  },
+  {
+    "model": "machines.machine",
+    "pk": 2,
+    "fields": {
+      "nom": "Tirage vertical",
+      "nom_anglais": "Lat Pulldown",
+      "description": "Exercice pour développer la largeur du dos",
+      "instructions": "Asseyez-vous face à la machine, saisissez la barre avec une prise large. Tirez la barre vers le haut de la poitrine en contractant les dorsaux.",
+      "categorie": 1,
+      "increment_poids": 2.5,
+      "poids_minimum": 10.0,
+      "poids_maximum": 150.0,
+      "niveau_difficulte": "DEBUTANT",
+      "popularite": 85,
+      "est_disponible": true,
+      "necessite_supervision": false,
+      "fabricant": "BasicFit",
+      "ordre_affichage": 2,
+      "tags": "dos,dorsaux,largeur,traction",
+      "nombre_utilisations": 980,
+      "note_moyenne": 4.6,
+      "is_active": true
+    }
+  },
+  {
+    "model": "machines.machine",
+    "pk": 3,
+    "fields": {
+      "nom": "Leg Press",
+      "nom_anglais": "Leg Press",
+      "description": "Machine pour développer les quadriceps et fessiers",
+      "instructions": "Placez-vous sur la machine, pieds sur la plateforme largeur d'épaules. Descendez en fléchissant les genoux puis remontez en poussant sur les talons.",
+      "categorie": 1,
+      "increment_poids": 10.0,
+      "poids_minimum": 50.0,
+      "poids_maximum": 500.0,
+      "niveau_difficulte": "DEBUTANT",
+      "popularite": 90,
+      "est_disponible": true,
+      "necessite_supervision": false,
+      "fabricant": "BasicFit",
+      "ordre_affichage": 3,
+      "tags": "quadriceps,fessiers,jambes,securise",
+      "nombre_utilisations": 1100,
+      "note_moyenne": 4.7,
+      "is_active": true
+    }
+  }
+]

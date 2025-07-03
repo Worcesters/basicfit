@@ -1,0 +1,664 @@
+INFO 2025-07-03 00:05:51,380 autoreload 10 139990435883904 Watching for file changes with StatReloader
+INFO 2025-07-03 00:05:53,660 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:05:56,257 basehttp 10 139990340200128 "GET /admin/ HTTP/1.1" 302 0
+INFO 2025-07-03 00:05:56,277 basehttp 10 139990340200128 "GET /admin/login/?next=/admin/ HTTP/1.1" 200 4245
+INFO 2025-07-03 00:05:56,326 basehttp 10 139990340200128 "GET /static/admin/css/base.css HTTP/1.1" 200 21207
+INFO 2025-07-03 00:05:56,337 basehttp 10 139990340200128 "GET /static/admin/js/theme.js HTTP/1.1" 200 1943
+INFO 2025-07-03 00:05:56,337 basehttp 10 139990323414720 "GET /static/admin/css/nav_sidebar.css HTTP/1.1" 200 2694
+INFO 2025-07-03 00:05:56,340 basehttp 10 139990331807424 "GET /static/admin/css/dark_mode.css HTTP/1.1" 200 2929
+INFO 2025-07-03 00:05:56,341 basehttp 10 139990315022016 "GET /static/admin/css/login.css HTTP/1.1" 200 958
+INFO 2025-07-03 00:05:56,341 basehttp 10 139989954324160 "GET /static/admin/js/nav_sidebar.js HTTP/1.1" 200 3063
+INFO 2025-07-03 00:05:56,341 basehttp 10 139989962716864 "GET /static/admin/css/responsive.css HTTP/1.1" 200 18533
+WARNING 2025-07-03 00:05:56,454 log 10 139990315022016 Not Found: /favicon.ico
+WARNING 2025-07-03 00:05:56,455 basehttp 10 139990315022016 "GET /favicon.ico HTTP/1.1" 404 3723
+INFO 2025-07-03 00:06:02,976 basehttp 10 139990315022016 "GET /api/docs/ HTTP/1.1" 200 4454
+INFO 2025-07-03 00:06:03,216 basehttp 10 139990315022016 "GET /api/schema/ HTTP/1.1" 200 18269
+INFO 2025-07-03 00:06:04,542 basehttp 10 139989945931456 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:06:24,301 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:06:54,306 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+ERROR 2025-07-03 00:06:58,035 log 10 139990315022016 Internal Server Error: /api/machines/
+ERROR 2025-07-03 00:06:58,035 basehttp 10 139990315022016 "GET /api/machines/ HTTP/1.1" 500 5832
+INFO 2025-07-03 00:06:58,073 basehttp 10 139990331807424 "GET /static/rest_framework/css/default.css HTTP/1.1" 200 1152
+INFO 2025-07-03 00:06:58,073 basehttp 10 139989954324160 "GET /static/rest_framework/css/bootstrap-tweaks.css HTTP/1.1" 200 3385
+INFO 2025-07-03 00:06:58,073 basehttp 10 139989962716864 "GET /static/rest_framework/css/prettify.css HTTP/1.1" 200 817
+INFO 2025-07-03 00:06:58,074 basehttp 10 139990340200128 "GET /static/rest_framework/js/ajax-form.js HTTP/1.1" 200 3597
+INFO 2025-07-03 00:06:58,078 basehttp 10 139990331807424 "GET /static/rest_framework/js/csrf.js HTTP/1.1" 200 1719
+INFO 2025-07-03 00:06:58,078 basehttp 10 139990340200128 "GET /static/rest_framework/js/default.js HTTP/1.1" 200 1268
+INFO 2025-07-03 00:06:58,078 basehttp 10 139989954324160 "GET /static/rest_framework/js/prettify-min.js HTTP/1.1" 200 13632
+INFO 2025-07-03 00:06:58,079 basehttp 10 139990323414720 "GET /static/rest_framework/js/jquery-3.5.1.min.js HTTP/1.1" 200 89476
+INFO 2025-07-03 00:06:58,080 basehttp 10 139989962716864 "GET /static/rest_framework/js/bootstrap.min.js HTTP/1.1" 200 39680
+INFO 2025-07-03 00:06:58,080 basehttp 10 139990315022016 "GET /static/rest_framework/css/bootstrap.min.css HTTP/1.1" 200 121457
+INFO 2025-07-03 00:06:58,096 basehttp 10 139989962716864 "GET /static/rest_framework/img/grid.png HTTP/1.1" 200 1458
+INFO 2025-07-03 00:07:18,157 basehttp 10 139989954324160 "GET /api/core/health/ HTTP/1.1" 200 5439
+INFO 2025-07-03 00:07:24,299 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:07:27,359 basehttp 10 139989954324160 "GET /api/core/modes-entrainement/ HTTP/1.1" 200 5394
+INFO 2025-07-03 00:07:54,300 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:08:23,654 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+ERROR 2025-07-03 00:08:51,093 log 10 139990348592832 Internal Server Error: /api/machines/
+ERROR 2025-07-03 00:08:51,093 basehttp 10 139990348592832 "GET /api/machines/ HTTP/1.1" 500 550
+INFO 2025-07-03 00:08:53,660 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+ERROR 2025-07-03 00:09:04,782 log 10 139990348592832 Internal Server Error: /api/machines/
+ERROR 2025-07-03 00:09:04,782 basehttp 10 139990348592832 "GET /api/machines/ HTTP/1.1" 500 550
+INFO 2025-07-03 00:09:23,657 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:09:53,664 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:10:23,660 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:10:53,666 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:11:23,661 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:11:53,658 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:12:23,664 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:12:53,655 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:13:23,672 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:13:53,657 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:13:58,929 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+ERROR 2025-07-03 00:14:03,950 log 10 139990348592832 Internal Server Error: /api/machines/
+ERROR 2025-07-03 00:14:03,951 basehttp 10 139990348592832 "GET /api/machines/ HTTP/1.1" 500 550
+ERROR 2025-07-03 00:14:09,438 log 10 139990348592832 Internal Server Error: /api/machines/
+ERROR 2025-07-03 00:14:09,439 basehttp 10 139990348592832 "GET /api/machines/ HTTP/1.1" 500 550
+INFO 2025-07-03 00:14:12,220 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+ERROR 2025-07-03 00:14:14,121 log 10 139990348592832 Internal Server Error: /api/machines/
+ERROR 2025-07-03 00:14:14,121 basehttp 10 139990348592832 "GET /api/machines/ HTTP/1.1" 500 550
+INFO 2025-07-03 00:14:42,234 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+ERROR 2025-07-03 00:14:46,745 log 10 139989954324160 Internal Server Error: /api/machines/
+ERROR 2025-07-03 00:14:46,745 basehttp 10 139989954324160 "GET /api/machines/ HTTP/1.1" 500 550
+INFO 2025-07-03 00:15:12,224 basehttp 10 139990348592832 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:15:31,870 autoreload 10 139990435883904 /app/apps/machines/views.py changed, reloading.
+INFO 2025-07-03 00:15:32,855 autoreload 81 124369914592128 Watching for file changes with StatReloader
+INFO 2025-07-03 00:15:42,227 basehttp 81 124369827264192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:15:53,482 autoreload 10 137845480172416 Watching for file changes with StatReloader
+INFO 2025-07-03 00:15:54,802 basehttp 10 137845394110144 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:15:56,403 basehttp 10 137845394110144 "GET /api/machines/ HTTP/1.1" 200 7640
+INFO 2025-07-03 00:16:11,717 basehttp 10 137845384668864 "GET /api/machines/ HTTP/1.1" 200 7640
+INFO 2025-07-03 00:16:19,634 basehttp 10 137845394110144 "GET /api/machines/ HTTP/1.1" 200 7640
+INFO 2025-07-03 00:16:24,808 basehttp 10 137845394110144 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:16:43,656 basehttp 10 137845394110144 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 00:16:45,661 basehttp 10 137845394110144 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 08:37:32,062 autoreload 10 123931212172160 Watching for file changes with StatReloader
+INFO 2025-07-03 08:41:20,967 basehttp 10 123931125085888 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 08:41:26,733 basehttp 10 123931125085888 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 08:41:56,736 basehttp 10 123931125085888 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 09:07:24,210 basehttp 10 123931125085888 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 09:07:27,389 basehttp 10 123931125085888 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 09:07:57,388 basehttp 10 123931125085888 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 09:08:27,379 basehttp 10 123931125085888 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 09:08:57,378 basehttp 10 123931125085888 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 09:09:38,396 basehttp 10 123931125085888 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 09:10:38,391 basehttp 10 123931125085888 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 09:11:38,391 basehttp 10 123931125085888 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 09:12:38,392 basehttp 10 123931125085888 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 09:12:57,385 basehttp 10 123931125085888 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 09:13:27,391 basehttp 10 123931125085888 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 09:41:30,952 autoreload 10 130743035304832 Watching for file changes with StatReloader
+WARNING 2025-07-03 09:48:10,935 log 10 130742948460224 Not Found: /
+WARNING 2025-07-03 09:48:10,935 basehttp 10 130742948460224 "GET / HTTP/1.1" 404 3672
+WARNING 2025-07-03 09:48:11,020 log 10 130742948460224 Not Found: /favicon.ico
+WARNING 2025-07-03 09:48:11,021 basehttp 10 130742948460224 "GET /favicon.ico HTTP/1.1" 404 3723
+INFO 2025-07-03 10:32:17,414 basehttp 10 130742948460224 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:32:28,305 basehttp 10 130742939018944 "GET /admin/ HTTP/1.1" 302 0
+INFO 2025-07-03 10:32:28,345 basehttp 10 130742939018944 "GET /admin/login/?next=/admin/ HTTP/1.1" 200 4245
+INFO 2025-07-03 10:32:28,385 basehttp 10 130742939018944 "GET /static/admin/css/base.css HTTP/1.1" 304 0
+INFO 2025-07-03 10:32:28,390 basehttp 10 130742930626240 "GET /static/admin/css/dark_mode.css HTTP/1.1" 304 0
+INFO 2025-07-03 10:32:28,391 basehttp 10 130742922233536 "GET /static/admin/css/nav_sidebar.css HTTP/1.1" 304 0
+INFO 2025-07-03 10:32:28,391 basehttp 10 130742562584256 "GET /static/admin/css/responsive.css HTTP/1.1" 304 0
+INFO 2025-07-03 10:32:28,392 basehttp 10 130742913840832 "GET /static/admin/css/login.css HTTP/1.1" 304 0
+INFO 2025-07-03 10:32:28,393 basehttp 10 130742922233536 "GET /static/admin/js/theme.js HTTP/1.1" 304 0
+INFO 2025-07-03 10:32:28,394 basehttp 10 130742913840832 "GET /static/admin/js/nav_sidebar.js HTTP/1.1" 304 0
+INFO 2025-07-03 10:32:40,378 basehttp 10 130742922233536 "POST /admin/login/?next=/admin/ HTTP/1.1" 200 4467
+INFO 2025-07-03 10:32:48,293 basehttp 10 130742948460224 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:33:04,389 basehttp 10 130742939018944 "POST /admin/login/?next=/admin/ HTTP/1.1" 302 0
+INFO 2025-07-03 10:33:04,417 basehttp 10 130742939018944 "GET /admin/ HTTP/1.1" 200 5267
+INFO 2025-07-03 10:33:04,494 basehttp 10 130742939018944 "GET /static/admin/css/dashboard.css HTTP/1.1" 200 441
+INFO 2025-07-03 10:33:04,517 basehttp 10 130742939018944 "GET /static/admin/img/icon-addlink.svg HTTP/1.1" 200 331
+INFO 2025-07-03 10:33:04,517 basehttp 10 130742948460224 "GET /static/admin/img/icon-changelink.svg HTTP/1.1" 200 380
+INFO 2025-07-03 10:33:18,298 basehttp 10 130742922233536 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:33:48,300 basehttp 10 130742922233536 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:34:18,301 basehttp 10 130742922233536 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:34:48,299 basehttp 10 130742922233536 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:35:18,293 basehttp 10 130742922233536 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:35:51,295 basehttp 10 130742939018944 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:36:18,291 basehttp 10 130742939018944 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:36:48,289 basehttp 10 130742939018944 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:37:51,293 basehttp 10 130742939018944 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:38:34,774 autoreload 10 130743035304832 /app/basicfit_project/settings/base.py changed, reloading.
+INFO 2025-07-03 10:38:36,104 autoreload 26 138419891198848 Watching for file changes with StatReloader
+INFO 2025-07-03 10:38:39,901 autoreload 26 138419891198848 /app/basicfit_project/settings/base.py changed, reloading.
+INFO 2025-07-03 10:38:40,941 autoreload 28 124803646450560 Watching for file changes with StatReloader
+INFO 2025-07-03 10:39:04,452 autoreload 28 124803646450560 /app/apps/core/admin.py changed, reloading.
+INFO 2025-07-03 10:39:05,337 autoreload 30 124576341982080 Watching for file changes with StatReloader
+INFO 2025-07-03 10:39:06,981 autoreload 30 124576341982080 /app/apps/core/admin.py changed, reloading.
+INFO 2025-07-03 10:39:08,029 autoreload 32 126516808514432 Watching for file changes with StatReloader
+INFO 2025-07-03 10:39:51,290 basehttp 32 126516650309312 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:40:51,295 basehttp 32 126516650309312 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:41:51,300 basehttp 32 126516650309312 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:42:04,991 basehttp 32 126516650309312 "GET /admin/ HTTP/1.1" 302 0
+INFO 2025-07-03 10:42:05,007 basehttp 32 126516650309312 "GET /admin/login/?next=/admin/ HTTP/1.1" 200 4245
+INFO 2025-07-03 10:42:15,092 basehttp 32 126516650309312 "POST /admin/login/?next=/admin/ HTTP/1.1" 302 0
+INFO 2025-07-03 10:42:15,111 basehttp 32 126516650309312 "GET /admin/ HTTP/1.1" 200 11482
+INFO 2025-07-03 10:42:18,297 basehttp 32 126516650309312 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:42:20,694 basehttp 32 126516641916608 "GET /admin/workouts/exerciceseance/ HTTP/1.1" 200 14700
+INFO 2025-07-03 10:42:20,718 basehttp 32 126516641916608 "GET /static/admin/css/changelists.css HTTP/1.1" 200 6566
+INFO 2025-07-03 10:42:20,723 basehttp 32 126516633523904 "GET /static/admin/css/forms.css HTTP/1.1" 200 9047
+INFO 2025-07-03 10:42:20,723 basehttp 32 126516608345792 "GET /static/admin/js/jquery.init.js HTTP/1.1" 200 347
+INFO 2025-07-03 10:42:20,723 basehttp 32 126516641916608 "GET /static/admin/js/admin/RelatedObjectLookups.js HTTP/1.1" 200 8943
+INFO 2025-07-03 10:42:20,724 basehttp 32 126516599953088 "GET /static/admin/js/core.js HTTP/1.1" 200 5682
+INFO 2025-07-03 10:42:20,725 basehttp 32 126516616738496 "GET /static/admin/js/vendor/jquery/jquery.js HTTP/1.1" 200 292458
+INFO 2025-07-03 10:42:20,730 basehttp 32 126516625131200 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 10:42:20,746 basehttp 32 126516599953088 "GET /static/admin/js/prepopulate.js HTTP/1.1" 200 1531
+INFO 2025-07-03 10:42:20,746 basehttp 32 126516633523904 "GET /static/admin/js/actions.js HTTP/1.1" 200 7872
+INFO 2025-07-03 10:42:20,746 basehttp 32 126516608345792 "GET /static/admin/js/urlify.js HTTP/1.1" 200 7887
+INFO 2025-07-03 10:42:20,747 basehttp 32 126516625131200 "GET /static/admin/js/vendor/xregexp/xregexp.js HTTP/1.1" 200 232381
+INFO 2025-07-03 10:42:20,765 basehttp 32 126516616738496 "GET /static/admin/img/search.svg HTTP/1.1" 200 458
+INFO 2025-07-03 10:42:20,766 basehttp 32 126516625131200 "GET /static/admin/css/widgets.css HTTP/1.1" 200 11900
+INFO 2025-07-03 10:42:20,769 basehttp 32 126516625131200 "GET /static/admin/js/filters.js HTTP/1.1" 200 978
+INFO 2025-07-03 10:42:20,778 basehttp 32 126516641916608 "GET /static/admin/img/tooltag-add.svg HTTP/1.1" 200 331
+INFO 2025-07-03 10:42:22,136 basehttp 32 126516641916608 "GET /admin/workouts/progressionmachine/ HTTP/1.1" 200 15196
+INFO 2025-07-03 10:42:22,153 basehttp 32 126516641916608 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 10:42:22,913 basehttp 32 126516641916608 "GET /admin/workouts/seanceentrainement/ HTTP/1.1" 200 15558
+INFO 2025-07-03 10:42:22,932 basehttp 32 126516641916608 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 10:42:23,729 basehttp 32 126516641916608 "GET /admin/workouts/seriexercice/ HTTP/1.1" 200 14397
+INFO 2025-07-03 10:42:23,751 basehttp 32 126516641916608 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 10:42:25,328 basehttp 32 126516641916608 "GET /admin/workouts/progressionmachine/ HTTP/1.1" 200 15196
+INFO 2025-07-03 10:42:25,347 basehttp 32 126516641916608 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 10:42:29,488 basehttp 32 126516641916608 "GET /admin/machines/variantemachine/ HTTP/1.1" 200 14451
+INFO 2025-07-03 10:42:29,506 basehttp 32 126516641916608 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 10:42:30,497 basehttp 32 126516641916608 "GET /admin/machines/machine/ HTTP/1.1" 200 20708
+INFO 2025-07-03 10:42:30,517 basehttp 32 126516641916608 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 10:42:30,525 basehttp 32 126516641916608 "GET /static/admin/img/sorting-icons.svg HTTP/1.1" 200 1097
+INFO 2025-07-03 10:42:48,299 basehttp 32 126516641916608 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:43:51,293 basehttp 32 126516641916608 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:44:51,288 basehttp 32 126516641916608 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:45:51,292 basehttp 32 126516641916608 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:46:51,294 basehttp 32 126516641916608 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:47:51,298 basehttp 32 126516641916608 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:48:51,298 basehttp 32 126516641916608 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:49:17,771 autoreload 32 126516808514432 /app/apps/users/views.py changed, reloading.
+INFO 2025-07-03 10:49:18,841 autoreload 54 134795712035712 Watching for file changes with StatReloader
+INFO 2025-07-03 10:49:32,926 autoreload 54 134795712035712 /app/apps/users/urls.py changed, reloading.
+INFO 2025-07-03 10:49:33,891 autoreload 56 131275277581184 Watching for file changes with StatReloader
+INFO 2025-07-03 10:49:51,299 basehttp 56 131275188860608 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:50:51,302 basehttp 56 131275188860608 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:51:51,295 basehttp 56 131275188860608 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:52:51,296 basehttp 56 131275188860608 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:53:11,064 basehttp 56 131275188860608 "GET /admin/workouts/seriexercice/ HTTP/1.1" 200 14397
+INFO 2025-07-03 10:53:11,093 basehttp 56 131275188860608 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 10:53:13,638 basehttp 56 131275188860608 "GET /admin/workouts/seanceentrainement/ HTTP/1.1" 200 19263
+INFO 2025-07-03 10:53:13,659 basehttp 56 131275188860608 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 10:53:13,965 autoreload 56 131275277581184 /app/basicfit_project/urls.py changed, reloading.
+INFO 2025-07-03 10:53:14,895 autoreload 63 126187075529600 Watching for file changes with StatReloader
+INFO 2025-07-03 10:53:20,233 basehttp 63 126186986403520 "GET /admin/workouts/exerciceseance/ HTTP/1.1" 200 14700
+INFO 2025-07-03 10:53:20,254 basehttp 63 126186986403520 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 10:53:21,899 basehttp 63 126186986403520 "GET /admin/machines/groupemusculaire/ HTTP/1.1" 200 19106
+INFO 2025-07-03 10:53:21,925 basehttp 63 126186986403520 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 10:53:38,058 basehttp 63 126186986403520 "GET /admin/machines/groupemusculaire/add/ HTTP/1.1" 200 15822
+INFO 2025-07-03 10:53:38,078 basehttp 63 126186967520960 "GET /static/admin/js/change_form.js HTTP/1.1" 200 606
+INFO 2025-07-03 10:53:38,078 basehttp 63 126186975913664 "GET /static/admin/js/prepopulate_init.js HTTP/1.1" 200 586
+INFO 2025-07-03 10:53:38,083 basehttp 63 126186986403520 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 10:53:51,301 basehttp 63 126186986403520 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:53:59,593 basehttp 63 126186986403520 "GET /admin/machines/machine/ HTTP/1.1" 200 20708
+INFO 2025-07-03 10:53:59,615 basehttp 63 126186986403520 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 10:54:00,217 basehttp 63 126186986403520 "GET /admin/machines/groupemusculaire/ HTTP/1.1" 200 19106
+INFO 2025-07-03 10:54:00,238 basehttp 63 126186986403520 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 10:54:18,291 basehttp 63 126186986403520 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:54:48,294 basehttp 63 126186986403520 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:55:51,297 basehttp 63 126186986403520 "GET /api/core/health/ HTTP/1.1" 200 78
+WARNING 2025-07-03 10:56:47,949 log 63 126186986403520 Bad Request: /api/users/auth/register/
+WARNING 2025-07-03 10:56:47,950 basehttp 63 126186986403520 "POST /api/users/auth/register/ HTTP/1.1" 400 111
+INFO 2025-07-03 10:56:51,302 basehttp 63 126186975913664 "GET /api/core/health/ HTTP/1.1" 200 78
+ERROR 2025-07-03 10:56:55,620 log 63 126186986403520 Internal Server Error: /api/users/auth/register/
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/apps/users/views.py", line 33, in post
+    user = serializer.save()
+           ^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/rest_framework/serializers.py", line 212, in save
+    self.instance = self.create(validated_data)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/apps/users/serializers.py", line 64, in create
+    ProfilUtilisateur.objects.create(user=user)
+  File "/usr/local/lib/python3.11/site-packages/django/db/models/manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/db/models/query.py", line 656, in create
+    obj = self.model(**kwargs)
+          ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/django/db/models/base.py", line 567, in __init__
+    raise TypeError(
+TypeError: ProfilUtilisateur() got unexpected keyword arguments: 'user'
+ERROR 2025-07-03 10:56:55,622 basehttp 63 126186986403520 "POST /api/users/auth/register/ HTTP/1.1" 500 120490
+INFO 2025-07-03 10:57:14,791 autoreload 63 126187075529600 /app/apps/users/serializers.py changed, reloading.
+INFO 2025-07-03 10:57:15,821 autoreload 76 132527913864064 Watching for file changes with StatReloader
+INFO 2025-07-03 10:57:25,069 autoreload 76 132527913864064 /app/apps/users/serializers.py changed, reloading.
+INFO 2025-07-03 10:57:26,015 autoreload 78 140222426635136 Watching for file changes with StatReloader
+INFO 2025-07-03 10:57:51,293 basehttp 78 140222337644224 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:58:09,154 autoreload 78 140222426635136 /app/apps/users/views.py changed, reloading.
+INFO 2025-07-03 10:58:10,236 autoreload 81 123636248714112 Watching for file changes with StatReloader
+INFO 2025-07-03 10:58:20,569 autoreload 81 123636248714112 /app/apps/users/views.py changed, reloading.
+INFO 2025-07-03 10:58:21,543 autoreload 83 129902246636416 Watching for file changes with StatReloader
+INFO 2025-07-03 10:58:29,301 basehttp 83 129902086977216 "POST /api/users/auth/register/ HTTP/1.1" 201 627
+INFO 2025-07-03 10:58:36,266 basehttp 83 129902086977216 "POST /api/users/auth/login/ HTTP/1.1" 200 684
+INFO 2025-07-03 10:58:51,289 basehttp 83 129902076483264 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 10:59:51,294 basehttp 83 129902076483264 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:00:51,290 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:01:51,299 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:02:51,300 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:03:51,303 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:04:51,301 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:05:51,298 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:06:51,294 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:07:51,294 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:08:51,294 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:09:51,298 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:10:51,286 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:11:51,300 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:12:51,295 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:13:51,294 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:14:51,296 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:15:51,300 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:16:51,298 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:17:51,300 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:18:51,288 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:19:51,304 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:20:51,290 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:26:29,329 basehttp 83 129902086977216 "GET /admin/machines/groupemusculaire/ HTTP/1.1" 200 19106
+INFO 2025-07-03 11:26:59,297 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:27:29,293 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:27:59,287 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:28:29,292 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:28:59,288 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:29:29,294 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:30:51,293 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:31:51,298 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:32:51,292 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:33:51,299 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:34:51,296 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:35:51,287 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:36:51,289 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:37:29,526 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:37:30,255 basehttp 83 129902076483264 "GET /admin/machines/groupemusculaire/ HTTP/1.1" 200 19106
+INFO 2025-07-03 11:37:59,295 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:38:29,301 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:39:51,301 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:40:51,288 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:41:51,298 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:42:51,303 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:43:51,291 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:44:51,298 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:45:51,299 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:46:51,291 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:47:51,291 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:48:51,294 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:49:51,296 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:50:51,294 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:51:51,296 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:52:51,300 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:53:51,296 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:54:51,297 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:55:51,296 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:56:51,299 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:57:51,294 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:58:51,287 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 11:59:51,292 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 12:47:37,762 basehttp 83 129902086977216 "GET /admin/machines/groupemusculaire/ HTTP/1.1" 200 19106
+INFO 2025-07-03 12:47:39,858 basehttp 83 129902086977216 "GET /admin/machines/groupemusculaire/ HTTP/1.1" 200 19106
+INFO 2025-07-03 12:47:39,894 basehttp 83 129902086977216 "GET /static/admin/css/base.css HTTP/1.1" 304 0
+INFO 2025-07-03 12:47:39,897 basehttp 83 129902058649280 "GET /static/admin/css/changelists.css HTTP/1.1" 304 0
+INFO 2025-07-03 12:47:39,897 basehttp 83 129902050256576 "GET /static/admin/css/forms.css HTTP/1.1" 304 0
+INFO 2025-07-03 12:47:39,897 basehttp 83 129902076483264 "GET /static/admin/css/dark_mode.css HTTP/1.1" 304 0
+INFO 2025-07-03 12:47:39,898 basehttp 83 129902067041984 "GET /static/admin/css/nav_sidebar.css HTTP/1.1" 304 0
+INFO 2025-07-03 12:47:39,905 basehttp 83 129902041863872 "GET /static/admin/css/responsive.css HTTP/1.1" 304 0
+INFO 2025-07-03 12:47:39,910 basehttp 83 129902076483264 "GET /static/admin/js/jquery.init.js HTTP/1.1" 304 0
+INFO 2025-07-03 12:47:39,910 basehttp 83 129902041863872 "GET /static/admin/css/widgets.css HTTP/1.1" 304 0
+INFO 2025-07-03 12:47:39,911 basehttp 83 129902050256576 "GET /static/admin/js/vendor/jquery/jquery.js HTTP/1.1" 304 0
+INFO 2025-07-03 12:47:39,911 basehttp 83 129902067041984 "GET /static/admin/js/core.js HTTP/1.1" 304 0
+INFO 2025-07-03 12:47:39,935 basehttp 83 129902058649280 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 12:47:39,953 basehttp 83 129902086977216 "GET /static/admin/js/admin/RelatedObjectLookups.js HTTP/1.1" 304 0
+INFO 2025-07-03 12:47:39,953 basehttp 83 129902058649280 "GET /static/admin/js/actions.js HTTP/1.1" 304 0
+INFO 2025-07-03 12:47:39,959 basehttp 83 129902050256576 "GET /static/admin/js/urlify.js HTTP/1.1" 304 0
+INFO 2025-07-03 12:47:39,960 basehttp 83 129902041863872 "GET /static/admin/js/vendor/xregexp/xregexp.js HTTP/1.1" 304 0
+INFO 2025-07-03 12:47:39,960 basehttp 83 129902067041984 "GET /static/admin/js/prepopulate.js HTTP/1.1" 304 0
+INFO 2025-07-03 12:47:39,960 basehttp 83 129902076483264 "GET /static/admin/img/search.svg HTTP/1.1" 304 0
+INFO 2025-07-03 12:47:40,008 basehttp 83 129902067041984 "GET /static/admin/js/theme.js HTTP/1.1" 304 0
+INFO 2025-07-03 12:47:40,008 basehttp 83 129902041863872 "GET /static/admin/js/nav_sidebar.js HTTP/1.1" 304 0
+INFO 2025-07-03 12:47:40,009 basehttp 83 129902050256576 "GET /static/admin/js/filters.js HTTP/1.1" 304 0
+INFO 2025-07-03 12:47:41,697 basehttp 83 129902041863872 "GET /admin/workouts/exerciceseance/ HTTP/1.1" 200 14700
+INFO 2025-07-03 12:47:41,727 basehttp 83 129902041863872 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 12:47:42,878 basehttp 83 129902041863872 "GET /admin/workouts/progressionmachine/ HTTP/1.1" 200 15196
+INFO 2025-07-03 12:47:42,905 basehttp 83 129902041863872 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 12:47:43,697 basehttp 83 129902041863872 "GET /admin/workouts/seanceentrainement/ HTTP/1.1" 200 19263
+INFO 2025-07-03 12:47:43,727 basehttp 83 129902041863872 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 12:47:45,000 basehttp 83 129902041863872 "GET /admin/workouts/seriexercice/ HTTP/1.1" 200 14397
+INFO 2025-07-03 12:47:45,030 basehttp 83 129902041863872 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 12:47:46,691 basehttp 83 129902041863872 "GET /admin/workouts/exerciceseance/ HTTP/1.1" 200 14700
+INFO 2025-07-03 12:47:46,719 basehttp 83 129902041863872 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 12:47:51,163 basehttp 83 129902041863872 "GET /admin/machines/categoriemachine/ HTTP/1.1" 200 17701
+INFO 2025-07-03 12:47:51,208 basehttp 83 129902041863872 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 12:47:52,967 basehttp 83 129902041863872 "GET /admin/workouts/exerciceseance/ HTTP/1.1" 200 14700
+INFO 2025-07-03 12:47:52,990 basehttp 83 129902041863872 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 12:47:54,572 basehttp 83 129902041863872 "GET /admin/workouts/seanceentrainement/ HTTP/1.1" 200 19263
+INFO 2025-07-03 12:47:54,596 basehttp 83 129902041863872 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 12:47:55,335 basehttp 83 129902041863872 "GET /admin/workouts/seriexercice/ HTTP/1.1" 200 14397
+INFO 2025-07-03 12:47:55,363 basehttp 83 129902041863872 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 12:47:55,926 basehttp 83 129902041863872 "GET /admin/workouts/progressionmachine/ HTTP/1.1" 200 15196
+INFO 2025-07-03 12:47:55,949 basehttp 83 129902041863872 "GET /admin/jsi18n/ HTTP/1.1" 200 8621
+INFO 2025-07-03 13:41:07,368 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:41:37,296 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:42:07,292 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:42:37,290 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:43:07,300 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:43:37,292 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:44:51,306 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:45:51,306 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:46:51,310 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:47:51,307 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:48:51,297 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:49:51,293 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:50:51,302 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:51:51,298 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:52:51,296 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:53:51,305 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:54:51,289 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:55:51,296 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:56:51,294 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:57:51,295 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:58:51,294 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 13:59:51,301 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:00:51,296 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:01:51,295 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:02:51,297 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:03:51,303 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:04:51,294 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:05:51,293 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:06:51,301 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:07:51,295 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:08:51,666 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:09:51,309 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:10:51,297 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:11:51,303 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:46:23,045 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:46:23,804 basehttp 83 129902050256576 "GET /admin/workouts/progressionmachine/ HTTP/1.1" 200 15196
+INFO 2025-07-03 14:46:53,289 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:47:23,287 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:47:53,299 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:48:23,294 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:48:53,298 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:49:23,298 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:50:51,320 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:51:51,290 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:52:51,299 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:53:51,294 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:54:51,289 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:55:51,299 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:56:51,299 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:57:51,300 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:58:51,292 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 14:59:51,291 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:00:51,295 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:01:51,295 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:02:51,292 basehttp 83 129902086977216 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:02:58,422 autoreload 83 129902246636416 /app/apps/workouts/views.py changed, reloading.
+INFO 2025-07-03 15:02:59,877 autoreload 154 137529673624448 Watching for file changes with StatReloader
+INFO 2025-07-03 15:03:10,376 autoreload 154 137529673624448 /app/apps/workouts/urls.py changed, reloading.
+INFO 2025-07-03 15:03:11,315 autoreload 156 126402975476608 Watching for file changes with StatReloader
+INFO 2025-07-03 15:03:31,455 autoreload 156 126402975476608 /app/apps/users/urls.py changed, reloading.
+INFO 2025-07-03 15:03:32,487 autoreload 158 139095205051264 Watching for file changes with StatReloader
+INFO 2025-07-03 15:03:44,691 autoreload 158 139095205051264 /app/apps/users/urls.py changed, reloading.
+INFO 2025-07-03 15:03:45,821 autoreload 160 140066602822528 Watching for file changes with StatReloader
+INFO 2025-07-03 15:04:58,137 autoreload 160 140066602822528 /app/apps/users/views.py changed, reloading.
+INFO 2025-07-03 15:04:58,983 autoreload 162 128591570844544 Watching for file changes with StatReloader
+INFO 2025-07-03 15:05:13,588 autoreload 162 128591570844544 /app/apps/users/views.py changed, reloading.
+INFO 2025-07-03 15:05:14,656 autoreload 164 132508059282304 Watching for file changes with StatReloader
+INFO 2025-07-03 15:05:51,301 basehttp 164 132507970303680 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:06:51,298 basehttp 164 132507970303680 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:07:51,296 basehttp 164 132507970303680 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:08:51,301 basehttp 164 132507970303680 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:09:51,291 basehttp 164 132507970303680 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:10:13,028 basehttp 164 132507960862400 "GET /api/workouts/info/ HTTP/1.1" 200 99
+ERROR 2025-07-03 15:10:13,039 log 164 132507952469696 Internal Server Error: /api/users/android/register/
+ERROR 2025-07-03 15:10:13,039 basehttp 164 132507952469696 "POST /api/users/android/register/ HTTP/1.1" 500 114
+INFO 2025-07-03 15:10:28,644 autoreload 164 132508059282304 /app/apps/users/models.py changed, reloading.
+INFO 2025-07-03 15:10:29,685 autoreload 169 127026099104640 Watching for file changes with StatReloader
+INFO 2025-07-03 15:10:36,833 autoreload 169 127026099104640 /app/apps/users/views.py changed, reloading.
+INFO 2025-07-03 15:10:37,811 autoreload 171 137725026642816 Watching for file changes with StatReloader
+INFO 2025-07-03 15:10:43,883 autoreload 171 137725026642816 /app/apps/users/views.py changed, reloading.
+INFO 2025-07-03 15:10:44,877 autoreload 173 128037573557120 Watching for file changes with StatReloader
+INFO 2025-07-03 15:10:51,301 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:10:56,375 basehttp 173 128037404276416 "GET /api/workouts/info/ HTTP/1.1" 200 99
+INFO 2025-07-03 15:10:56,534 basehttp 173 128037395883712 "POST /api/users/android/register/ HTTP/1.1" 201 367
+INFO 2025-07-03 15:11:51,289 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:12:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:13:51,290 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:14:51,301 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:15:51,295 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:16:51,289 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:17:51,295 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:18:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:19:51,294 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:20:51,298 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:21:51,302 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:22:51,296 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:23:51,290 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:24:51,300 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:25:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:26:51,299 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:27:51,299 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:28:51,288 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:29:51,291 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:30:51,298 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:31:51,290 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:32:51,300 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:33:51,289 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:34:51,287 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:35:51,295 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:36:51,299 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:37:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:38:51,294 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:39:51,301 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:40:51,303 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:41:51,295 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:42:51,286 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:43:51,298 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:44:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:45:51,300 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:46:51,286 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:47:51,302 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:48:51,291 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:49:51,285 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:50:42,527 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:50:53,287 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:51:23,287 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:52:51,296 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:53:51,296 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:54:51,295 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:55:51,291 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:56:51,293 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:57:51,296 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:58:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 15:59:51,290 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:00:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:01:51,288 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:02:51,291 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:03:51,295 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:04:51,288 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:05:51,293 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:06:51,291 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:07:51,290 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:08:51,303 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:09:51,288 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:10:51,297 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:11:51,299 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:12:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:13:51,299 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:14:51,303 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:15:51,300 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:16:51,301 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:17:51,300 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:18:51,299 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:19:51,293 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:20:51,300 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:21:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:22:51,300 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:23:51,293 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:24:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:25:51,291 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:26:51,294 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:27:51,299 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:28:51,301 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:29:51,294 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:30:51,295 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:31:51,288 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:32:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:33:51,296 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:34:51,299 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:35:51,302 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:36:51,295 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:37:51,294 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:38:51,295 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:39:51,291 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:40:51,300 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:41:51,287 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:42:51,293 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:43:51,298 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:44:51,291 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:45:51,286 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:46:51,290 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:47:51,299 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:48:51,299 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:49:51,296 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:50:51,300 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:51:51,298 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:52:51,300 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:53:51,289 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:54:33,176 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:54:53,300 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:55:23,302 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:56:51,289 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:57:51,296 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:58:51,299 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 16:59:51,288 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:00:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:01:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:02:51,300 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:03:51,301 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:04:51,298 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:05:51,298 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:06:51,287 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:07:51,299 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:08:51,291 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:09:51,296 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:10:51,298 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:11:51,298 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:12:02,551 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:12:23,286 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:12:53,297 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:13:51,287 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:14:51,290 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:15:51,302 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:16:51,293 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:17:51,291 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:18:51,293 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:19:51,301 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:20:51,287 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:21:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:22:51,290 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:23:51,295 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:24:51,294 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:25:51,293 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:26:51,296 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:27:51,300 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:28:51,293 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:29:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:30:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:31:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:32:51,291 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:33:51,288 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:34:51,295 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:35:51,291 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:36:51,300 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:37:51,293 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:38:22,594 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:38:53,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:39:51,296 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:40:51,298 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:41:51,298 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:42:51,289 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:43:51,295 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:44:51,301 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:45:51,287 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:46:51,300 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:47:26,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:47:53,285 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:48:23,285 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:49:51,296 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:50:51,295 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:51:23,756 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:51:53,294 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:52:23,294 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:53:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:54:51,298 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:55:51,300 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:56:51,286 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:57:51,296 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:58:51,294 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 17:59:51,298 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:00:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:01:51,296 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:02:51,293 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:03:51,290 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:04:51,299 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:05:51,288 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:06:51,289 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:07:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:08:51,294 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:09:51,291 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:10:51,291 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:11:51,301 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:12:17,567 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:12:23,293 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:12:53,288 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:13:23,293 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:14:51,301 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:15:51,297 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:16:51,295 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:17:51,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:18:51,300 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:19:51,293 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:20:51,291 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:21:51,293 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:22:51,288 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:23:51,294 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:24:51,294 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:25:51,301 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:26:48,128 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:26:53,289 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:27:23,293 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:27:53,288 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:28:23,292 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:29:51,288 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:30:51,293 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:31:51,296 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:32:51,297 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:33:51,294 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:34:51,295 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:35:51,290 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:36:51,298 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78
+INFO 2025-07-03 18:37:51,294 basehttp 173 128037483968192 "GET /api/core/health/ HTTP/1.1" 200 78

@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+
+{% block title %}Connexion - BasicFit v2{% endblock %}
+
+{% block content %}
+<div style="max-width: 400px; margin: 0 auto;">
+    <div class="card">
+        <div class="text-center mb-3">
+            <h1 style="color: #FF6B35; margin-bottom: 0.5rem;">🔑 Connexion</h1>
+            <p style="color: #666;">Connectez-vous à votre compte BasicFit v2</p>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" class="form-control" required
+                       placeholder="votre.email@exemple.com">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Mot de passe</label>
+                <input type="password" id="password" name="password" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" name="remember_me">
+                    <span>Se souvenir de moi</span>
+                </label>
+            </div>
+
+            <button type="submit" class="btn" style="width: 100%; margin-bottom: 1rem;">
+                🚀 Se connecter
+            </button>
+        </form>
+
+        <div class="text-center">
+            <p style="color: #666; margin-bottom: 1rem;">
+                <a href="#" style="color: #FF6B35; text-decoration: none;">
+                    Mot de passe oublié ?
+                </a>
+            </p>
+
+            <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #eee;">
+
+            <p style="color: #666;">
+                Pas encore de compte ?
+                <a href="{% url 'users:register' %}" style="color: #FF6B35; text-decoration: none; font-weight: 600;">
+                    Inscrivez-vous gratuitement
+                </a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Connexion rapide pour démo -->
+    <div style="background: rgba(255, 255, 255, 0.9); padding: 1.5rem; border-radius: 15px; margin-top: 2rem;">
+        <h3 style="color: #FF6B35; margin-bottom: 1rem; text-align: center;">⚡ Connexion rapide (démo)</h3>
+        <div style="display: grid; gap: 0.5rem;">
+            <button onclick="quickLogin('admin@basicfit.com', 'admin123')"
+                    class="btn btn-outline" style="width: 100%; padding: 8px;">
+                👨‍💼 Admin (admin@basicfit.com)
+            </button>
+        </div>
+        <p style="text-align: center; color: #666; font-size: 0.9rem; margin-top: 1rem;">
+            Cliquez pour remplir automatiquement les champs
+        </p>
+    </div>
+
+    <!-- Avantages de la connexion -->
+    <div style="background: rgba(255, 255, 255, 0.9); padding: 1.5rem; border-radius: 15px; margin-top: 2rem;">
+        <h3 style="color: #FF6B35; margin-bottom: 1rem; text-align: center;">✨ Avec votre compte</h3>
+        <div style="display: grid; gap: 1rem;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #FF6B35, #F7931E); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem;">📊</div>
+                <div>
+                    <div style="font-weight: 600; color: #333;">Suivi personnalisé</div>
+                    <div style="color: #666; font-size: 0.9rem;">Vos performances et progression</div>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #FF6B35, #F7931E); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem;">🎯</div>
+                <div>
+                    <div style="font-weight: 600; color: #333;">Objectifs adaptatifs</div>
+                    <div style="color: #666; font-size: 0.9rem;">Programme ajusté à vos besoins</div>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #FF6B35, #F7931E); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem;">🏆</div>
+                <div>
+                    <div style="font-weight: 600; color: #333;">Historique complet</div>
+                    <div style="color: #666; font-size: 0.9rem;">Toutes vos séances sauvegardées</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function quickLogin(email, password) {
+    document.getElementById('email').value = email;
+    document.getElementById('password').value = password;
+
+    // Animation visuelle
+    const form = document.querySelector('form');
+    form.style.transition = 'transform 0.2s ease';
+    form.style.transform = 'scale(1.02)';
+    setTimeout(() => {
+        form.style.transform = 'scale(1)';
+    }, 200);
+}
+
+// Auto-focus sur l'email
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('email').focus();
+});
+
+// Validation en temps réel
+document.getElementById('email').addEventListener('input', function() {
+    const isValid = this.checkValidity();
+    this.style.borderColor = isValid ? '#28a745' : '#dc3545';
+});
+
+document.getElementById('password').addEventListener('input', function() {
+    const isValid = this.value.length >= 1;
+    this.style.borderColor = isValid ? '#28a745' : '#dc3545';
+});
+</script>
+{% endblock %}

@@ -1,0 +1,253 @@
+{% extends 'base.html' %}
+
+{% block title %}Mon Profil - BasicFit v2{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 0 auto;">
+    <!-- En-tête du profil -->
+    <div class="card">
+        <div style="display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;">
+            <div style="text-align: center;">
+                <div style="width: 100px; height: 100px; background: linear-gradient(135deg, #FF6B35, #F7931E); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 2.5rem; margin: 0 auto 1rem;">
+                    👤
+                </div>
+                <div style="font-size: 0.9rem; color: #666;">Photo de profil</div>
+            </div>
+
+            <div style="flex: 1; min-width: 250px;">
+                <h1 style="color: #FF6B35; margin-bottom: 0.5rem;">
+                    {{ user.prenom }} {{ user.nom }}
+                </h1>
+                <p style="color: #666; margin-bottom: 0.5rem;">{{ user.email }}</p>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <span style="background: {% if user.est_premium %}linear-gradient(135deg, #FFD700, #FFA500){% else %}#e9ecef{% endif %}; color: {% if user.est_premium %}white{% else %}#495057{% endif %}; padding: 0.3rem 0.8rem; border-radius: 15px; font-size: 0.8rem;">
+                        {% if user.est_premium %}👑 Premium{% else %}🆓 Gratuit{% endif %}
+                    </span>
+                    <span style="background: #e9ecef; color: #495057; padding: 0.3rem 0.8rem; border-radius: 15px; font-size: 0.8rem;">
+                        Membre depuis {{ user.date_joined|date:"d/m/Y" }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques rapides -->
+    <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+        <div class="stat-card">
+            <div class="stat-number">{{ user.poids|default:"--" }}</div>
+            <div class="stat-label">⚖️ Poids (kg)</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-number">{{ user.taille|default:"--" }}</div>
+            <div class="stat-label">📏 Taille (cm)</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-number">{% if user.poids and user.taille %}{{ user.poids|floatformat:1 }}{% else %}--{% endif %}</div>
+            <div class="stat-label">📊 IMC</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-number">{{ profil.frequence_entrainement_semaine|default:"--" }}</div>
+            <div class="stat-label">📅 Séances/semaine</div>
+        </div>
+    </div>
+
+    <!-- Formulaire de modification du profil -->
+    <div class="card">
+        <h2 style="color: #FF6B35; margin-bottom: 1.5rem;">✏️ Modifier mon profil</h2>
+
+        <form method="post">
+            {% csrf_token %}
+
+            <!-- Informations personnelles -->
+            <h3 style="color: #333; margin-bottom: 1rem; border-bottom: 2px solid #FF6B35; padding-bottom: 0.5rem;">
+                👤 Informations personnelles
+            </h3>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
+                <div class="form-group">
+                    <label for="prenom">Prénom</label>
+                    <input type="text" id="prenom" name="prenom" class="form-control" value="{{ user.prenom }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="nom">Nom</label>
+                    <input type="text" id="nom" name="nom" class="form-control" value="{{ user.nom }}">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="telephone">Téléphone</label>
+                <input type="tel" id="telephone" name="telephone" class="form-control" value="{{ user.telephone|default:'' }}">
+            </div>
+
+            <!-- Informations physiques -->
+            <h3 style="color: #333; margin-bottom: 1rem; margin-top: 2rem; border-bottom: 2px solid #FF6B35; padding-bottom: 0.5rem;">
+                📊 Informations physiques
+            </h3>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
+                <div class="form-group">
+                    <label for="poids">Poids (kg)</label>
+                    <input type="number" id="poids" name="poids" class="form-control" min="30" max="200" step="0.1" value="{{ user.poids|default:'' }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="taille">Taille (cm)</label>
+                    <input type="number" id="taille" name="taille" class="form-control" min="120" max="220" value="{{ user.taille|default:'' }}">
+                </div>
+            </div>
+
+            <!-- Objectifs sportifs -->
+            <h3 style="color: #333; margin-bottom: 1rem; border-bottom: 2px solid #FF6B35; padding-bottom: 0.5rem;">
+                🎯 Objectifs sportifs
+            </h3>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
+                <div class="form-group">
+                    <label for="objectif_sportif">Objectif principal</label>
+                    <select id="objectif_sportif" name="objectif_sportif" class="form-control">
+                        <option value="">Sélectionnez votre objectif</option>
+                        <option value="PERTE_POIDS" {% if user.objectif_sportif == 'PERTE_POIDS' %}selected{% endif %}>🔥 Perte de poids</option>
+                        <option value="PRISE_MASSE" {% if user.objectif_sportif == 'PRISE_MASSE' %}selected{% endif %}>💪 Prise de masse</option>
+                        <option value="TONIFICATION" {% if user.objectif_sportif == 'TONIFICATION' %}selected{% endif %}>✨ Tonification</option>
+                        <option value="ENDURANCE" {% if user.objectif_sportif == 'ENDURANCE' %}selected{% endif %}>🏃 Endurance</option>
+                        <option value="FORCE" {% if user.objectif_sportif == 'FORCE' %}selected{% endif %}>🏋️ Force</option>
+                        <option value="SANTE_GENERALE" {% if user.objectif_sportif == 'SANTE_GENERALE' %}selected{% endif %}>❤️ Santé générale</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="niveau_experience">Niveau d'expérience</label>
+                    <select id="niveau_experience" name="niveau_experience" class="form-control">
+                        <option value="">Sélectionnez votre niveau</option>
+                        <option value="DEBUTANT" {% if user.niveau_experience == 'DEBUTANT' %}selected{% endif %}>🌱 Débutant</option>
+                        <option value="INTERMEDIAIRE" {% if user.niveau_experience == 'INTERMEDIAIRE' %}selected{% endif %}>🌿 Intermédiaire</option>
+                        <option value="AVANCE" {% if user.niveau_experience == 'AVANCE' %}selected{% endif %}>🌳 Avancé</option>
+                        <option value="EXPERT" {% if user.niveau_experience == 'EXPERT' %}selected{% endif %}>🏆 Expert</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Profil détaillé -->
+            <h3 style="color: #333; margin-bottom: 1rem; border-bottom: 2px solid #FF6B35; padding-bottom: 0.5rem;">
+                📝 Profil détaillé
+            </h3>
+
+            <div class="form-group">
+                <label for="bio">Bio / Présentation</label>
+                <textarea id="bio" name="bio" class="form-control" rows="3" placeholder="Parlez-nous de vous, vos motivations, vos objectifs...">{{ profil.bio|default:'' }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="objectifs_personnels">Objectifs personnels</label>
+                <textarea id="objectifs_personnels" name="objectifs_personnels" class="form-control" rows="2" placeholder="Décrivez vos objectifs spécifiques...">{{ profil.objectifs_personnels|default:'' }}</textarea>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
+                <div class="form-group">
+                    <label for="frequence_entrainement_semaine">Fréquence d'entraînement par semaine</label>
+                    <select id="frequence_entrainement_semaine" name="frequence_entrainement_semaine" class="form-control">
+                        <option value="">Sélectionnez</option>
+                        <option value="1" {% if profil.frequence_entrainement_semaine == 1 %}selected{% endif %}>1 fois</option>
+                        <option value="2" {% if profil.frequence_entrainement_semaine == 2 %}selected{% endif %}>2 fois</option>
+                        <option value="3" {% if profil.frequence_entrainement_semaine == 3 %}selected{% endif %}>3 fois</option>
+                        <option value="4" {% if profil.frequence_entrainement_semaine == 4 %}selected{% endif %}>4 fois</option>
+                        <option value="5" {% if profil.frequence_entrainement_semaine == 5 %}selected{% endif %}>5 fois</option>
+                        <option value="6" {% if profil.frequence_entrainement_semaine == 6 %}selected{% endif %}>6 fois</option>
+                        <option value="7" {% if profil.frequence_entrainement_semaine == 7 %}selected{% endif %}>Tous les jours</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="duree_entrainement_moyenne">Durée moyenne d'entraînement (minutes)</label>
+                    <input type="number" id="duree_entrainement_moyenne" name="duree_entrainement_moyenne" class="form-control" min="15" max="180" value="{{ profil.duree_entrainement_moyenne|default:'' }}">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" name="est_public" {% if profil.est_public %}checked{% endif %}>
+                    <span>Rendre mon profil public (visible par les autres membres)</span>
+                </label>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                <button type="submit" class="btn" style="flex: 1;">
+                    💾 Sauvegarder les modifications
+                </button>
+
+                <a href="{% url 'users:dashboard' %}" class="btn btn-outline" style="flex: 1; text-decoration: none; text-align: center;">
+                    🔙 Retour au tableau de bord
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Informations de compte -->
+    <div class="card">
+        <h2 style="color: #FF6B35; margin-bottom: 1.5rem;">🔐 Informations de compte</h2>
+
+        <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 15px; margin-bottom: 1rem;">
+            <div style="display: grid; grid-template-columns: auto 1fr auto; gap: 1rem; align-items: center;">
+                <div style="font-size: 1.2rem;">📧</div>
+                <div>
+                    <div style="font-weight: 600;">Email</div>
+                    <div style="color: #666; font-size: 0.9rem;">{{ user.email }}</div>
+                </div>
+                <button class="btn btn-outline" style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                    Modifier
+                </button>
+            </div>
+        </div>
+
+        <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 15px;">
+            <div style="display: grid; grid-template-columns: auto 1fr auto; gap: 1rem; align-items: center;">
+                <div style="font-size: 1.2rem;">🔒</div>
+                <div>
+                    <div style="font-weight: 600;">Mot de passe</div>
+                    <div style="color: #666; font-size: 0.9rem;">Dernière modification: {{ user.last_login|date:"d/m/Y"|default:"Jamais" }}</div>
+                </div>
+                <button class="btn btn-outline" style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                    Changer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Calcul automatique de l'IMC
+function calculateBMI() {
+    const weight = parseFloat(document.getElementById('poids').value);
+    const height = parseFloat(document.getElementById('taille').value) / 100; // cm to m
+
+    if (weight && height) {
+        const bmi = (weight / (height * height)).toFixed(1);
+        // Mettre à jour l'affichage de l'IMC si nécessaire
+        const bmicards = document.querySelectorAll('.stat-card');
+        if (bmicards[2]) {
+            bmicards[2].querySelector('.stat-number').textContent = bmi;
+        }
+    }
+}
+
+document.getElementById('poids').addEventListener('input', calculateBMI);
+document.getElementById('taille').addEventListener('input', calculateBMI);
+
+// Animation des champs modifiés
+document.querySelectorAll('input, select, textarea').forEach(element => {
+    element.addEventListener('change', function() {
+        this.style.borderColor = '#28a745';
+        this.style.boxShadow = '0 0 0 3px rgba(40, 167, 69, 0.1)';
+
+        setTimeout(() => {
+            this.style.borderColor = '#e1e5e9';
+            this.style.boxShadow = 'none';
+        }, 2000);
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+
+{% block title %}Tableau de bord - BasicFit v2{% endblock %}
+
+{% block content %}
+<div style="max-width: 1000px; margin: 0 auto;">
+    <!-- En-tête d'accueil -->
+    <div class="card">
+        <div style="display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 250px;">
+                <h1 style="color: #FF6B35; margin-bottom: 0.5rem;">
+                    👋 Salut {{ user.prenom }} !
+                </h1>
+                <p style="color: #666; font-size: 1.1rem;">
+                    Prêt pour votre prochaine séance d'entraînement ?
+                </p>
+                <div style="margin-top: 1rem;">
+                    <span style="background: linear-gradient(135deg, #FF6B35, #F7931E); color: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem;">
+                        {{ user.objectif_sportif|default:"Objectif non défini" }}
+                    </span>
+                    <span style="background: #e9ecef; color: #495057; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem; margin-left: 0.5rem;">
+                        {{ user.niveau_experience|default:"Niveau non défini" }}
+                    </span>
+                </div>
+            </div>
+
+            <div style="text-align: center;">
+                <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #FF6B35, #F7931E); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem; margin: 0 auto 1rem;">
+                    🏋️
+                </div>
+                <div style="color: #666;">Membre depuis</div>
+                <div style="font-weight: 600; color: #333;">{{ user.date_joined|date:"d/m/Y" }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number">{{ seances_cette_semaine }}</div>
+            <div class="stat-label">📅 Séances cette semaine</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-number">{{ user.workouts.count }}</div>
+            <div class="stat-label">🏆 Total séances</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-number">{% if derniere_seance %}{{ derniere_seance.date_debut|timesince|cut:" ago" }}{% else %}Jamais{% endif %}</div>
+            <div class="stat-label">⏰ Dernière séance</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-number">{% if user.est_premium %}Premium{% else %}Gratuit{% endif %}</div>
+            <div class="stat-label">🎖️ Statut compte</div>
+        </div>
+    </div>
+
+    <!-- Actions rapides -->
+    <div class="card">
+        <h2 style="color: #FF6B35; margin-bottom: 1.5rem;">🚀 Actions rapides</h2>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+            <a href="/api/machines/" class="btn" style="text-decoration: none; padding: 1.5rem; text-align: center;">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">🏋️</div>
+                <div style="font-weight: 600;">Voir les machines</div>
+                <div style="font-size: 0.9rem; opacity: 0.8;">Découvrir l'équipement disponible</div>
+            </a>
+
+            <a href="{% url 'users:profile' %}" class="btn btn-outline" style="text-decoration: none; padding: 1.5rem; text-align: center;">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">👤</div>
+                <div style="font-weight: 600;">Mon profil</div>
+                <div style="font-size: 0.9rem; opacity: 0.8;">Gérer mes informations</div>
+            </a>
+
+            <a href="/admin/" class="btn btn-outline" style="text-decoration: none; padding: 1.5rem; text-align: center;">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚙️</div>
+                <div style="font-weight: 600;">Administration</div>
+                <div style="font-size: 0.9rem; opacity: 0.8;">Gérer les données</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Informations sur l'application mobile -->
+    <div class="card">
+        <h2 style="color: #FF6B35; margin-bottom: 1.5rem;">📱 Application mobile</h2>
+        <div style="background: linear-gradient(135deg, #f8f9fa, #e9ecef); padding: 2rem; border-radius: 15px;">
+            <div style="display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 250px;">
+                    <h3 style="color: #333; margin-bottom: 1rem;">✨ BasicFit v2 Mobile</h3>
+                    <p style="color: #666; margin-bottom: 1rem;">
+                        Votre compagnon d'entraînement intelligent avec calcul automatique du 1RM,
+                        timer de repos adaptatif et suivi personnalisé.
+                    </p>
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                        <div style="background: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem;">
+                            📊 Calcul 1RM automatique
+                        </div>
+                        <div style="background: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem;">
+                            ⏱️ Timer de repos adaptatif
+                        </div>
+                        <div style="background: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem;">
+                            🎯 Entraînements personnalisés
+                        </div>
+                    </div>
+                </div>
+
+                <div style="text-align: center;">
+                    <div style="background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">📱</div>
+                        <div style="font-weight: 600; color: #333;">Application Android</div>
+                        <div style="color: #666; font-size: 0.9rem;">Compilez et installez l'APK</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- API et documentation -->
+    <div class="card">
+        <h2 style="color: #FF6B35; margin-bottom: 1.5rem;">🔗 API et Documentation</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <a href="/api/" class="btn btn-outline" style="text-decoration: none; text-align: center; padding: 1rem;">
+                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔌</div>
+                <div>API REST</div>
+            </a>
+
+            <a href="/api/docs/" class="btn btn-outline" style="text-decoration: none; text-align: center; padding: 1rem;">
+                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📚</div>
+                <div>Documentation Swagger</div>
+            </a>
+
+            <a href="/api/redoc/" class="btn btn-outline" style="text-decoration: none; text-align: center; padding: 1rem;">
+                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📖</div>
+                <div>Documentation ReDoc</div>
+            </a>
+
+            <a href="http://localhost:3000" class="btn btn-outline" style="text-decoration: none; text-align: center; padding: 1rem;">
+                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🌐</div>
+                <div>Interface Web</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Dernière séance -->
+    {% if derniere_seance %}
+    <div class="card">
+        <h2 style="color: #FF6B35; margin-bottom: 1.5rem;">📈 Dernière séance</h2>
+        <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h3 style="color: #333;">{{ derniere_seance.nom }}</h3>
+                <span style="color: #666;">{{ derniere_seance.date_debut|date:"d/m/Y H:i" }}</span>
+            </div>
+            <p style="color: #666;">
+                Mode: <strong>{{ derniere_seance.mode_entrainement.nom }}</strong> •
+                Durée: <strong>{{ derniere_seance.duree_prevue }} min</strong> •
+                Statut: <strong>{{ derniere_seance.statut }}</strong>
+            </p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Animation des statistiques au chargement
+document.addEventListener('DOMContentLoaded', function() {
+    const statNumbers = document.querySelectorAll('.stat-number');
+    statNumbers.forEach((element, index) => {
+        element.style.opacity = '0';
+        element.style.transform = 'translateY(20px)';
+
+        setTimeout(() => {
+            element.style.transition = 'all 0.6s ease';
+            element.style.opacity = '1';
+            element.style.transform = 'translateY(0)';
+        }, index * 200);
+    });
+});
+</script>
+{% endblock %}
