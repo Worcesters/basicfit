@@ -1,4 +1,4 @@
-﻿"""
+"""
 Configuration spécifique pour Railway - Autonome sans decouple
 """
 import os
@@ -81,7 +81,7 @@ TEMPLATES = [
 CORS_ALLOWED_ORIGINS = [
     "https://*.railway.app",
 ]
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = True  # Pour le développement
 
 # Configuration de la base de données Railway
 DATABASES = {
@@ -137,7 +137,7 @@ SIMPLE_JWT = {
 # drf-spectacular Configuration
 SPECTACULAR_SETTINGS = {
     'TITLE': 'BasicFit API',
-    'DESCRIPTION': 'API pour l application BasicFit',
+    'DESCRIPTION': 'API pour l\'application BasicFit',
     'VERSION': '1.0.0',
 }
 
@@ -163,4 +163,4 @@ LOGGING = {
     },
 }
 
-print("Configuration Railway autonome chargée ")
+print("Configuration Railway autonome chargée ✅")
