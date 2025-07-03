@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BasicFit</string>
+    <string name="machines_title">Machines</string>
+    <string name="workouts_title">Entraînements</string>
+    <string name="profile_title">Profil</string>
+    <string name="loading">Chargement...</string>
+    <string name="error_loading_machines">Erreur lors du chargement des machines</string>
+    <string name="retry">Réessayer</string>
+    <string name="filter_all">Toutes</string>
+    <string name="filter_musculation">Musculation</string>
+    <string name="filter_cardio">Cardio</string>
+    <string name="filter_cable">Câble</string>
+    <string name="filter_poids_libre">Poids libre</string>
+</resources>
