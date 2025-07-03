@@ -8,12 +8,16 @@ import dj_database_url
 # Build paths
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+# Ajouter le dossier apps au Python path
+import sys
+sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
+
 # Django settings essentiels
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-railway-minimal')
 DEBUG = False
 ALLOWED_HOSTS = ['*']
 
-# Applications MINIMALES
+# Applications MINIMALES + apps locales
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -23,6 +27,11 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
+    # Apps locales nécessaires
+    'apps.core',
+    'apps.users',
+    'apps.machines',
+    'apps.workouts',
 ]
 
 # Middleware minimal
@@ -39,6 +48,9 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'basicfit_project.urls'
 WSGI_APPLICATION = 'basicfit_project.wsgi.application'
+
+# Modèle User personnalisé
+AUTH_USER_MODEL = 'users.User'
 
 # Templates minimal
 TEMPLATES = [
