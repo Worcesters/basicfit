@@ -4,7 +4,7 @@
     "type": "COMPATIBLE_SCREEN_MANIFEST",
     "kind": "Directory"
   },
-  "applicationId": "com.basicfit.app.debug",
+  "applicationId": "com.basicfit.app",
   "variantName": "debug",
   "elements": []
 }

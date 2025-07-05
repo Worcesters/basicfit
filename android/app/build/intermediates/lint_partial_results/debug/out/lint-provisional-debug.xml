@@ -1,0 +1,400 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<incidents format="6" by="lint 8.1.4" type="conditional_incidents">
+
+    <incident
+        id="ObsoleteSdkInt"
+        severity="warning"
+        message="Unnecessary; SDK_INT is always >= 31">
+        <fix-replace
+            description="Delete tools:targetApi"
+            replacement="">
+            <range
+                file="${:app*debug*sourceProvider*0*manifest*0}"
+                startOffset="946"
+                endOffset="966"/>
+        </fix-replace>
+        <location
+            file="${:app*debug*sourceProvider*0*manifest*0}"
+            line="21"
+            column="9"
+            startOffset="946"
+            endLine="21"
+            endColumn="29"
+            endOffset="966"/>
+        <map>
+            <condition minGE="ffffffffc0000000"/>
+        </map>
+    </incident>
+
+    <incident
+        id="VectorRaster"
+        severity="warning"
+        message="">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/drawable/ic_email.xml"
+            line="8"
+            column="28"
+            startOffset="265"
+            endLine="8"
+            endColumn="48"
+            endOffset="285"/>
+        <map>
+            <entry
+                name="folderVersion"
+                int="-1"/>
+            <entry
+                name="containsFillType"
+                boolean="false"/>
+            <entry
+                name="message"
+                string="Resource references will not work correctly in images generated for this vector icon for API &lt; %1$d; check generated icon to make sure it looks acceptable"/>
+            <entry
+                name="containsGradient"
+                boolean="false"/>
+        </map>
+    </incident>
+
+    <incident
+        id="VectorRaster"
+        severity="warning"
+        message="">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/drawable/ic_exit.xml"
+            line="8"
+            column="28"
+            startOffset="265"
+            endLine="8"
+            endColumn="48"
+            endOffset="285"/>
+        <map>
+            <entry
+                name="folderVersion"
+                int="-1"/>
+            <entry
+                name="containsFillType"
+                boolean="false"/>
+            <entry
+                name="message"
+                string="Resource references will not work correctly in images generated for this vector icon for API &lt; %1$d; check generated icon to make sure it looks acceptable"/>
+            <entry
+                name="containsGradient"
+                boolean="false"/>
+        </map>
+    </incident>
+
+    <incident
+        id="VectorRaster"
+        severity="warning"
+        message="">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/drawable/ic_lock.xml"
+            line="8"
+            column="28"
+            startOffset="265"
+            endLine="8"
+            endColumn="48"
+            endOffset="285"/>
+        <map>
+            <entry
+                name="folderVersion"
+                int="-1"/>
+            <entry
+                name="containsFillType"
+                boolean="false"/>
+            <entry
+                name="message"
+                string="Resource references will not work correctly in images generated for this vector icon for API &lt; %1$d; check generated icon to make sure it looks acceptable"/>
+            <entry
+                name="containsGradient"
+                boolean="false"/>
+        </map>
+    </incident>
+
+    <incident
+        id="VectorRaster"
+        severity="warning"
+        message="">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/drawable/ic_login.xml"
+            line="8"
+            column="28"
+            startOffset="265"
+            endLine="8"
+            endColumn="48"
+            endOffset="285"/>
+        <map>
+            <entry
+                name="folderVersion"
+                int="-1"/>
+            <entry
+                name="containsFillType"
+                boolean="false"/>
+            <entry
+                name="message"
+                string="Resource references will not work correctly in images generated for this vector icon for API &lt; %1$d; check generated icon to make sure it looks acceptable"/>
+            <entry
+                name="containsGradient"
+                boolean="false"/>
+        </map>
+    </incident>
+
+    <incident
+        id="VectorRaster"
+        severity="warning"
+        message="">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/drawable/ic_logout.xml"
+            line="8"
+            column="28"
+            startOffset="265"
+            endLine="8"
+            endColumn="48"
+            endOffset="285"/>
+        <map>
+            <entry
+                name="folderVersion"
+                int="-1"/>
+            <entry
+                name="containsFillType"
+                boolean="false"/>
+            <entry
+                name="message"
+                string="Resource references will not work correctly in images generated for this vector icon for API &lt; %1$d; check generated icon to make sure it looks acceptable"/>
+            <entry
+                name="containsGradient"
+                boolean="false"/>
+        </map>
+    </incident>
+
+    <incident
+        id="VectorRaster"
+        severity="warning"
+        message="">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/drawable/ic_person_add.xml"
+            line="8"
+            column="28"
+            startOffset="265"
+            endLine="8"
+            endColumn="48"
+            endOffset="285"/>
+        <map>
+            <entry
+                name="folderVersion"
+                int="-1"/>
+            <entry
+                name="containsFillType"
+                boolean="false"/>
+            <entry
+                name="message"
+                string="Resource references will not work correctly in images generated for this vector icon for API &lt; %1$d; check generated icon to make sure it looks acceptable"/>
+            <entry
+                name="containsGradient"
+                boolean="false"/>
+        </map>
+    </incident>
+
+    <incident
+        id="VectorRaster"
+        severity="warning"
+        message="">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/drawable/ic_wifi.xml"
+            line="8"
+            column="28"
+            startOffset="265"
+            endLine="8"
+            endColumn="48"
+            endOffset="285"/>
+        <map>
+            <entry
+                name="folderVersion"
+                int="-1"/>
+            <entry
+                name="containsFillType"
+                boolean="false"/>
+            <entry
+                name="message"
+                string="Resource references will not work correctly in images generated for this vector icon for API &lt; %1$d; check generated icon to make sure it looks acceptable"/>
+            <entry
+                name="containsGradient"
+                boolean="false"/>
+        </map>
+    </incident>
+
+    <incident
+        id="ObsoleteSdkInt"
+        severity="warning"
+        message="Unnecessary; SDK_INT is always >= 21">
+        <fix-replace
+            description="Delete tools:targetApi"
+            replacement="">
+            <range
+                file="${:app*debug*sourceProvider*0*resDir*0}/values/themes.xml"
+                startOffset="530"
+                endOffset="549"/>
+        </fix-replace>
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/values/themes.xml"
+            line="11"
+            column="45"
+            startOffset="530"
+            endLine="11"
+            endColumn="64"
+            endOffset="549"/>
+        <map>
+            <condition minGE="fffffffffff00000"/>
+        </map>
+    </incident>
+
+    <incident
+        id="NewApi"
+        severity="error"
+        message="">
+        <fix-data minSdk="fffffffffff00000" requiresApi="fffffffffe000000"/>
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/basicfit/app/MainActivity.kt"
+            line="121"
+            column="35"
+            startOffset="4185"
+            endLine="121"
+            endColumn="40"
+            endOffset="4190"/>
+        <map>
+            <entry
+                name="owner"
+                string="java.time.LocalDate"/>
+            <api-levels id="minSdk"
+                value="fffffffffff00000"/>
+            <api-levels id="requiresApi"
+                value="fffffffffe000000"/>
+            <entry
+                name="name"
+                string="parse"/>
+            <entry
+                name="message"
+                string="Call requires API level 26 (current min is %1$s): `java.time.LocalDate#parse`"/>
+        </map>
+    </incident>
+
+    <incident
+        id="NewApi"
+        severity="error"
+        message="">
+        <fix-data minSdk="fffffffffff00000" requiresApi="fffffffffe000000"/>
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/basicfit/app/MainActivity.kt"
+            line="121"
+            column="74"
+            startOffset="4224"
+            endLine="121"
+            endColumn="83"
+            endOffset="4233"/>
+        <map>
+            <entry
+                name="owner"
+                string="java.time.format.DateTimeFormatter"/>
+            <api-levels id="minSdk"
+                value="fffffffffff00000"/>
+            <api-levels id="requiresApi"
+                value="fffffffffe000000"/>
+            <entry
+                name="name"
+                string="ofPattern"/>
+            <entry
+                name="message"
+                string="Call requires API level 26 (current min is %1$s): `java.time.format.DateTimeFormatter#ofPattern`"/>
+        </map>
+    </incident>
+
+    <incident
+        id="NewApi"
+        severity="error"
+        message="">
+        <fix-data minSdk="fffffffffff00000" requiresApi="fffffffffe000000"/>
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/basicfit/app/MainActivity.kt"
+            line="122"
+            column="37"
+            startOffset="4285"
+            endLine="122"
+            endColumn="40"
+            endOffset="4288"/>
+        <map>
+            <entry
+                name="owner"
+                string="java.time.LocalDate"/>
+            <api-levels id="minSdk"
+                value="fffffffffff00000"/>
+            <api-levels id="requiresApi"
+                value="fffffffffe000000"/>
+            <entry
+                name="name"
+                string="now"/>
+            <entry
+                name="message"
+                string="Call requires API level 26 (current min is %1$s): `java.time.LocalDate#now`"/>
+        </map>
+    </incident>
+
+    <incident
+        id="NewApi"
+        severity="error"
+        message="">
+        <fix-data minSdk="fffffffffff00000" requiresApi="fffffffffe000000"/>
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/basicfit/app/MainActivity.kt"
+            line="123"
+            column="16"
+            startOffset="4306"
+            endLine="123"
+            endColumn="23"
+            endOffset="4313"/>
+        <map>
+            <entry
+                name="owner"
+                string="java.time.Period"/>
+            <api-levels id="minSdk"
+                value="fffffffffff00000"/>
+            <api-levels id="requiresApi"
+                value="fffffffffe000000"/>
+            <entry
+                name="name"
+                string="between"/>
+            <entry
+                name="message"
+                string="Call requires API level 26 (current min is %1$s): `java.time.Period#between`"/>
+        </map>
+    </incident>
+
+    <incident
+        id="NewApi"
+        severity="error"
+        message="">
+        <fix-data minSdk="fffffffffff00000" requiresApi="fffffffffe000000"/>
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/basicfit/app/MainActivity.kt"
+            line="123"
+            column="48"
+            startOffset="4338"
+            endLine="123"
+            endColumn="53"
+            endOffset="4343"/>
+        <map>
+            <entry
+                name="owner"
+                string="java.time.Period"/>
+            <api-levels id="minSdk"
+                value="fffffffffff00000"/>
+            <api-levels id="requiresApi"
+                value="fffffffffe000000"/>
+            <entry
+                name="name"
+                string="getYears"/>
+            <entry
+                name="message"
+                string="Call requires API level 26 (current min is %1$s): `java.time.Period#getYears`"/>
+        </map>
+    </incident>
+
+</incidents>

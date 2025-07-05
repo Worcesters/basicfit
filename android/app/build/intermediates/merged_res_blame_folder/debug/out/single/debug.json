@@ -1,18 +1,46 @@
 [
     {
-        "merged": "com.basicfit.app-merged_res-69:/mipmap-mdpi_ic_launcher.xml.flat",
-        "source": "com.basicfit.app-main-71:/mipmap-mdpi/ic_launcher.xml"
+        "merged": "com.basicfit.app-merged_res-66:/xml_backup_rules.xml.flat",
+        "source": "com.basicfit.app-main-68:/xml/backup_rules.xml"
     },
     {
-        "merged": "com.basicfit.app-merged_res-69:/xml_backup_rules.xml.flat",
-        "source": "com.basicfit.app-main-71:/xml/backup_rules.xml"
+        "merged": "com.basicfit.app-merged_res-66:/drawable_ic_email.xml.flat",
+        "source": "com.basicfit.app-main-68:/drawable/ic_email.xml"
     },
     {
-        "merged": "com.basicfit.app-merged_res-69:/mipmap-mdpi_ic_launcher_round.xml.flat",
-        "source": "com.basicfit.app-main-71:/mipmap-mdpi/ic_launcher_round.xml"
+        "merged": "com.basicfit.app-merged_res-66:/drawable_ic_lock.xml.flat",
+        "source": "com.basicfit.app-main-68:/drawable/ic_lock.xml"
     },
     {
-        "merged": "com.basicfit.app-merged_res-69:/xml_data_extraction_rules.xml.flat",
-        "source": "com.basicfit.app-main-71:/xml/data_extraction_rules.xml"
+        "merged": "com.basicfit.app-merged_res-66:/drawable_ic_login.xml.flat",
+        "source": "com.basicfit.app-main-68:/drawable/ic_login.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/mipmap-mdpi_ic_launcher.xml.flat",
+        "source": "com.basicfit.app-main-68:/mipmap-mdpi/ic_launcher.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable_ic_exit.xml.flat",
+        "source": "com.basicfit.app-main-68:/drawable/ic_exit.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/xml_data_extraction_rules.xml.flat",
+        "source": "com.basicfit.app-main-68:/xml/data_extraction_rules.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/mipmap-mdpi_ic_launcher_round.xml.flat",
+        "source": "com.basicfit.app-main-68:/mipmap-mdpi/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable_ic_logout.xml.flat",
+        "source": "com.basicfit.app-main-68:/drawable/ic_logout.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable_ic_person_add.xml.flat",
+        "source": "com.basicfit.app-main-68:/drawable/ic_person_add.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable_ic_wifi.xml.flat",
+        "source": "com.basicfit.app-main-68:/drawable/ic_wifi.xml"
     }
 ]

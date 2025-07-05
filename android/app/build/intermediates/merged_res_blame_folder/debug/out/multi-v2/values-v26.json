@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.basicfit.app-mergeDebugResources-67:/values-v26/values-v26.xml",
+            "outputFile": "com.basicfit.app-mergeDebugResources-64:/values-v26/values-v26.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\jerem\\.gradle\\caches\\transforms-3\\2193a71f0de73454a49ce87a558693dc\\transformed\\appcompat-1.6.1\\res\\values-v26\\values-v26.xml",
+                    "source": "C:\\Users\\jerem\\.gradle\\caches\\transforms-3\\735e2451499c3d86714b749333f410ab\\transformed\\appcompat-1.6.1\\res\\values-v26\\values-v26.xml",
                     "from": {
                         "startLines": "2,3,4,8,12,16",
                         "startColumns": "4,4,4,4,4,4",

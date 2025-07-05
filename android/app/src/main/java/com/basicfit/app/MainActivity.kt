@@ -1,18 +1,24 @@
 package com.basicfit.app
 
+import android.content.Context
+import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -21,122 +27,255 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.navigation.NavController
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
-import android.content.Context
-import android.content.SharedPreferences
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import androidx.compose.ui.platform.LocalContext
+import java.time.LocalDate
+import java.time.Period
+import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.MainScope
 
-// Gestionnaire de données pour la persistance locale
-object DataManager {
-    private const val PREFS_NAME = "basicfit_data"
-    private const val KEY_WORKOUT_HISTORY = "workout_history"
-    private const val KEY_USER_PROFILE = "user_profile"
-    private const val KEY_MACHINE_HISTORY = "machine_history"
+// Data classes
+data class ProfileData(
+    val nom: String,
+    val email: String,
+    val dateNaissance: String,
+    val poids: Double,
+    val taille: Int,
+    val genre: String,
+    val niveauActivite: String,
+    val objectif: String = "Maintenir"
+)
 
-    private fun getPrefs(context: Context): SharedPreferences {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+data class WorkoutEntry(
+    val date: LocalDate,
+    val mode: String,
+    val exercises: List<ExerciseRecord>,
+    val duration: Int,
+    val totalWeight: Double
+)
+
+data class ExerciseRecord(
+    val name: String,
+    val sets: Int,
+    val reps: Int,
+    val weight: Double
+)
+
+// Data classes pour l'entraînement avancé
+data class WorkoutSession(
+    val workoutName: String,
+    val exercises: List<ExerciseSession>,
+    val startTime: Long = System.currentTimeMillis(),
+    var currentExerciseIndex: Int = 0,
+    var isCompleted: Boolean = false
+)
+
+data class ExerciseSession(
+    val machine: Machine,
+    val targetSets: Int,
+    val targetReps: Int,
+    val recommendedWeight: Double,
+    val restTime: Int, // en secondes
+    val sets: MutableList<SetRecord> = mutableListOf(),
+    var isCompleted: Boolean = false
+)
+
+data class SetRecord(
+    val weight: Double,
+    val reps: Int,
+    val completed: Boolean = false,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+// Classe DataManager pour gérer les données
+class DataManager(private val context: Context) {
+    private val prefs: SharedPreferences = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
+    private val gson = Gson()
+
+    fun saveProfileData(profile: ProfileData) {
+        val json = gson.toJson(profile)
+        prefs.edit().putString("profile_data", json).apply()
     }
 
-    // Sauvegarder l'historique des séances
-    fun saveWorkoutHistory(context: Context, history: List<WorkoutSession>) {
-        val prefs = getPrefs(context)
-        val gson = Gson()
-        val json = gson.toJson(history)
-        prefs.edit().putString(KEY_WORKOUT_HISTORY, json).apply()
-    }
-
-    // Charger l'historique des séances
-    fun loadWorkoutHistory(context: Context): List<WorkoutSession> {
-        val prefs = getPrefs(context)
-        val json = prefs.getString(KEY_WORKOUT_HISTORY, null)
-        if (json != null) {
-            val gson = Gson()
-            val type = object : TypeToken<List<WorkoutSession>>() {}.type
-            return gson.fromJson(json, type)
+    fun loadProfileData(): ProfileData {
+        val json = prefs.getString("profile_data", null)
+        return if (json != null) {
+            try {
+                gson.fromJson(json, ProfileData::class.java)
+            } catch (e: Exception) {
+                ProfileData("", "", "", 70.0, 170, "Homme", "Modéré", "Maintenir")
+            }
+        } else {
+            ProfileData("", "", "", 70.0, 170, "Homme", "Modéré", "Maintenir")
         }
-        return getDefaultWorkoutHistory() // Données par défaut si rien n'est sauvegardé
     }
 
-    // Ajouter une nouvelle séance
-    fun addWorkoutSession(context: Context, session: WorkoutSession) {
-        val currentHistory = loadWorkoutHistory(context).toMutableList()
-        currentHistory.add(0, session) // Ajouter en premier (plus récent)
+    fun saveWorkoutHistory(workoutHistory: List<WorkoutEntry>) {
+        val json = gson.toJson(workoutHistory)
+        prefs.edit().putString("workout_history", json).apply()
+    }
 
-        // Garder seulement les 50 dernières séances
-        if (currentHistory.size > 50) {
-            currentHistory.removeAt(currentHistory.size - 1)
+    fun loadWorkoutHistory(): List<WorkoutEntry> {
+        val json = prefs.getString("workout_history", null)
+        return if (json != null) {
+            val type = object : TypeToken<List<WorkoutEntry>>() {}.type
+            gson.fromJson(json, type)
+        } else {
+            emptyList()
         }
-
-        saveWorkoutHistory(context, currentHistory)
     }
 
-    // Sauvegarder le profil utilisateur
-    fun saveUserProfile(context: Context, name: String, email: String) {
-        val prefs = getPrefs(context)
-        prefs.edit()
-            .putString("user_name", name)
-            .putString("user_email", email)
-            .apply()
+    fun getTotalStats(): Triple<Int, Int, Int> {
+        val workoutHistory = loadWorkoutHistory()
+        val totalSessions = workoutHistory.size
+        val totalMinutes = workoutHistory.sumOf { it.duration }
+        val totalCalories = workoutHistory.sumOf { calculateBurnedCalories(loadProfileData().poids, it.duration, "Modéré") }
+        return Triple(totalSessions, totalMinutes, totalCalories)
     }
 
-    // Charger le profil utilisateur
-    fun loadUserProfile(context: Context): Pair<String, String> {
-        val prefs = getPrefs(context)
-        val name = prefs.getString("user_name", "John Doe") ?: "John Doe"
-        val email = prefs.getString("user_email", "user@basicfit.com") ?: "user@basicfit.com"
-        return Pair(name, email)
+    fun isUserLoggedIn(): Boolean {
+        return prefs.getBoolean("is_logged_in", false)
     }
 
-    // Effacer toutes les données (pour la déconnexion)
-    fun clearAllData(context: Context) {
-        val prefs = getPrefs(context)
+    fun setUserLoggedIn(isLoggedIn: Boolean) {
+        prefs.edit().putBoolean("is_logged_in", isLoggedIn).apply()
+    }
+
+    fun clearUserData() {
         prefs.edit().clear().apply()
     }
+}
 
-    // Données par défaut pour commencer
-    private fun getDefaultWorkoutHistory(): List<WorkoutSession> {
-        return listOf(
-            WorkoutSession(
-                date = "Aujourd'hui",
-                duration = 0,
-                exercises = listOf("Première séance"),
-                calories = 0,
-                totalWeight = 0,
-                performance = "🎯 Commencez votre parcours !"
-            )
+// Fonctions utilitaires
+fun calculateAge(dateNaissance: String): Int {
+    return try {
+        val birthDate = LocalDate.parse(dateNaissance, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+        val currentDate = LocalDate.now()
+        Period.between(birthDate, currentDate).years
+    } catch (e: Exception) {
+        25
+    }
+}
+
+fun calculateBMI(weight: Double, height: Int): Double {
+    return if (weight > 0 && height > 0) {
+        val heightM = height / 100.0
+        weight / (heightM * heightM)
+    } else {
+        0.0
+    }
+}
+
+fun calculateDailyCalories(age: Int, weight: Double, height: Int, gender: String, niveauActivite: String): Int {
+    val bmr = if (gender.lowercase() == "homme") {
+        (10 * weight + 6.25 * height - 5 * age + 5)
+    } else {
+        (10 * weight + 6.25 * height - 5 * age - 161)
+    }
+
+    val activityFactor = when (niveauActivite) {
+        "Sédentaire" -> 1.2
+        "Léger" -> 1.375
+        "Modéré" -> 1.55
+        "Actif" -> 1.725
+        "Très actif" -> 1.9
+        else -> 1.55
+    }
+
+    return (bmr * activityFactor).toInt()
+}
+
+fun calculateGoalBasedCalories(age: Int, weight: Double, height: Int, gender: String, niveauActivite: String, objectif: String): Int {
+    val basalCalories = calculateDailyCalories(age, weight, height, gender, niveauActivite)
+
+    return when (objectif) {
+        "Perdre du poids" -> (basalCalories * 0.8).toInt() // Déficit de 20%
+        "Prise de masse" -> (basalCalories * 1.2).toInt() // Surplus de 20%
+        "Sèche" -> (basalCalories * 0.75).toInt() // Déficit de 25%
+        else -> basalCalories // Maintenir
+    }
+}
+
+fun getNutritionalRecommendations(objectif: String, weight: Double): Map<String, String> {
+    return when (objectif) {
+        "Perdre du poids" -> mapOf(
+            "Protéines" to "${(weight * 2.2).toInt()}g/jour",
+            "Glucides" to "${(weight * 2.0).toInt()}g/jour",
+            "Lipides" to "${(weight * 0.8).toInt()}g/jour",
+            "Conseil" to "Déficit calorique de 300-500 kcal/jour"
+        )
+        "Prise de masse" -> mapOf(
+            "Protéines" to "${(weight * 2.5).toInt()}g/jour",
+            "Glucides" to "${(weight * 4.0).toInt()}g/jour",
+            "Lipides" to "${(weight * 1.2).toInt()}g/jour",
+            "Conseil" to "Surplus calorique de 300-500 kcal/jour"
+        )
+        "Sèche" -> mapOf(
+            "Protéines" to "${(weight * 2.8).toInt()}g/jour",
+            "Glucides" to "${(weight * 1.5).toInt()}g/jour",
+            "Lipides" to "${(weight * 0.6).toInt()}g/jour",
+            "Conseil" to "Déficit calorique strict de 500-700 kcal/jour"
+        )
+        else -> mapOf(
+            "Protéines" to "${(weight * 2.0).toInt()}g/jour",
+            "Glucides" to "${(weight * 3.0).toInt()}g/jour",
+            "Lipides" to "${(weight * 1.0).toInt()}g/jour",
+            "Conseil" to "Maintenir l'équilibre calorique"
         )
     }
+}
+
+fun getPersonalizedTips(profile: ProfileData): List<String> {
+    val tips = mutableListOf<String>()
+    val age = calculateAge(profile.dateNaissance)
+    val bmi = calculateBMI(profile.poids, profile.taille)
+
+    if (age < 25) {
+        tips.add("Concentrez-vous sur l'apprentissage des mouvements de base")
+    } else if (age > 50) {
+        tips.add("Privilégiez les exercices de mobilité et d'équilibre")
+    }
+
+    when {
+        bmi < 18.5 -> tips.add("Augmentez vos apports caloriques et focalisez sur la prise de masse")
+        bmi > 25 -> tips.add("Combinez exercices cardiovasculaires et musculation")
+        bmi > 30 -> tips.add("Commencez par des exercices à faible impact")
+    }
+
+    when (profile.niveauActivite) {
+        "Sédentaire" -> tips.add("Commencez progressivement avec 2-3 séances par semaine")
+        "Très actif" -> tips.add("Variez vos entraînements pour éviter la stagnation")
+    }
+
+    return tips
+}
+
+fun calculateBurnedCalories(weight: Double, duration: Int, intensity: String): Int {
+    val metValue = when (intensity) {
+        "Léger" -> 3.0
+        "Modéré" -> 5.0
+        "Intense" -> 8.0
+        else -> 5.0
+    }
+    return ((metValue * weight * (duration / 60.0)) * 1.05).toInt()
 }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
         super.onCreate(savedInstanceState)
-
         setContent {
-            BasicFitAppTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = Color.White
-                ) {
-                    BasicFitApp()
-                }
+            MycTheme {
+                MainScreen()
             }
         }
     }
@@ -144,1795 +283,650 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BasicFitApp() {
-    val navController = rememberNavController()
-    var isAuthenticated by remember { mutableStateOf(false) }
+fun MainScreen() {
+    val context = LocalContext.current
+    val dataManager = remember { DataManager(context) }
 
-    val onAuthenticated: (Boolean) -> Unit = { authenticated ->
-        isAuthenticated = authenticated
-    }
+    var selectedTabIndex by remember { mutableStateOf(0) }
+    var profileData by remember { mutableStateOf(dataManager.loadProfileData()) }
+    var workoutHistory by remember { mutableStateOf(dataManager.loadWorkoutHistory()) }
+    var workoutInProgress by remember { mutableStateOf(false) }
+    var currentWorkoutMachines by remember { mutableStateOf<List<Machine>>(emptyList()) }
+    var currentWorkoutName by remember { mutableStateOf("") }
+    var isLoggedIn by remember { mutableStateOf(dataManager.isUserLoggedIn()) }
+    var showWorkoutSummary by remember { mutableStateOf(false) }
+    var lastWorkoutSummary by remember { mutableStateOf<WorkoutSummary?>(null) }
+    var showStatistics by remember { mutableStateOf(false) }
 
-    if (isAuthenticated) {
-        // Interface principale avec navigation
-        MainAppInterface(navController) {
-            // Fonction de déconnexion
-            isAuthenticated = false
-        }
-    } else {
-        // Interface d'authentification
-        AuthenticationInterface(navController, onAuthenticated)
-    }
-}
-
-@Composable
-fun AuthenticationInterface(navController: NavHostController, onAuthenticated: (Boolean) -> Unit) {
-    NavHost(navController = navController, startDestination = "login") {
-        composable("login") {
-            LoginScreen(navController, onAuthenticated)
-        }
-        composable("register") {
-            RegisterScreen(navController, onAuthenticated)
-        }
-    }
-}
-
-@Composable
-fun MainAppInterface(navController: NavHostController, onLogout: () -> Unit) {
-    Scaffold(
-        bottomBar = {
-            BottomNavigationBar(navController = navController)
-        }
-    ) { paddingValues ->
-        NavHost(
-            navController = navController,
-            startDestination = "machines",
-            modifier = Modifier.padding(paddingValues)
-        ) {
-            composable("machines") {
-                MachinesScreen(navController)
+    if (!isLoggedIn) {
+        // Écran de connexion/inscription
+        AuthScreen(
+            onLoginSuccess = { userProfile ->
+                profileData = userProfile
+                dataManager.saveProfileData(userProfile)
+                dataManager.setUserLoggedIn(true)
+                isLoggedIn = true
             }
-            composable("workouts") {
-                WorkoutsScreen(navController)
-            }
-            composable("profile") {
-                ProfileScreen(navController, onLogout)
-            }
-            composable("machine_detail/{machineName}") { backStackEntry ->
-                val machineName = backStackEntry.arguments?.getString("machineName") ?: ""
-                MachineDetailScreen(machineName, navController)
-            }
-            composable("workout_builder") {
-                WorkoutBuilderScreen(navController)
-            }
-            composable("training_mode") {
-                TrainingModeScreen(navController)
-            }
-            composable("active_workout/{trainingMode}/{selectedMachines}") { backStackEntry ->
-                val trainingMode = backStackEntry.arguments?.getString("trainingMode") ?: "volume"
-                val selectedMachines = backStackEntry.arguments?.getString("selectedMachines") ?: ""
-                ActiveWorkoutScreen(navController, trainingMode, selectedMachines.split(","))
-            }
-            composable("machine_usage/{machineName}") { backStackEntry ->
-                val machineName = backStackEntry.arguments?.getString("machineName") ?: ""
-                MachineUsageScreen(machineName, navController)
-            }
-            composable("workout_recap/{workoutData}") { backStackEntry ->
-                val workoutData = backStackEntry.arguments?.getString("workoutData") ?: ""
-                WorkoutRecapScreen(navController, workoutData)
-            }
-            composable("workout_history") {
-                WorkoutHistoryScreen(navController)
-            }
-        }
-    }
-}
-
-@Composable
-fun BottomNavigationBar(navController: NavController) {
-    val items = listOf(
-        BottomNavItem("machines", "Machines", Icons.Filled.FitnessCenter),
-        BottomNavItem("workouts", "Entraînements", Icons.Filled.DirectionsRun),
-        BottomNavItem("profile", "Profil", Icons.Filled.Person)
-    )
-
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
-
-    NavigationBar(
-        containerColor = Color.White,
-        contentColor = Color(0xFFFF6B35)
-    ) {
-        items.forEach { item ->
-            NavigationBarItem(
-                icon = {
-                    Icon(
-                        item.icon,
-                        contentDescription = item.title,
-                        tint = if (currentRoute == item.route) Color(0xFFFF6B35) else Color.Gray
-                    )
-                },
-                label = {
-                    Text(
-                        item.title,
-                        color = if (currentRoute == item.route) Color(0xFFFF6B35) else Color.Gray
-                    )
-                },
-                selected = currentRoute == item.route,
-                onClick = {
-                    navController.navigate(item.route) {
-                        popUpTo(navController.graph.startDestinationId)
-                        launchSingleTop = true
-                    }
-                }
-            )
-        }
-    }
-}
-
-@Composable
-fun MachinesScreen(navController: NavController) {
-    var machines by remember { mutableStateOf(listOf<String>()) }
-    var isLoading by remember { mutableStateOf(true) }
-
-    // Simulation de chargement des données
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(1000)
-        machines = listOf(
-            "Leg Press", "Chest Press", "Lat Pulldown",
-            "Shoulder Press", "Leg Curl", "Bicep Curl",
-            "Tricep Extension", "Treadmill", "Exercise Bike",
-            "Smith Machine", "Cable Crossover", "Hack Squat"
         )
-        isLoading = false
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        // Header
-        Text(
-            text = "Machines",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFFFF6B35),
-            modifier = Modifier.padding(bottom = 16.dp)
+    } else if (showStatistics) {
+        // Écran des statistiques
+        StatisticsScreen(
+            profileData = profileData,
+            workoutHistory = workoutHistory,
+            onBack = { showStatistics = false }
         )
-
-        if (isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(
-                    color = Color(0xFFFF6B35)
+    } else if (showWorkoutSummary && lastWorkoutSummary != null) {
+        // Écran de récapitulatif d'entraînement
+        WorkoutSummaryScreen(
+            workoutSummary = lastWorkoutSummary!!,
+            workoutHistory = workoutHistory,
+            profileData = profileData,
+            onContinue = {
+                showWorkoutSummary = false
+                lastWorkoutSummary = null
+            }
+        )
+    } else if (workoutInProgress) {
+        // Écran d'entraînement en cours
+        WorkoutInProgressScreen(
+            workoutName = currentWorkoutName,
+            machines = currentWorkoutMachines,
+            profileData = profileData,
+            onFinishWorkout = { duration, exercisesCompleted ->
+                // Sauvegarder la séance
+                val newEntry = WorkoutEntry(
+                    date = LocalDate.now(),
+                    mode = currentWorkoutName,
+                    exercises = exercisesCompleted,
+                    duration = duration,
+                    totalWeight = exercisesCompleted.sumOf { it.weight * it.reps }
                 )
-            }
-        } else {
-            Text(
-                text = "Machines disponibles",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+                workoutHistory = workoutHistory + newEntry
+                dataManager.saveWorkoutHistory(workoutHistory)
 
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(machines) { machine ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                navController.navigate("machine_detail/$machine")
-                            },
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFFF5F5F5)
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = machine,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Icon(
-                                Icons.Filled.ArrowForward,
-                                contentDescription = "Voir détails",
-                                tint = Color(0xFFFF6B35)
-                            )
+                // Créer le récapitulatif
+                val age = calculateAge(profileData.dateNaissance)
+                val totalCalories = calculateWorkoutCaloriesImproved(exercisesCompleted, age, profileData.poids, profileData.genre)
+                val personalRecords = findPersonalRecords(exercisesCompleted, workoutHistory)
+
+                lastWorkoutSummary = WorkoutSummary(
+                    workoutName = currentWorkoutName,
+                    date = LocalDate.now(),
+                    duration = duration,
+                    totalCalories = totalCalories,
+                    totalVolume = exercisesCompleted.sumOf { it.weight * it.reps },
+                    exercicesCompleted = exercisesCompleted,
+                    averageRest = 90, // Valeur par défaut
+                    personalRecords = personalRecords
+                )
+
+                // Passer à l'écran de récapitulatif
+                workoutInProgress = false
+                currentWorkoutMachines = emptyList()
+                currentWorkoutName = ""
+                showWorkoutSummary = true
+            },
+            onExitWorkout = {
+                workoutInProgress = false
+                currentWorkoutMachines = emptyList()
+                currentWorkoutName = ""
+            }
+        )
+    } else {
+        // Interface normale (après connexion)
+        AppMainInterface(
+            selectedTabIndex = selectedTabIndex,
+            onTabChange = { selectedTabIndex = it },
+            profileData = profileData,
+            workoutHistory = workoutHistory,
+            dataManager = dataManager,
+            onProfileUpdate = { newProfile ->
+                profileData = newProfile
+                dataManager.saveProfileData(newProfile)
+            },
+            onStartWorkout = { machines, workoutName ->
+                currentWorkoutMachines = machines
+                currentWorkoutName = workoutName
+                workoutInProgress = true
+            },
+            onShowStatistics = { showStatistics = true },
+            onLogout = {
+                dataManager.setUserLoggedIn(false)
+                dataManager.clearUserData()
+                isLoggedIn = false
+                profileData = ProfileData("", "", "", 70.0, 170, "Homme", "Modéré", "Maintenir")
+                workoutHistory = emptyList()
+            }
+        )
+    }
+}
+
+@Composable
+fun AuthScreen(
+    onLoginSuccess: (ProfileData) -> Unit
+) {
+    val context = LocalContext.current
+    val authManager = remember { AuthManager(context) }
+
+    var isLoginMode by remember { mutableStateOf(true) }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var nom by remember { mutableStateOf("") }
+    var dateNaissance by remember { mutableStateOf("") }
+    var poids by remember { mutableStateOf("") }
+    var taille by remember { mutableStateOf("") }
+    var genre by remember { mutableStateOf("Homme") }
+    var niveauActivite by remember { mutableStateOf("Modéré") }
+    var objectif by remember { mutableStateOf("Maintenir") }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+
+    // Fonction pour gérer l'authentification
+    fun handleAuth() {
+        isLoading = true
+        errorMessage = ""
+
+        if (isLoginMode) {
+            // Connexion
+            if (email.isNotBlank() && password.isNotBlank()) {
+                // Lancer la requête de connexion avec une coroutine
+                GlobalScope.launch {
+                    try {
+                        val result = authManager.login(email, password)
+                        MainScope().launch {
+                            result.onSuccess { response ->
+                                if (response.success) {
+                                    // Créer le ProfileData avec les données de l'utilisateur
+                                    val userProfile = ProfileData(
+                                        nom = response.user?.nom ?: "",
+                                        email = response.user?.email ?: email,
+                                        dateNaissance = "1990-01-01", // Valeur par défaut
+                                        poids = 70.0,
+                                        taille = 170,
+                                        genre = "Homme",
+                                        niveauActivite = "Modéré",
+                                        objectif = "Maintenir"
+                                    )
+                                    onLoginSuccess(userProfile)
+                                } else {
+                                    errorMessage = response.message
+                                }
+                            }.onFailure { exception ->
+                                errorMessage = "Erreur de connexion: ${exception.message}"
+                            }
+                            isLoading = false
+                        }
+                    } catch (e: Exception) {
+                        MainScope().launch {
+                            errorMessage = "Erreur de connexion: ${e.message}"
+                            isLoading = false
                         }
                     }
                 }
+            } else {
+                errorMessage = "Veuillez remplir tous les champs"
+                isLoading = false
+            }
+        } else {
+            // Inscription
+            if (email.isNotBlank() && password.isNotBlank() &&
+                password == confirmPassword && nom.isNotBlank()) {
+
+                // Lancer la requête d'inscription avec une coroutine
+                GlobalScope.launch {
+                    try {
+                        val result = authManager.register(
+                            email = email,
+                            password = password,
+                            nom = nom,
+                            prenom = nom.split(" ").firstOrNull() ?: nom,
+                            dateNaissance = dateNaissance.ifBlank { "1990-01-01" },
+                            poids = poids.toDoubleOrNull() ?: 70.0,
+                            taille = taille.toIntOrNull() ?: 170,
+                            genre = genre,
+                            objectifSportif = objectif,
+                            niveauExperience = niveauActivite
+                        )
+                        MainScope().launch {
+                            result.onSuccess { response ->
+                                if (response.success) {
+                                    // Créer le ProfileData avec les données de l'utilisateur
+                                    val userProfile = ProfileData(
+                                        nom = response.user?.nom ?: nom,
+                                        email = response.user?.email ?: email,
+                                        dateNaissance = dateNaissance.ifBlank { "1990-01-01" },
+                                        poids = poids.toDoubleOrNull() ?: 70.0,
+                                        taille = taille.toIntOrNull() ?: 170,
+                                        genre = genre,
+                                        niveauActivite = niveauActivite,
+                                        objectif = objectif
+                                    )
+                                    onLoginSuccess(userProfile)
+                                } else {
+                                    errorMessage = response.message
+                                }
+                            }.onFailure { exception ->
+                                errorMessage = "Erreur d'inscription: ${exception.message}"
+                            }
+                            isLoading = false
+                        }
+                    } catch (e: Exception) {
+                        MainScope().launch {
+                            errorMessage = "Erreur d'inscription: ${e.message}"
+                            isLoading = false
+                        }
+                    }
+                }
+            } else {
+                when {
+                    email.isBlank() -> errorMessage = "Email requis"
+                    password.isBlank() -> errorMessage = "Mot de passe requis"
+                    password != confirmPassword -> errorMessage = "Les mots de passe ne correspondent pas"
+                    nom.isBlank() -> errorMessage = "Nom requis"
+                    else -> errorMessage = "Veuillez remplir tous les champs obligatoires"
+                }
+                isLoading = false
             }
         }
     }
-}
 
-@Composable
-fun WorkoutsScreen(navController: NavController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .background(Color(0xFFF5F5F5))
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
+        // Logo et titre
         Text(
-            text = "Entraînements",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFFFF6B35),
+            text = "💪",
+            fontSize = 64.sp,
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFF5F5F5)
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text(
-                    text = "Séance d'aujourd'hui",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFF6B35)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("• Chest Press - 3 séries")
-                Text("• Leg Press - 3 séries")
-                Text("• Lat Pulldown - 3 séries")
-                Spacer(modifier = Modifier.height(16.dp))
-                                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
-                        onClick = {
-                            navController.navigate("workout_builder")
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFF6B35)
-                        )
-                    ) {
-                        Text("Créer séance")
-                    }
-                    Button(
-                        onClick = {
-                            // Séance rapide avec machines prédéfinies
-                            navController.navigate("training_mode")
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF2C2C2C)
-                        )
-                    ) {
-                        Text("Séance rapide")
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun ProfileScreen(navController: NavController, onLogout: () -> Unit) {
-    val context = LocalContext.current
-
-    // Charger les données utilisateur et l'historique
-    val userProfile = remember { DataManager.loadUserProfile(context) }
-    val workoutHistory = remember { DataManager.loadWorkoutHistory(context) }
-    val weeklyWorkouts = workoutHistory.size.coerceAtMost(7) // Simulation séances cette semaine
-    val maxWeight = if (workoutHistory.isNotEmpty()) workoutHistory.maxOf { it.totalWeight } else 120
-    val streak = workoutHistory.size.coerceAtMost(10) // Simulation streak
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
         Text(
-            text = "Profil",
-            fontSize = 28.sp,
+            text = "Myc",
+            fontSize = 32.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFFFF6B35),
-            modifier = Modifier.padding(bottom = 16.dp)
+            color = Color(0xFFE57373),
+            modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFF5F5F5)
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Filled.Person,
-                        contentDescription = "Profil",
-                        modifier = Modifier.size(64.dp),
-                        tint = Color(0xFFFF6B35)
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text(
-                            text = userProfile.first,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Membre BasicFit",
-                            color = Color.Gray
-                        )
-                        Text(
-                            text = userProfile.second,
-                            fontSize = 12.sp,
-                            color = Color.Gray
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Text(
-                    text = "Statistiques",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFF6B35)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("🏋️ Séances totales: ${workoutHistory.size}")
-                Text("📅 Séances cette semaine: $weeklyWorkouts")
-                Text("🔥 Streak actuel: $streak jours")
-                Text("📈 Record poids: ${maxWeight}kg")
-                Text("⭐ Séances excellentes: ${workoutHistory.count { it.performance == "Excellent" }}")
-                if (workoutHistory.isNotEmpty()) {
-                    Text("⏱️ Temps total: ${workoutHistory.sumOf { it.duration }}min")
-                    Text("🔥 Calories brûlées: ${workoutHistory.sumOf { it.calories }}kcal")
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Bouton pour voir l'historique des séances
-        Button(
-            onClick = {
-                navController.navigate("workout_history")
-            },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFFF6B35)
-            )
-        ) {
-            Icon(
-                Icons.Filled.History,
-                contentDescription = "Historique",
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Voir l'historique des séances", fontSize = 16.sp)
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Bouton de déconnexion
-        OutlinedButton(
-            onClick = {
-                // Effacer toutes les données locales avant déconnexion
-                DataManager.clearAllData(context)
-                // Appeler la fonction de déconnexion
-                onLogout()
-            },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = Color.Red
-            ),
-            border = BorderStroke(1.dp, Color.Red)
-        ) {
-            Icon(
-                Icons.Filled.ExitToApp,
-                contentDescription = "Déconnexion",
-                modifier = Modifier.size(20.dp),
-                tint = Color.Red
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Se déconnecter", fontSize = 16.sp, color = Color.Red)
-        }
-    }
-}
-
-@Composable
-fun MachineDetailScreen(machineName: String, navController: NavController) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 16.dp)
-        ) {
-            IconButton(
-                onClick = { navController.popBackStack() }
-            ) {
-                Icon(
-                    Icons.Filled.ArrowBack,
-                    contentDescription = "Retour",
-                    tint = Color(0xFFFF6B35)
-                )
-            }
-            Text(
-                text = machineName,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFFF6B35)
-            )
-        }
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFF5F5F5)
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text(
-                    text = "Informations",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFF6B35)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Groupe musculaire: Pectoraux")
-                Text("Difficulté: Intermédiaire")
-                Text("Disponible: Oui")
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Dernières séances",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFF6B35)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("• 15/01/2024 - 3x12 à 80kg")
-                Text("• 12/01/2024 - 3x10 à 85kg")
-                Text("• 10/01/2024 - 3x8 à 90kg")
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    onClick = {
-                        navController.navigate("machine_usage/$machineName")
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFF6B35)
-                    )
-                ) {
-                    Text("Utiliser cette machine")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun WorkoutBuilderScreen(navController: NavController) {
-    var selectedMachines by remember { mutableStateOf(setOf<String>()) }
-
-    val availableMachines = listOf(
-        "Chest Press", "Leg Press", "Lat Pulldown",
-        "Shoulder Press", "Leg Curl", "Bicep Curl",
-        "Tricep Extension", "Smith Machine", "Cable Crossover",
-        "Hack Squat", "Treadmill", "Exercise Bike"
-    )
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 16.dp)
-        ) {
-            IconButton(
-                onClick = { navController.popBackStack() }
-            ) {
-                Icon(
-                    Icons.Filled.ArrowBack,
-                    contentDescription = "Retour",
-                    tint = Color(0xFFFF6B35)
-                )
-            }
-            Text(
-                text = "Créer votre séance",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFFF6B35)
-            )
-        }
-
         Text(
-            text = "Sélectionnez vos machines (${selectedMachines.size})",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(bottom = 16.dp)
+            text = if (isLoginMode) "Connectez-vous à votre compte" else "Créez votre compte",
+            fontSize = 16.sp,
+            color = Color.Gray,
+            modifier = Modifier.padding(bottom = 32.dp)
         )
 
         LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(availableMachines) { machine ->
-                val isSelected = selectedMachines.contains(machine)
+            item {
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            selectedMachines = if (isSelected) {
-                                selectedMachines - machine
-                            } else {
-                                selectedMachines + machine
-                            }
-                        },
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isSelected) Color(0xFFFFE0B2) else Color(0xFFF5F5F5)
-                    )
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier.padding(20.dp)
                     ) {
-                        Text(
-                            text = machine,
-                            fontSize = 16.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) Color(0xFFFF6B35) else Color.Black
+                        // Champs communs (connexion et inscription)
+                        OutlinedTextField(
+                            value = email,
+                            onValueChange = { email = it },
+                            label = { Text("Email") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
                         )
-                        if (isSelected) {
-                            Icon(
-                                Icons.Filled.CheckCircle,
-                                contentDescription = "Sélectionné",
-                                tint = Color(0xFFFF6B35)
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = { password = it },
+                            label = { Text("Mot de passe") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                        )
+
+                        // Champs supplémentaires pour l'inscription
+                        if (!isLoginMode) {
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            OutlinedTextField(
+                                value = confirmPassword,
+                                onValueChange = { confirmPassword = it },
+                                label = { Text("Confirmer le mot de passe") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
                             )
-                        }
-                    }
-                }
-            }
-        }
 
-        if (selectedMachines.isNotEmpty()) {
-            Button(
-                onClick = {
-                    navController.navigate("training_mode") {
-                        // Passer les machines sélectionnées via un argument global
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFFF6B35)
-                )
-            ) {
-                Text("Choisir le mode d'entraînement")
-            }
-        }
-    }
-}
+                            Spacer(modifier = Modifier.height(16.dp))
 
-@Composable
-fun TrainingModeScreen(navController: NavController) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 16.dp)
-        ) {
-            IconButton(
-                onClick = { navController.popBackStack() }
-            ) {
-                Icon(
-                    Icons.Filled.ArrowBack,
-                    contentDescription = "Retour",
-                    tint = Color(0xFFFF6B35)
-                )
-            }
-            Text(
-                text = "Mode d'entraînement",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFFF6B35)
-            )
-        }
+                            OutlinedTextField(
+                                value = nom,
+                                onValueChange = { nom = it },
+                                label = { Text("Nom complet") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
 
-        Text(
-            text = "Choisissez votre objectif",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(bottom = 24.dp)
-        )
+                            Spacer(modifier = Modifier.height(16.dp))
 
-        // Mode Endurance
-        TrainingModeCard(
-            title = "Endurance",
-            description = "15-20 répétitions\n50-65% du 1RM\nAméliore l'endurance musculaire",
-            color = Color(0xFF4CAF50),
-            onClick = {
-                val machines = "Chest Press,Leg Press,Lat Pulldown" // Machines par défaut pour séance rapide
-                navController.navigate("active_workout/endurance/$machines")
-            }
-        )
+                            OutlinedTextField(
+                                value = dateNaissance,
+                                onValueChange = { dateNaissance = it },
+                                label = { Text("Date de naissance (YYYY-MM-DD)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                placeholder = { Text("1990-01-01") }
+                            )
 
-        Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
-        // Mode Volume
-        TrainingModeCard(
-            title = "Volume musculaire",
-            description = "8-12 répétitions\n65-75% du 1RM\nOptimal pour la croissance musculaire",
-            color = Color(0xFFFF6B35),
-            onClick = {
-                val machines = "Chest Press,Leg Press,Lat Pulldown"
-                navController.navigate("active_workout/volume/$machines")
-            }
-        )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = poids,
+                                    onValueChange = { poids = it },
+                                    label = { Text("Poids (kg)") },
+                                    modifier = Modifier.weight(1f),
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                )
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Mode Puissance
-        TrainingModeCard(
-            title = "Puissance",
-            description = "3-6 répétitions\n80-90% du 1RM\nDéveloppe la force maximale",
-            color = Color(0xFFF44336),
-            onClick = {
-                val machines = "Chest Press,Leg Press,Lat Pulldown"
-                navController.navigate("active_workout/puissance/$machines")
-            }
-        )
-    }
-}
-
-@Composable
-fun TrainingModeCard(
-    title: String,
-    description: String,
-    color: Color,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(
-            containerColor = color.copy(alpha = 0.1f)
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
-            Text(
-                text = title,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = color
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = description,
-                fontSize = 14.sp,
-                color = Color.Gray
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ActiveWorkoutScreen(navController: NavController, trainingMode: String, selectedMachines: List<String>) {
-    var currentExercise by remember { mutableStateOf(0) }
-    var currentSet by remember { mutableStateOf(1) }
-    var isResting by remember { mutableStateOf(false) }
-    var restTime by remember { mutableStateOf(90) }
-
-    // Historique des dernières séances (simulé)
-    val lastWorkoutData = remember {
-        mutableMapOf(
-            "Chest Press" to listOf(Triple(85, 8, "2024-01-15"), Triple(80, 10, "2024-01-12")),
-            "Leg Press" to listOf(Triple(140, 6, "2024-01-15"), Triple(135, 8, "2024-01-12")),
-            "Lat Pulldown" to listOf(Triple(70, 9, "2024-01-15"), Triple(65, 12, "2024-01-12")),
-            "Shoulder Press" to listOf(Triple(55, 7, "2024-01-15"), Triple(50, 10, "2024-01-12")),
-            "Leg Curl" to listOf(Triple(45, 10, "2024-01-15"), Triple(40, 12, "2024-01-12")),
-            "Bicep Curl" to listOf(Triple(35, 8, "2024-01-15"), Triple(32, 10, "2024-01-12")),
-            "Tricep Extension" to listOf(Triple(40, 9, "2024-01-15"), Triple(38, 11, "2024-01-12")),
-            "Smith Machine" to listOf(Triple(110, 5, "2024-01-15"), Triple(105, 6, "2024-01-12")),
-            "Cable Crossover" to listOf(Triple(30, 12, "2024-01-15"), Triple(28, 14, "2024-01-12")),
-            "Hack Squat" to listOf(Triple(130, 10, "2024-01-15"), Triple(125, 10, "2024-01-12"))
-        )
-    }
-
-    // Fonction pour calculer le 1RM selon la formule d'Epley
-    fun calculate1RM(weight: Int, reps: Int): Int {
-        return if (reps == 1) weight else (weight * (1 + reps / 30.0)).toInt()
-    }
-
-    // Calculer le 1RM basé sur les dernières séances
-    fun getCalculated1RM(machine: String): Int {
-        val history = lastWorkoutData[machine] ?: return 80
-        val latest = history.firstOrNull() ?: return 80
-        return calculate1RM(latest.first, latest.second)
-    }
-
-    // Temps de repos adapté selon le type d'exercice
-    fun getRestTime(machine: String): Int {
-        return when {
-            machine.contains("Press") || machine.contains("Squat") -> 180 // Exercices composés: 3min
-            machine.contains("Curl") || machine.contains("Extension") -> 90 // Isolation: 1.5min
-            machine.contains("Cable") || machine.contains("Pulldown") -> 120 // Câbles: 2min
-            machine.contains("Cardio") || machine.contains("Treadmill") || machine.contains("Bike") -> 60 // Cardio: 1min
-            else -> 120 // Défaut: 2min
-        }
-    }
-
-    // Fonction pour sauvegarder une série complétée avec progression intelligente
-    fun saveCompletedSet(machine: String, weight: Int, reps: Int) {
-        val currentHistory = lastWorkoutData[machine]?.toMutableList() ?: mutableListOf()
-        currentHistory.add(0, Triple(weight, reps, "2024-01-18")) // Ajouter au début
-        if (currentHistory.size > 10) currentHistory.removeAt(10) // Garder seulement les 10 dernières
-        lastWorkoutData[machine] = currentHistory
-    }
-
-    // Fonction d'adaptation intelligente des poids pour la prochaine séance
-    fun getAdaptedWeight(currentWeight: Int, currentReps: Int, targetReps: Int): Int {
-        // Si l'utilisateur a dépassé les répétitions cibles de 2+ reps, augmenter le poids
-        return when {
-            currentReps >= targetReps + 2 -> {
-                // Excellent performance, augmentation de 5-10%
-                (currentWeight * 1.075).toInt() // +7.5% en moyenne
-            }
-            currentReps == targetReps + 1 -> {
-                // Très bonne performance, augmentation modérée
-                (currentWeight * 1.05).toInt() // +5%
-            }
-            currentReps == targetReps -> {
-                // Performance parfaite, légère augmentation
-                (currentWeight * 1.025).toInt() // +2.5%
-            }
-            currentReps >= targetReps - 1 -> {
-                // Performance correcte, maintenir le poids
-                currentWeight
-            }
-            else -> {
-                // Performance insuffisante, réduire légèrement
-                (currentWeight * 0.95).toInt() // -5%
-            }
-        }
-    }
-
-    // Calculer poids et reps selon le mode avec progression automatique
-    fun getTrainingParams(machine: String): Triple<Int, Int, Int> {
-        val calculated1RM = getCalculated1RM(machine)
-        val baseParams = when (trainingMode) {
-            "endurance" -> Pair((calculated1RM * 0.6).toInt(), 18) // 60% 1RM, 18 reps
-            "volume" -> Pair((calculated1RM * 0.7).toInt(), 10)    // 70% 1RM, 10 reps
-            "puissance" -> Pair((calculated1RM * 0.85).toInt(), 5) // 85% 1RM, 5 reps
-            else -> Pair((calculated1RM * 0.7).toInt(), 10)
-        }
-
-        // Adapter le poids selon les dernières performances
-        val history = lastWorkoutData[machine]
-        val adaptedWeight = if (history?.isNotEmpty() == true) {
-            val lastSession = history.first()
-            getAdaptedWeight(lastSession.first, lastSession.second, baseParams.second)
-        } else {
-            baseParams.first
-        }
-
-        return Triple(adaptedWeight, baseParams.second, calculated1RM)
-    }
-
-    val exercises = selectedMachines.filter { it.isNotEmpty() }
-    val currentMachine = if (exercises.isNotEmpty()) exercises[currentExercise] else "Machine"
-    val (suggestedWeight, suggestedReps, calculated1RM) = getTrainingParams(currentMachine)
-
-    var weight by remember { mutableStateOf(suggestedWeight.toString()) }
-    var reps by remember { mutableStateOf(suggestedReps.toString()) }
-
-    // Mettre à jour les suggestions quand on change d'exercice
-    LaunchedEffect(currentExercise) {
-        val (newWeight, newReps, _) = getTrainingParams(currentMachine)
-        weight = newWeight.toString()
-        reps = newReps.toString()
-        restTime = getRestTime(currentMachine)
-    }
-
-    // Timer de repos
-    LaunchedEffect(isResting) {
-        if (isResting) {
-            for (i in restTime downTo 0) {
-                restTime = i
-                kotlinx.coroutines.delay(1000)
-            }
-            isResting = false
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 16.dp)
-        ) {
-            IconButton(
-                onClick = { navController.popBackStack() }
-            ) {
-                Icon(
-                    Icons.Filled.ArrowBack,
-                    contentDescription = "Retour",
-                    tint = Color(0xFFFF6B35)
-                )
-            }
-            Column {
-                Text(
-                    text = "Mode: ${trainingMode.replaceFirstChar { it.uppercaseChar() }}",
-                    fontSize = 16.sp,
-                    color = Color.Gray
-                )
-                Text(
-                    text = "Entraînement en cours",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFF6B35)
-                )
-            }
-        }
-
-        if (isResting) {
-            // Écran de repos
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFE3F2FD)
-                )
-            ) {
-                Column(
-                    modifier = Modifier
-                        .padding(20.dp)
-                        .fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "💤 Repos",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1976D2)
-                    )
-                    Text(
-                        text = "${restTime}s",
-                        fontSize = 64.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1976D2)
-                    )
-                    Text(
-                        text = getRestTimeDescription(currentMachine),
-                        fontSize = 14.sp,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(top = 8.dp),
-                        textAlign = TextAlign.Center
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Bouton pour passer le repos
-                    Button(
-                        onClick = {
-                            isResting = false
-                            restTime = 90
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFF6B35)
-                        )
-                    ) {
-                        Icon(
-                            Icons.Filled.SkipNext,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Passer le repos")
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Button(
-                        onClick = {
-                            if (currentSet < 3) {
-                                currentSet++
-                                isResting = true
-                                restTime = getRestTime(currentMachine)
-                            } else if (currentExercise < exercises.size - 1) {
-                                currentExercise++
-                                currentSet = 1
-                            } else {
-                                // Créer les données de récapitulatif de l'entraînement
-                                val workoutData = exercises.joinToString(",") { machine ->
-                                    val history = lastWorkoutData[machine]?.firstOrNull()
-                                    // Utiliser des valeurs par défaut réalistes selon le type de machine
-                                    val defaultWeight = when {
-                                        machine.contains("Leg Press") -> 100
-                                        machine.contains("Chest Press") -> 70
-                                        machine.contains("Lat Pulldown") -> 60
-                                        machine.contains("Shoulder Press") -> 50
-                                        machine.contains("Smith Machine") -> 80
-                                        machine.contains("Hack Squat") -> 90
-                                        machine.contains("Curl") -> 35
-                                        machine.contains("Extension") -> 40
-                                        else -> 60
-                                    }
-                                    val defaultReps = when {
-                                        machine.contains("Press") || machine.contains("Pulldown") -> 12
-                                        machine.contains("Squat") -> 8
-                                        machine.contains("Curl") || machine.contains("Extension") -> 10
-                                        else -> 10
-                                    }
-                                    "${machine}:${history?.first?.coerceIn(5, 300) ?: defaultWeight}:${history?.second?.coerceIn(1, 30) ?: defaultReps}"
-                                }
-                                navController.navigate("workout_recap/$workoutData")
+                                OutlinedTextField(
+                                    value = taille,
+                                    onValueChange = { taille = it },
+                                    label = { Text("Taille (cm)") },
+                                    modifier = Modifier.weight(1f),
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                )
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFF6B35)
-                        )
-                    ) {
-                        Text(
-                            if (currentSet < 3) "Série terminée"
-                            else if (currentExercise < exercises.size - 1) "Exercice suivant"
-                            else "Terminer l'entraînement"
-                        )
-                    }
-                }
-            }
-        } else {
-            // Écran d'exercice normal
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFF5F5F5)
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = "Exercice ${currentExercise + 1}/${exercises.size}",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFFF6B35)
-                    )
-                    Text(
-                        text = currentMachine,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
 
-                    // Affichage des paramètres selon le mode
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = when(trainingMode) {
-                                "endurance" -> Color(0xFF4CAF50).copy(alpha = 0.1f)
-                                "puissance" -> Color(0xFFF44336).copy(alpha = 0.1f)
-                                else -> Color(0xFFFF6B35).copy(alpha = 0.1f)
-                            }
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp)
-                        ) {
-                            val modeColor = when(trainingMode) {
-                                "endurance" -> Color(0xFF4CAF50)
-                                "puissance" -> Color(0xFFF44336)
-                                else -> Color(0xFFFF6B35)
-                            }
-                            val lastSession = lastWorkoutData[currentMachine]?.firstOrNull()
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Sélection du genre
                             Text(
-                                text = "📊 1RM calculé: ${calculated1RM}kg",
+                                text = "Genre",
                                 fontSize = 14.sp,
                                 color = Color.Gray
                             )
-                            Text(
-                                text = "🎯 Recommandé: ${suggestedWeight}kg × ${suggestedReps} reps",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = modeColor
-                            )
-                            lastSession?.let {
-                                Text(
-                                    text = "📈 Dernière séance: ${it.first}kg × ${it.second} reps",
-                                    fontSize = 12.sp,
-                                    color = Color.Gray,
-                                    modifier = Modifier.padding(top = 4.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    Text(
-                        text = "Série $currentSet/3",
-                        fontSize = 16.sp,
-                        color = Color.Gray
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Poids (kg)", fontWeight = FontWeight.Bold)
-                            Text(weight, fontSize = 24.sp, color = Color(0xFFFF6B35))
-                            Row {
-                                IconButton(onClick = {
-                                    val newWeight = (weight.toIntOrNull() ?: 80) - 5
-                                    if (newWeight >= 0) weight = newWeight.toString()
-                                }) {
-                                    Icon(Icons.Filled.Remove, contentDescription = "Diminuer")
-                                }
-                                IconButton(onClick = {
-                                    weight = ((weight.toIntOrNull() ?: 80) + 5).toString()
-                                }) {
-                                    Icon(Icons.Filled.Add, contentDescription = "Augmenter")
-                                }
-                            }
-                        }
-
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Répétitions", fontWeight = FontWeight.Bold)
-                            Text(reps, fontSize = 24.sp, color = Color(0xFFFF6B35))
-                            Row {
-                                IconButton(onClick = {
-                                    val newReps = (reps.toIntOrNull() ?: 12) - 1
-                                    if (newReps >= 1) reps = newReps.toString()
-                                }) {
-                                    Icon(Icons.Filled.Remove, contentDescription = "Diminuer")
-                                }
-                                IconButton(onClick = {
-                                    reps = ((reps.toIntOrNull() ?: 12) + 1).toString()
-                                }) {
-                                    Icon(Icons.Filled.Add, contentDescription = "Augmenter")
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                // Sauvegarder la série complétée
-                                saveCompletedSet(
-                                    currentMachine,
-                                    weight.toIntOrNull() ?: suggestedWeight,
-                                    reps.toIntOrNull() ?: suggestedReps
-                                )
-
-                                if (currentSet < 3) {
-                                    currentSet++
-                                    isResting = true
-                                    restTime = getRestTime(currentMachine)
-                                } else if (currentExercise < exercises.size - 1) {
-                                    currentExercise++
-                                    currentSet = 1
-                                } else {
-                                    // Créer les données de récapitulatif de l'entraînement
-                                    val workoutData = exercises.joinToString(",") { machine ->
-                                        val history = lastWorkoutData[machine]?.firstOrNull()
-                                        // Utiliser des valeurs par défaut réalistes selon le type de machine
-                                        val defaultWeight = when {
-                                            machine.contains("Leg Press") -> 100
-                                            machine.contains("Chest Press") -> 70
-                                            machine.contains("Lat Pulldown") -> 60
-                                            machine.contains("Shoulder Press") -> 50
-                                            machine.contains("Smith Machine") -> 80
-                                            machine.contains("Hack Squat") -> 90
-                                            machine.contains("Curl") -> 35
-                                            machine.contains("Extension") -> 40
-                                            else -> 60
-                                        }
-                                        val defaultReps = when {
-                                            machine.contains("Press") || machine.contains("Pulldown") -> 12
-                                            machine.contains("Squat") -> 8
-                                            machine.contains("Curl") || machine.contains("Extension") -> 10
-                                            else -> 10
-                                        }
-                                        "${machine}:${history?.first?.coerceIn(5, 300) ?: defaultWeight}:${history?.second?.coerceIn(1, 30) ?: defaultReps}"
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf("Homme", "Femme").forEach { genreOption ->
+                                    Button(
+                                        onClick = { genre = genreOption },
+                                        modifier = Modifier.weight(1f),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (genre == genreOption) Color(0xFFE57373) else Color(0xFFF5F5F5),
+                                            contentColor = if (genre == genreOption) Color.White else Color(0xFF666666)
+                                        )
+                                    ) {
+                                        Text(genreOption)
                                     }
-                                    navController.navigate("workout_recap/$workoutData")
                                 }
-                            },
-                            modifier = Modifier.weight(1f),
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Niveau d'activité
+                            Text(
+                                text = "Niveau d'activité",
+                                fontSize = 14.sp,
+                                color = Color.Gray
+                            )
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(listOf("Sédentaire", "Léger", "Modéré", "Actif", "Très actif")) { niveau ->
+                                    Button(
+                                        onClick = { niveauActivite = niveau },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (niveauActivite == niveau) Color(0xFFE57373) else Color(0xFFF5F5F5),
+                                            contentColor = if (niveauActivite == niveau) Color.White else Color(0xFF666666)
+                                        )
+                                    ) {
+                                        Text(niveau, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Objectif
+                            Text(
+                                text = "Objectif",
+                                fontSize = 14.sp,
+                                color = Color.Gray
+                            )
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(listOf("Maintenir", "Perdre du poids", "Prise de masse", "Sèche")) { obj ->
+                                    Button(
+                                        onClick = { objectif = obj },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (objectif == obj) Color(0xFFE57373) else Color(0xFFF5F5F5),
+                                            contentColor = if (objectif == obj) Color.White else Color(0xFF666666)
+                                        )
+                                    ) {
+                                        Text(obj, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+
+                        if (errorMessage.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = errorMessage,
+                                color = Color.Red,
+                                fontSize = 14.sp
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // Bouton principal
+                        Button(
+                            onClick = { handleAuth() },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            enabled = !isLoading,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFFF6B35)
+                                containerColor = Color(0xFFE57373)
                             )
                         ) {
+                            if (isLoading) {
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = if (isLoginMode) "Se connecter" else "S'inscrire",
+                                    color = Color.White,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Bouton de basculement
+                        TextButton(
+                            onClick = {
+                                isLoginMode = !isLoginMode
+                                errorMessage = ""
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Text(
-                                if (currentSet < 3) "Série terminée"
-                                else if (currentExercise < exercises.size - 1) "Exercice suivant"
-                                else "Terminer l'entraînement"
+                                text = if (isLoginMode) {
+                                    "Pas de compte ? S'inscrire"
+                                } else {
+                                    "Déjà un compte ? Se connecter"
+                                },
+                                color = Color(0xFFE57373)
                             )
                         }
                     }
                 }
             }
         }
-    }
-}
-
-// Fonction pour décrire le temps de repos
-fun getRestTimeDescription(machine: String): String {
-    return when {
-        machine.contains("Press") || machine.contains("Squat") -> "Exercice composé - Repos long recommandé"
-        machine.contains("Curl") || machine.contains("Extension") -> "Exercice d'isolation - Repos modéré"
-        machine.contains("Cable") || machine.contains("Pulldown") -> "Exercice à poulie - Repos standard"
-        else -> "Repos adapté à l'exercice"
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MachineUsageScreen(machineName: String, navController: NavController) {
-    var currentSet by remember { mutableStateOf(1) }
-    var weight by remember { mutableStateOf("80") }
-    var reps by remember { mutableStateOf("12") }
-    var restTime by remember { mutableStateOf(90) }
-    var isResting by remember { mutableStateOf(false) }
-
-    // Liste pour sauvegarder chaque série complétée avec ses valeurs spécifiques
-    var completedSets by remember { mutableStateOf(listOf<Pair<String, String>>()) }
-
-    // Historique des séances précédentes pour cette machine (simulé mais intelligent)
-    val machineHistory = remember {
-        mutableMapOf(
-            "Chest Press" to listOf(Triple(80, 12, "2024-01-15"), Triple(75, 12, "2024-01-12")),
-            "Leg Press" to listOf(Triple(140, 10, "2024-01-15"), Triple(135, 10, "2024-01-12")),
-            "Lat Pulldown" to listOf(Triple(70, 12, "2024-01-15"), Triple(65, 12, "2024-01-12")),
-            "Shoulder Press" to listOf(Triple(55, 10, "2024-01-15"), Triple(50, 10, "2024-01-12")),
-            "Leg Curl" to listOf(Triple(45, 12, "2024-01-15"), Triple(40, 12, "2024-01-12")),
-            "Bicep Curl" to listOf(Triple(35, 12, "2024-01-15"), Triple(32, 12, "2024-01-12")),
-            "Tricep Extension" to listOf(Triple(40, 12, "2024-01-15"), Triple(38, 12, "2024-01-12")),
-            "Smith Machine" to listOf(Triple(110, 8, "2024-01-15"), Triple(105, 8, "2024-01-12")),
-            "Cable Crossover" to listOf(Triple(30, 15, "2024-01-15"), Triple(28, 15, "2024-01-12")),
-            "Hack Squat" to listOf(Triple(130, 10, "2024-01-15"), Triple(125, 10, "2024-01-12"))
-        )
-    }
-
-    // Fonction d'adaptation intelligente des poids pour cette machine
-    fun getAdaptedWeight(currentWeight: Int, currentReps: Int, targetReps: Int): Int {
-        return when {
-            currentReps >= targetReps + 2 -> (currentWeight * 1.075).toInt() // +7.5%
-            currentReps == targetReps + 1 -> (currentWeight * 1.05).toInt()  // +5%
-            currentReps == targetReps -> (currentWeight * 1.025).toInt()     // +2.5%
-            currentReps >= targetReps - 1 -> currentWeight                   // Maintenir
-            else -> (currentWeight * 0.95).toInt()                          // -5%
-        }
-    }
-
-    // Initialiser les poids suggérés basés sur l'historique
-    LaunchedEffect(machineName) {
-        val history = machineHistory[machineName]
-        if (history?.isNotEmpty() == true) {
-            val lastSession = history.first()
-            val targetReps = 12 // Répétitions cibles standard
-            val suggestedWeight = getAdaptedWeight(lastSession.first, lastSession.second, targetReps)
-            weight = suggestedWeight.toString()
-            reps = targetReps.toString()
-        }
-    }
-
-    // Fonction pour sauvegarder une série et mettre à jour l'historique
-    fun saveCompletedSetToHistory(weight: Int, reps: Int) {
-        val currentHistory = machineHistory[machineName]?.toMutableList() ?: mutableListOf()
-        currentHistory.add(0, Triple(weight, reps, "2024-01-18"))
-        if (currentHistory.size > 10) currentHistory.removeAt(10)
-        machineHistory[machineName] = currentHistory
-    }
-
-    LaunchedEffect(isResting) {
-        if (isResting) {
-            for (i in restTime downTo 0) {
-                restTime = i
-                kotlinx.coroutines.delay(1000)
-            }
-            isResting = false
-            restTime = 90
-        }
-    }
+fun AppMainInterface(
+    selectedTabIndex: Int,
+    onTabChange: (Int) -> Unit,
+    profileData: ProfileData,
+    workoutHistory: List<WorkoutEntry>,
+    dataManager: DataManager,
+    onProfileUpdate: (ProfileData) -> Unit,
+    onStartWorkout: (List<Machine>, String) -> Unit,
+    onShowStatistics: () -> Unit,
+    onLogout: () -> Unit
+) {
+    val navItems = listOf(
+        NavigationItem("Profil", Icons.Default.Person),
+        NavigationItem("Machines", Icons.Default.FitnessCenter),
+        NavigationItem("Entraînement", Icons.Default.PlayArrow)
+    )
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .background(Color(0xFFF5F5F5))
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 16.dp)
-        ) {
-            IconButton(
-                onClick = { navController.popBackStack() }
-            ) {
-                Icon(
-                    Icons.Filled.ArrowBack,
-                    contentDescription = "Retour",
-                    tint = Color(0xFFFF6B35)
-                )
-            }
-            Column {
+        // Header
+        TopAppBar(
+            title = {
                 Text(
-                    text = machineName,
+                    text = "Myc",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFF6B35)
+                    color = Color.White
                 )
-                // Afficher les suggestions basées sur l'historique
-                val history = machineHistory[machineName]
-                if (history?.isNotEmpty() == true) {
-                    val lastSession = history.first()
-                    Text(
-                        text = "📈 Dernière: ${lastSession.first}kg × ${lastSession.second} reps",
-                        fontSize = 12.sp,
-                        color = Color.Gray
-                    )
-                }
-            }
-        }
-
-        if (isResting) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFE3F2FD)
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Repos",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1976D2)
-                    )
-                    Text(
-                        text = "$restTime s",
-                        fontSize = 48.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1976D2)
-                    )
-                    Text("Préparez-vous pour la série suivante")
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Bouton pour passer le repos
-                    Button(
-                        onClick = {
-                            isResting = false
-                            restTime = 90
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFF6B35)
-                        )
-                    ) {
-                        Icon(
-                            Icons.Filled.SkipNext,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Passer le repos")
-                    }
-                }
-            }
-        } else {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFF5F5F5)
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = "Série $currentSet/3",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFFF6B35)
-                    )
-
-                    // Afficher les recommandations intelligentes
-                    val history = machineHistory[machineName]
-                    if (history?.isNotEmpty() == true) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color(0xFFE8F5E8)
-                            )
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(12.dp)
-                            ) {
-                                Text(
-                                    text = "🎯 Recommandation intelligente",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF2E7D32)
-                                )
-                                Text(
-                                    text = "Basé sur vos dernières performances",
-                                    fontSize = 12.sp,
-                                    color = Color.Gray
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Poids (kg)", fontWeight = FontWeight.Bold)
-                            Text(weight, fontSize = 32.sp, color = Color(0xFFFF6B35))
-                            Row {
-                                IconButton(onClick = {
-                                    val newWeight = (weight.toIntOrNull() ?: 80) - 5
-                                    if (newWeight >= 0) weight = newWeight.toString()
-                                }) {
-                                    Icon(Icons.Filled.Remove, contentDescription = "Diminuer")
-                                }
-                                IconButton(onClick = {
-                                    weight = ((weight.toIntOrNull() ?: 80) + 5).toString()
-                                }) {
-                                    Icon(Icons.Filled.Add, contentDescription = "Augmenter")
-                                }
-                            }
-                        }
-
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Répétitions", fontWeight = FontWeight.Bold)
-                            Text(reps, fontSize = 32.sp, color = Color(0xFFFF6B35))
-                            Row {
-                                IconButton(onClick = {
-                                    val newReps = (reps.toIntOrNull() ?: 12) - 1
-                                    if (newReps >= 1) reps = newReps.toString()
-                                }) {
-                                    Icon(Icons.Filled.Remove, contentDescription = "Diminuer")
-                                }
-                                IconButton(onClick = {
-                                    reps = ((reps.toIntOrNull() ?: 12) + 1).toString()
-                                }) {
-                                    Icon(Icons.Filled.Add, contentDescription = "Augmenter")
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Button(
-                        onClick = {
-                            // Sauvegarder la série actuelle avec ses valeurs spécifiques
-                            completedSets = completedSets + Pair(weight, reps)
-
-                            // Sauvegarder dans l'historique pour la progression future
-                            saveCompletedSetToHistory(
-                                weight.toIntOrNull() ?: 80,
-                                reps.toIntOrNull() ?: 12
-                            )
-
-                            if (currentSet < 3) {
-                                currentSet++
-                                isResting = true
-                                restTime = 90
-                            } else {
-                                // Créer les données de récapitulatif avec l'exercice terminé - valeurs réalistes
-                                val safeWeight = weight.toIntOrNull()?.coerceIn(5, 300) ?: 70
-                                val safeReps = reps.toIntOrNull()?.coerceIn(1, 30) ?: 12
-                                val workoutData = "$machineName,$safeWeight,$safeReps,$currentSet"
-                                navController.navigate("workout_recap/$workoutData")
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFF6B35)
-                        )
-                    ) {
-                        Text(
-                            if (currentSet < 3) "Série terminée - Repos"
-                            else "Terminer l'exercice"
-                        )
-                    }
-
-                    // Bouton pour terminer l'entraînement et voir le récapitulatif
-                    if (currentSet >= 2) { // Permettre de finir après au moins 2 séries
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedButton(
-                            onClick = {
-                                val safeWeight = weight.toIntOrNull()?.coerceIn(5, 300) ?: 70
-                                val safeReps = reps.toIntOrNull()?.coerceIn(1, 30) ?: 12
-                                val workoutData = "$machineName,$safeWeight,$safeReps,$currentSet"
-                                navController.navigate("workout_recap/$workoutData")
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFFFF6B35)
-                            )
-                        ) {
-                            Icon(
-                                Icons.Filled.Assessment,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Voir le récapitulatif de l'entraînement")
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Historique de la séance",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFFFF6B35)
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color(0xFFE57373)
+            )
         )
 
-        // Afficher chaque série complétée avec ses valeurs spécifiques
-        completedSets.forEachIndexed { index, (setWeight, setReps) ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFE8F5E8)
+        // Content
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
+            when (selectedTabIndex) {
+                0 -> ProfileScreen(
+                    profileData = profileData,
+                    workoutHistory = workoutHistory,
+                    onSaveProfile = onProfileUpdate,
+                    onShowStatistics = onShowStatistics,
+                    onLogout = onLogout
                 )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Série ${index + 1}: ${setWeight}kg x $setReps reps ✓",
-                        color = Color(0xFF2E7D32)
-                    )
-
-                    // Indicateur de performance par rapport à l'objectif
-                    val targetReps = 12
-                    val actualReps = setReps.toIntOrNull() ?: 0
-                    val performanceIcon = when {
-                        actualReps >= targetReps + 2 -> "🔥" // Excellent
-                        actualReps >= targetReps -> "💪"     // Très bien
-                        actualReps >= targetReps - 1 -> "✅"  // Bien
-                        else -> "⚠️"                         // À améliorer
-                    }
-                    Text(
-                        text = performanceIcon,
-                        fontSize = 16.sp
-                    )
-                }
+                1 -> MachinesScreen(
+                    profileData = profileData,
+                    workoutHistory = workoutHistory
+                )
+                2 -> WorkoutScreen(
+                    profileData = profileData,
+                    workoutHistory = workoutHistory,
+                    onStartWorkout = onStartWorkout
+                )
             }
         }
 
-        // Afficher l'historique des séances précédentes
-        if (machineHistory[machineName]?.size ?: 0 > 1) {
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "📊 Séances précédentes",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFFF6B35)
-            )
-
-            machineHistory[machineName]?.drop(1)?.take(3)?.forEachIndexed { _, session ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 2.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFF8F8F8)
+        // Bottom Navigation
+        NavigationBar(
+            containerColor = Color(0xFFE57373),
+            contentColor = Color.White
+        ) {
+            navItems.forEachIndexed { index, item ->
+                NavigationBarItem(
+                    icon = {
+                        Icon(
+                            imageVector = item.icon,
+                            contentDescription = item.title,
+                            tint = if (selectedTabIndex == index) Color.White else Color(0x80FFFFFF)
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = item.title,
+                            color = if (selectedTabIndex == index) Color.White else Color(0x80FFFFFF),
+                            fontSize = 12.sp
+                        )
+                    },
+                    selected = selectedTabIndex == index,
+                    onClick = { onTabChange(index) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = Color.White,
+                        selectedTextColor = Color.White,
+                        unselectedIconColor = Color(0x80FFFFFF),
+                        unselectedTextColor = Color(0x80FFFFFF),
+                        indicatorColor = Color(0x30FFFFFF)
                     )
-                ) {
-                    Text(
-                        text = "${session.third}: ${session.first}kg × ${session.second} reps",
-                        modifier = Modifier.padding(8.dp),
-                        fontSize = 12.sp,
-                        color = Color.Gray
-                    )
-                }
+                )
             }
         }
     }
 }
 
 @Composable
-fun WorkoutRecapScreen(navController: NavController, workoutData: String) {
+fun ProfileScreen(
+    profileData: ProfileData,
+    workoutHistory: List<WorkoutEntry>,
+    onSaveProfile: (ProfileData) -> Unit,
+    onShowStatistics: () -> Unit,
+    onLogout: () -> Unit
+) {
     val context = LocalContext.current
+    val dataManager = remember { DataManager(context) }
 
-    // Debug: Afficher les données reçues
-    println("DEBUG: workoutData reçu = '$workoutData'")
+    var isEditing by remember { mutableStateOf(false) }
+    var nom by remember { mutableStateOf(profileData.nom) }
+    var email by remember { mutableStateOf(profileData.email) }
+    var dateNaissance by remember { mutableStateOf(profileData.dateNaissance) }
+    var poids by remember { mutableStateOf(profileData.poids.toString()) }
+    var taille by remember { mutableStateOf(profileData.taille.toString()) }
+    var genre by remember { mutableStateOf(profileData.genre) }
+    var niveauActivite by remember { mutableStateOf(profileData.niveauActivite) }
+    var objectif by remember { mutableStateOf(profileData.objectif) }
 
-    // Si workoutData est vide ou invalide, utiliser des données d'exemple
-    val safeWorkoutData = if (workoutData.isBlank() || workoutData == "null") {
-        "Chest Press:75:12:3,Leg Press:120:10:3,Lat Pulldown:65:12:3"
-    } else {
-        workoutData
-    }
+    // Calculer l'âge
+    val age = calculateAge(dateNaissance)
 
-    // Parser les données d'entraînement avec support de formats multiples
-    val exercisesList = safeWorkoutData.split(",").filter { it.isNotEmpty() }
-    println("DEBUG: exercisesList = $exercisesList")
-
-    // Données réalistes pour le calcul des calories par type d'exercice
-    val exerciseCaloriesData = mapOf(
-        "Chest Press" to 8.5f,      // kcal/min (exercice composé, haut du corps)
-        "Leg Press" to 12.0f,       // kcal/min (exercice composé, gros muscles)
-        "Lat Pulldown" to 7.5f,     // kcal/min (exercice composé, dos)
-        "Shoulder Press" to 6.5f,   // kcal/min (exercice isolation, épaules)
-        "Leg Curl" to 5.5f,         // kcal/min (exercice isolation, jambes)
-        "Bicep Curl" to 4.0f,       // kcal/min (exercice isolation, petits muscles)
-        "Tricep Extension" to 4.5f, // kcal/min (exercice isolation, triceps)
-        "Smith Machine" to 10.0f,   // kcal/min (exercice composé, polyvalent)
-        "Cable Crossover" to 6.0f,  // kcal/min (exercice isolation, pectoraux)
-        "Hack Squat" to 11.0f       // kcal/min (exercice composé, jambes)
-    )
-
-    // Historique des séances précédentes pour comparaison
-    val workoutHistory = remember {
-        mapOf(
-            "Chest Press" to listOf(
-                Triple(75, 12, "2024-01-15"), // poids, reps par série, date
-                Triple(70, 12, "2024-01-12")
-            ),
-            "Leg Press" to listOf(
-                Triple(120, 10, "2024-01-15"),
-                Triple(115, 10, "2024-01-12")
-            ),
-            "Lat Pulldown" to listOf(
-                Triple(65, 12, "2024-01-15"),
-                Triple(60, 12, "2024-01-12")
-            )
-        )
-    }
-
-    // Calculer les vraies statistiques de la séance
-    var totalSets = 0        // Nombre total de séries
-    var totalReps = 0        // Nombre total de répétitions
-    var realDuration = 0     // Durée réelle calculée
-    var totalCalories = 0f   // Calories réelles
-    val exercisesDetails = mutableListOf<ExerciseDetail>()
-
-    exercisesList.forEach { exerciseData ->
-        println("DEBUG: traitement de exerciseData = '$exerciseData'")
-
-        val parts = if (exerciseData.contains(":")) {
-            exerciseData.split(":")
-        } else {
-            exerciseData.split(",")
-        }
-
-        println("DEBUG: parts = $parts")
-
-        if (parts.size >= 3) {
-            val machineName = parts[0].trim()
-            // Ajouter des limites réalistes pour éviter des valeurs folles
-            val weight = (parts[1].trim().toIntOrNull() ?: 0).coerceIn(5, 300) // Entre 5kg et 300kg max
-            val reps = (parts[2].trim().toIntOrNull() ?: 0).coerceIn(1, 30)   // Entre 1 et 30 reps max
-            val sets = if (parts.size > 3) (parts[3].trim().toIntOrNull() ?: 3).coerceIn(1, 5) else 3 // 1-5 séries max
-
-            println("DEBUG: machineName='$machineName', weight=$weight, reps=$reps, sets=$sets")
-
-            // Si toujours à 0, utiliser des valeurs par défaut
-            val finalWeight = if (weight == 0) when {
-                machineName.contains("Leg Press") -> 100
-                machineName.contains("Chest Press") -> 75
-                machineName.contains("Lat Pulldown") -> 65
-                else -> 60
-            } else weight
-
-            val finalReps = if (reps == 0) when {
-                machineName.contains("Press") || machineName.contains("Pulldown") -> 12
-                machineName.contains("Squat") -> 8
-                else -> 10
-            } else reps
-
-            // Calculs réels pour cet exercice
-            val exerciseVolume = finalWeight * finalReps * sets
-            val exerciseTotalReps = finalReps * sets
-
-            // Durée réaliste : temps d'exécution + repos
-            val executionTime = sets * 2  // 2 min par série (effort + récupération intra-série)
-            val restTime = (sets - 1) * when {
-                machineName.contains("Press") || machineName.contains("Squat") -> 3.0f // 3min entre séries
-                machineName.contains("Curl") || machineName.contains("Extension") -> 1.5f // 1.5min
-                else -> 2.0f // 2min par défaut
-            }
-            val exerciseDuration = (executionTime.toFloat() + restTime).toInt()
-
-            // Calories spécifiques à l'exercice
-            val caloriesPerMin = exerciseCaloriesData[machineName] ?: 6.0f
-            val exerciseCalories = exerciseDuration.toFloat() * caloriesPerMin
-
-            // Progression par rapport à la dernière séance
-            val lastSession = workoutHistory[machineName]?.firstOrNull()
-            val progression = if (lastSession != null) {
-                // Comparer avec le poids de la dernière séance
-                val lastWeight = lastSession.first
-                val weightChange = finalWeight - lastWeight
-                when {
-                    weightChange > 10 -> "🚀 +${weightChange}kg"
-                    weightChange > 0 -> "📈 +${weightChange}kg"
-                    weightChange == 0 -> "🎯 Maintenu"
-                    else -> "📉 ${weightChange}kg"
-                }
-            } else "🆕 Nouveau"
-
-            // Évaluation de performance
-            val targetReps = when (machineName) {
-                "Chest Press", "Leg Press", "Lat Pulldown" -> 12
-                "Smith Machine", "Hack Squat" -> 8
-                else -> 10
-            }
-            val performance = when {
-                finalReps >= targetReps + 2 -> "🔥 Excellent"
-                finalReps >= targetReps -> "💪 Très bien"
-                finalReps >= targetReps - 1 -> "✅ Bien"
-                else -> "⚠️ À améliorer"
-            }
-
-            totalSets += sets
-            totalReps += exerciseTotalReps
-            realDuration += exerciseDuration
-            totalCalories += exerciseCalories
-
-            exercisesDetails.add(ExerciseDetail(
-                name = machineName,
-                sets = sets,
-                weight = finalWeight,
-                totalReps = exerciseTotalReps,
-                volume = exerciseVolume,
-                duration = exerciseDuration,
-                calories = exerciseCalories,
-                progression = progression,
-                performance = performance
-            ))
-
-            println("DEBUG: exercice ajouté - $machineName: poids=${finalWeight}kg, calories=$exerciseCalories")
-        }
-    }
-
-    println("DEBUG: totaux finaux - exercices=${exercisesDetails.size}, calories=$totalCalories, duration=$realDuration")
-
-    // Si aucun exercice n'a été traité, utiliser des données d'exemple
-    if (exercisesDetails.isEmpty()) {
-        println("DEBUG: Aucun exercice traité, utilisation de données d'exemple")
-
-        // Ajouter des exercices d'exemple
-        val exampleExercises = listOf(
-            Triple("Chest Press", 75, 12),
-            Triple("Leg Press", 120, 10),
-            Triple("Lat Pulldown", 65, 12)
-        )
-
-        exampleExercises.forEach { (machineName, weight, reps) ->
-            val sets = 3
-            val exerciseVolume = weight * reps * sets
-            val exerciseTotalReps = reps * sets
-            val exerciseDuration = 8 // durée d'exemple
-            val exerciseCalories = exerciseDuration.toFloat() * (exerciseCaloriesData[machineName] ?: 6.0f)
-
-            totalSets += sets
-            totalReps += exerciseTotalReps
-            realDuration += exerciseDuration
-            totalCalories += exerciseCalories
-
-            exercisesDetails.add(ExerciseDetail(
-                name = machineName,
-                sets = sets,
-                weight = weight,
-                totalReps = exerciseTotalReps,
-                volume = exerciseVolume,
-                duration = exerciseDuration,
-                calories = exerciseCalories,
-                progression = "📈 +5kg",
-                performance = "💪 Très bien"
-            ))
-        }
-    }
-
-    // Calculer les comparaisons avec les séances précédentes
-    val averageWeight = if (exercisesDetails.isNotEmpty()) {
-        exercisesDetails.sumOf { it.weight } / exercisesDetails.size
-    } else 0
-
-    val previousAverageWeight = workoutHistory.values.mapNotNull { sessions ->
-        sessions.firstOrNull()?.first
-    }.average().takeIf { !it.isNaN() }?.toInt() ?: 0
-
-    val intensityProgress = averageWeight - previousAverageWeight
-
-    // Estimations réalistes supplémentaires
-    val averageIntensity = if (totalReps > 0) exercisesDetails.sumOf { it.weight * it.totalReps } / totalReps else 0
-
-    // Sauvegarder automatiquement la séance terminée dans l'historique
-    LaunchedEffect(key1 = workoutData) {
-        if (exercisesDetails.isNotEmpty()) {
-            val currentDate = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.FRENCH).format(java.util.Date())
-            val totalWeight = exercisesDetails.sumOf { it.weight * it.totalReps }
-            val excellentCount = exercisesDetails.count { it.performance.contains("Excellent") }
-
-            val sessionPerformance = when {
-                excellentCount >= exercisesDetails.size * 0.7 -> "Excellent"
-                excellentCount >= exercisesDetails.size * 0.4 -> "Très bien"
-                else -> "Bien"
-            }
-
-            val newSession = WorkoutSession(
-                date = currentDate,
-                duration = realDuration,
-                exercises = exercisesDetails.map { it.name },
-                calories = totalCalories.toInt(),
-                totalWeight = totalWeight,
-                performance = sessionPerformance
-            )
-
-            DataManager.addWorkoutSession(context, newSession)
-            println("DEBUG: Séance sauvegardée automatiquement - ${newSession.date}")
-        }
-    }
+    // Calculer les données en temps réel
+    val weightNum = poids.toDoubleOrNull() ?: 70.0
+    val heightNum = taille.toIntOrNull() ?: 170
+    val bmi = calculateBMI(weightNum, heightNum)
+    val caloriesPerDay = calculateDailyCalories(age, weightNum, heightNum, genre, niveauActivite)
+    val goalCalories = calculateGoalBasedCalories(age, weightNum, heightNum, genre, niveauActivite, objectif)
+    val nutritionalRecommendations = getNutritionalRecommendations(objectif, weightNum)
+    val recommendations = getPersonalizedTips(profileData)
+    val (totalSessions, totalMinutes, totalCalories) = dataManager.getTotalStats()
 
     LazyColumn(
         modifier = Modifier
@@ -1941,303 +935,401 @@ fun WorkoutRecapScreen(navController: NavController, workoutData: String) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            // En-tête du récapitulatif avec performances
-            Card(
+            // Header avec bouton édition
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFFF6B35)
-                )
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Text(
+                    text = "Mon Profil",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFE57373)
+                )
+                IconButton(
+                    onClick = {
+                        if (isEditing) {
+                            // Sauvegarder
+                            val newProfile = ProfileData(
+                                nom = nom,
+                                email = email,
+                                dateNaissance = dateNaissance,
+                                poids = poids.toDoubleOrNull() ?: 70.0,
+                                taille = taille.toIntOrNull() ?: 170,
+                                genre = genre,
+                                niveauActivite = niveauActivite,
+                                objectif = objectif
+                            )
+                            onSaveProfile(newProfile)
+                        }
+                        isEditing = !isEditing
+                    }
                 ) {
                     Icon(
-                        Icons.Filled.CheckCircle,
-                        contentDescription = "Séance terminée",
-                        modifier = Modifier.size(60.dp),
-                        tint = Color.White
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text(
-                        text = "🎉 Séance Terminée !",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-
-                    Text(
-                        text = when {
-                            intensityProgress > 100 -> "Performance exceptionnelle ! 🚀"
-                            intensityProgress > 0 -> "Excellente progression ! 📈"
-                            intensityProgress == 0 -> "Performance maintenue 🎯"
-                            else -> "Prochaine fois sera meilleure ! 💪"
-                        },
-                        fontSize = 16.sp,
-                        color = Color.White.copy(alpha = 0.9f),
-                        textAlign = TextAlign.Center
+                        imageVector = if (isEditing) Icons.Default.Check else Icons.Default.Edit,
+                        contentDescription = if (isEditing) "Sauvegarder" else "Éditer",
+                        tint = Color(0xFFE57373)
                     )
                 }
             }
         }
 
         item {
-            // Statistiques détaillées et réalistes
-            Text(
-                text = "📊 Statistiques détaillées",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFFF6B35)
-            )
-        }
-
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                RealisticStatsCard(
-                    title = "Durée",
-                    value = "${realDuration}",
-                    unit = "min",
-                    icon = "⏱️",
-                    change = "+5 min vs dernière",
-                    modifier = Modifier.weight(1f)
-                )
-
-                RealisticStatsCard(
-                    title = "Intensité",
-                    value = "${averageIntensity}",
-                    unit = "kg/rep",
-                    icon = "💪",
-                    change = "Moyenne séance",
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                RealisticStatsCard(
-                    title = "Calories",
-                    value = "${totalCalories.toInt()}",
-                    unit = "kcal",
-                    icon = "🔥",
-                    change = "Calcul réaliste",
-                    modifier = Modifier.weight(1f)
-                )
-
-                RealisticStatsCard(
-                    title = "Séries",
-                    value = "$totalSets",
-                    unit = "réalisées",
-                    icon = "🎯",
-                    change = "$totalReps reps total",
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
-        item {
-            // Métriques avancées
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFF8F9FA)
-                )
+                colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp)
                 ) {
                     Text(
-                        text = "📈 Métriques avancées",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFFF6B35)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("💼 Intensité moyenne: ${averageIntensity}kg par rep")
-                    Text("⚡ Densité d'entraînement: ${String.format("%.1f", totalReps.toFloat() / realDuration.toFloat())} reps/min")
-                    Text("🔄 Temps de repos optimal respecté")
-                    Text("🎯 ${exercisesDetails.count { it.performance.contains("Excellent") }} exercices excellents")
-                }
-            }
-        }
-
-        item {
-            // Exercices détaillés avec vraies performances
-            Text(
-                text = "🎯 Détail des exercices",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFFF6B35)
-            )
-        }
-
-        items(exercisesDetails) { exercise ->
-            DetailedExerciseCard(exercise)
-        }
-
-        item {
-            // Suggestions intelligentes pour la prochaine séance
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFE8F5E8)
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = "🚀 Prochaine séance",
+                        text = "Informations personnelles",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2E7D32)
+                        color = Color(0xFFE57373),
+                        modifier = Modifier.padding(bottom = 12.dp)
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
 
-                    exercisesDetails.forEach { exercise ->
-                        val suggestion = when {
-                            exercise.performance.contains("Excellent") ->
-                                "${exercise.name}: +5kg ou +2 reps"
-                            exercise.performance.contains("Très bien") ->
-                                "${exercise.name}: +2.5kg ou +1 rep"
-                            exercise.performance.contains("Bien") ->
-                                "${exercise.name}: Maintenir le poids"
-                            else ->
-                                "${exercise.name}: -5kg et focus technique"
-                        }
-                        Text(
-                            text = "• $suggestion",
-                            fontSize = 14.sp,
-                            color = Color(0xFF2E7D32),
-                            modifier = Modifier.padding(vertical = 2.dp)
+                    if (isEditing) {
+                        // Mode édition
+                        OutlinedTextField(
+                            value = nom,
+                            onValueChange = { nom = it },
+                            label = { Text("Nom") },
+                            modifier = Modifier.fillMaxWidth()
                         )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = email,
+                            onValueChange = { email = it },
+                            label = { Text("Email") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        // Ajout autres champs...
+                    } else {
+                        // Mode affichage
+                        InfoRow("Nom", nom)
+                        InfoRow("Email", email)
+                        InfoRow("Âge", "$age ans")
+                        InfoRow("Poids", "${weightNum.toInt()} kg")
+                        InfoRow("Taille", "${heightNum} cm")
+                        InfoRow("Genre", genre)
+                        InfoRow("Niveau d'activité", niveauActivite)
+                        InfoRow("Objectif", objectif)
                     }
                 }
             }
         }
 
+        // Statistiques
         item {
-            // Actions
-            Row(
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA))
             ) {
-                Button(
-                    onClick = { navController.navigate("machines") },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFF6B35)
-                    )
+                Column(
+                    modifier = Modifier.padding(16.dp)
                 ) {
-                    Text("Terminer")
-                }
+                    Text(
+                        text = "Statistiques",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE57373),
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
 
-                OutlinedButton(
-                    onClick = { /* Partager */ },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFFFF6B35)
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        StatCard("Séances", totalSessions.toString())
+                        StatCard("Minutes", totalMinutes.toString())
+                        StatCard("Calories", totalCalories.toString())
+                    }
+                }
+            }
+        }
+
+        // Recommandations nutritionnelles
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
                 ) {
-                    Icon(Icons.Filled.Share, contentDescription = null)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Partager")
+                    Text(
+                        text = "🍽️ Recommandations nutritionnelles",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE57373),
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    Text(
+                        text = "Pour votre objectif : ${objectif}",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF1976D2),
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        NutritionCard(
+                            icon = "🔥",
+                            label = "Calories/jour",
+                            value = "$goalCalories kcal",
+                            subtitle = "Objectif"
+                        )
+                        NutritionCard(
+                            icon = "🥩",
+                            label = "Protéines/jour",
+                            value = nutritionalRecommendations["Protéines"] ?: "0g",
+                            subtitle = "Minimum"
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        NutritionCard(
+                            icon = "🍞",
+                            label = "Glucides/jour",
+                            value = nutritionalRecommendations["Glucides"] ?: "0g",
+                            subtitle = "Énergie"
+                        )
+                        NutritionCard(
+                            icon = "🥑",
+                            label = "Lipides/jour",
+                            value = nutritionalRecommendations["Lipides"] ?: "0g",
+                            subtitle = "Essentiels"
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Conseil principal
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFBBDEFB)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "💡 Conseil nutrition",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1976D2)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = nutritionalRecommendations["Conseil"] ?: "Maintenez une alimentation équilibrée",
+                                fontSize = 12.sp,
+                                color = Color(0xFF424242)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Conseils personnalisés
+        if (recommendations.isNotEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = "Conseils personnalisés",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFE57373),
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+
+                        recommendations.forEach { tip ->
+                            Text(
+                                text = "• $tip",
+                                fontSize = 14.sp,
+                                color = Color(0xFF2E2E2E),
+                                modifier = Modifier.padding(vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Bouton statistiques
+        item {
+            Button(
+                onClick = onShowStatistics,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF4CAF50),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Analytics,
+                        contentDescription = "Statistiques",
+                        tint = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "📊 Voir les statistiques",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+
+        // Bouton de déconnexion
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = onLogout,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFFF5252),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ExitToApp,
+                        contentDescription = "Déconnexion",
+                        tint = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Se déconnecter",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
     }
 }
 
-data class BottomNavItem(
-    val route: String,
-    val title: String,
-    val icon: ImageVector
-)
-
-data class ExerciseDetail(
-    val name: String,
-    val sets: Int,
-    val weight: Int,
-    val totalReps: Int,
-    val volume: Int,
-    val duration: Int,
-    val calories: Float,
-    val progression: String,
-    val performance: String
-)
-
 @Composable
-fun RealisticStatsCard(
-    title: String,
-    value: String,
-    unit: String,
-    icon: String,
-    change: String,
-    modifier: Modifier = Modifier
+fun MachinesScreen(
+    profileData: ProfileData,
+    workoutHistory: List<WorkoutEntry>
 ) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    var selectedCategory by remember { mutableStateOf<CategorieMachine?>(null) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Text(
+            text = "Machines disponibles",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFFE57373),
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        // Filtres par catégorie
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(bottom = 16.dp)
         ) {
-            Text(
-                text = icon,
-                fontSize = 24.sp
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = title,
-                fontSize = 12.sp,
-                color = Color.Gray,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = value,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF333333)
-            )
-            Text(
-                text = unit,
-                fontSize = 12.sp,
-                color = Color.Gray
-            )
-            Text(
-                text = change,
-                fontSize = 10.sp,
-                color = Color(0xFFFF6B35),
-                fontWeight = FontWeight.Medium
-            )
+            item {
+                Button(
+                    onClick = { selectedCategory = null },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (selectedCategory == null) Color(0xFFE57373) else Color.White,
+                        contentColor = if (selectedCategory == null) Color.White else Color(0xFF666666)
+                    ),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.height(36.dp)
+                ) {
+                    Text(
+                        text = "Toutes",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            items(CategorieMachine.values()) { category ->
+                Button(
+                    onClick = { selectedCategory = category },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (selectedCategory == category) Color(0xFFE57373) else Color.White,
+                        contentColor = if (selectedCategory == category) Color.White else Color(0xFF666666)
+                    ),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.height(36.dp)
+                ) {
+                    Text(
+                        text = "${category.icone} ${category.displayName}",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+
+        // Liste des machines
+        val machinesFiltrees = MachineData.machines.filter { machine ->
+            selectedCategory == null || machine.categorie == selectedCategory
+        }
+
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(machinesFiltrees) { machine ->
+                MachineCard(machine = machine)
+            }
         }
     }
 }
 
 @Composable
-fun DetailedExerciseCard(exercise: ExerciseDetail) {
+fun MachineCard(machine: Machine) {
+    var expanded by remember { mutableStateOf(false) }
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { expanded = !expanded },
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
+            // Header de la carte
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -2245,241 +1337,97 @@ fun DetailedExerciseCard(exercise: ExerciseDetail) {
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = exercise.name,
+                        text = "${machine.categorie.icone} ${machine.nom}",
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2E2E2E)
                     )
                     Text(
-                        text = "${exercise.sets} séries • ${exercise.weight}kg • ${exercise.totalReps} reps total",
-                        fontSize = 14.sp,
+                        text = machine.groupeMusculairePrimaire,
+                        fontSize = 12.sp,
                         color = Color.Gray
                     )
-                }
-
-                Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = exercise.performance,
+                        text = machine.niveauDifficulte.displayName,
                         fontSize = 12.sp,
+                        color = when (machine.niveauDifficulte) {
+                            NiveauDifficulte.DEBUTANT -> Color(0xFF4CAF50)
+                            NiveauDifficulte.INTERMEDIAIRE -> Color(0xFFFF9800)
+                            NiveauDifficulte.AVANCE -> Color(0xFFE57373)
+                            NiveauDifficulte.EXPERT -> Color(0xFFF44336)
+                        },
                         fontWeight = FontWeight.Medium
                     )
-                    Text(
-                        text = exercise.progression,
-                        fontSize = 12.sp,
-                        color = Color(0xFFFF6B35)
-                    )
                 }
-            }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                MetricChip("${exercise.weight}kg", "Poids")
-                MetricChip("${exercise.duration}min", "Durée")
-                MetricChip("${exercise.calories.toInt()}", "kcal")
-            }
-        }
-    }
-}
-
-@Composable
-fun MetricChip(value: String, label: String) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFF5F5F5)
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = value,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFFF6B35)
-            )
-            Text(
-                text = label,
-                fontSize = 10.sp,
-                color = Color.Gray
-            )
-        }
-    }
-}
-
-@Composable
-fun BasicFitAppTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = lightColorScheme(
-            primary = Color(0xFFFF6B35),
-            secondary = Color(0xFF2C2C2C)
-        ),
-        content = content
-    )
-}
-
-@Composable
-fun LoginScreen(navController: NavController, onAuthenticated: (Boolean) -> Unit = {}) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Logo et titre
-        Icon(
-            Icons.Filled.FitnessCenter,
-            contentDescription = "BasicFit",
-            modifier = Modifier.size(80.dp),
-            tint = Color(0xFFFF6B35)
-        )
-
-        Text(
-            text = "BasicFit v2",
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFFFF6B35),
-            modifier = Modifier.padding(vertical = 16.dp)
-        )
-
-        Text(
-            text = "Connectez-vous à votre compte",
-            fontSize = 16.sp,
-            color = Color.Gray,
-            modifier = Modifier.padding(bottom = 32.dp)
-        )
-
-        // Champs de saisie
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Email") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            singleLine = true
-        )
-
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Mot de passe") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            visualTransformation = PasswordVisualTransformation(),
-            singleLine = true
-        )
-
-        // Message d'erreur
-        if (errorMessage.isNotEmpty()) {
-            Text(
-                text = errorMessage,
-                color = Color.Red,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-        }
-
-        // Bouton de connexion
-        Button(
-            onClick = {
-                isLoading = true
-                errorMessage = ""
-                // Simulation de connexion réussie
-                onAuthenticated(true)
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFFF6B35)
-            ),
-            enabled = !isLoading && email.isNotEmpty() && password.isNotEmpty()
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    color = Color.White,
-                    modifier = Modifier.size(20.dp)
+                Icon(
+                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Réduire" else "Développer",
+                    tint = Color(0xFFE57373)
                 )
-            } else {
-                Text("Se connecter", fontSize = 16.sp)
             }
-        }
 
-        // Connexion rapide pour démo
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFF5F5F5)
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "🚀 Connexion rapide (démo)",
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFF6B35),
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
+            // Contenu développable
+            if (expanded) {
+                Spacer(modifier = Modifier.height(12.dp))
 
-                Button(
-                    onClick = {
-                        email = "admin@basicfit.com"
-                        password = "admin123"
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF2C2C2C)
-                    ),
+                // Description
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("👨‍💼 Admin")
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "Description",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFE57373)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = machine.description,
+                            fontSize = 12.sp,
+                            color = Color(0xFF666666)
+                        )
+                    }
                 }
-            }
-        }
 
-        // Lien vers l'inscription
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(top = 24.dp)
-        ) {
-            Text("Pas encore de compte ? ", color = Color.Gray)
-            TextButton(
-                onClick = { navController.navigate("register") }
-            ) {
-                Text(
-                    "S'inscrire",
-                    color = Color(0xFFFF6B35),
-                    fontWeight = FontWeight.Bold
-                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Instructions
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "Instructions d'utilisation",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFE57373)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = machine.instructions,
+                            fontSize = 12.sp,
+                            color = Color(0xFF666666)
+                        )
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-fun RegisterScreen(navController: NavController, onAuthenticated: (Boolean) -> Unit = {}) {
-    var email by remember { mutableStateOf("") }
-    var prenom by remember { mutableStateOf("") }
-    var nom by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
+fun WorkoutScreen(
+    profileData: ProfileData,
+    workoutHistory: List<WorkoutEntry>,
+    onStartWorkout: (List<Machine>, String) -> Unit
+) {
+    var selectedMode by remember { mutableStateOf<String?>(null) }
+    var selectedMachines by remember { mutableStateOf<List<Machine>>(emptyList()) }
+    var selectedPreset by remember { mutableStateOf<MachineData.WorkoutPreset?>(null) }
 
     LazyColumn(
         modifier = Modifier
@@ -2488,187 +1436,218 @@ fun RegisterScreen(navController: NavController, onAuthenticated: (Boolean) -> U
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(
-                    Icons.Filled.PersonAdd,
-                    contentDescription = "Inscription",
-                    modifier = Modifier.size(60.dp),
-                    tint = Color(0xFFFF6B35)
-                )
-
-                Text(
-                    text = "Créer un compte",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFF6B35),
-                    modifier = Modifier.padding(vertical = 16.dp)
-                )
-            }
-        }
-
-        item {
-            OutlinedTextField(
-                value = prenom,
-                onValueChange = { prenom = it },
-                label = { Text("Prénom") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+            Text(
+                text = "🏋️ Planifier un entraînement",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFE57373)
             )
         }
 
         item {
-            OutlinedTextField(
-                value = nom,
-                onValueChange = { nom = it },
-                label = { Text("Nom") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-        }
-
-        item {
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("Email") },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                singleLine = true
-            )
-        }
-
-        item {
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Mot de passe") },
-                modifier = Modifier.fillMaxWidth(),
-                visualTransformation = PasswordVisualTransformation(),
-                singleLine = true,
-                supportingText = { Text("Minimum 8 caractères", fontSize = 12.sp) }
-            )
-        }
-
-        item {
-            OutlinedTextField(
-                value = confirmPassword,
-                onValueChange = { confirmPassword = it },
-                label = { Text("Confirmer le mot de passe") },
-                modifier = Modifier.fillMaxWidth(),
-                visualTransformation = PasswordVisualTransformation(),
-                singleLine = true,
-                isError = password.isNotEmpty() && confirmPassword.isNotEmpty() && password != confirmPassword,
-                supportingText = {
-                    if (password.isNotEmpty() && confirmPassword.isNotEmpty() && password != confirmPassword) {
-                        Text("Les mots de passe ne correspondent pas", color = Color.Red, fontSize = 12.sp)
-                    }
-                }
-            )
-        }
-
-        if (errorMessage.isNotEmpty()) {
-            item {
-                Text(
-                    text = errorMessage,
-                    color = Color.Red,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-            }
-        }
-
-        item {
-            Button(
-                onClick = {
-                    isLoading = true
-                    errorMessage = ""
-                    // Simulation d'inscription réussie
-                    onAuthenticated(true)
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFFF6B35)
-                ),
-                enabled = !isLoading &&
-                         email.isNotEmpty() &&
-                         prenom.isNotEmpty() &&
-                         nom.isNotEmpty() &&
-                         password.length >= 8 &&
-                         password == confirmPassword
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                } else {
-                    Text("Créer mon compte", fontSize = 16.sp)
-                }
-            }
-        }
-
-        item {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Déjà un compte ? ", color = Color.Gray)
-                TextButton(
-                    onClick = { navController.navigate("login") }
-                ) {
-                    Text(
-                        "Se connecter",
-                        color = Color(0xFFFF6B35),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-
-        item {
-            // Avantages de l'inscription
+            // Choix du type d'entraînement
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFF5F5F5)
-                )
+                colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp)
                 ) {
                     Text(
-                        text = "🎯 Avec votre compte :",
+                        text = "Type d'entraînement",
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFFF6B35),
+                        color = Color(0xFFE57373),
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
 
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(vertical = 4.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text("📊", fontSize = 20.sp, modifier = Modifier.padding(end = 8.dp))
-                        Text("Suivi personnalisé de vos performances")
-                    }
+                        Button(
+                            onClick = { selectedMode = "manuel" },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (selectedMode == "manuel") Color(0xFFE57373) else Color(0xFFF5F5F5),
+                                contentColor = if (selectedMode == "manuel") Color.White else Color(0xFF666666)
+                            )
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("⚙️", fontSize = 20.sp)
+                                Text("Sélection manuelle", fontSize = 12.sp, textAlign = TextAlign.Center)
+                            }
+                        }
 
+                        Button(
+                            onClick = { selectedMode = "preset" },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (selectedMode == "preset") Color(0xFFE57373) else Color(0xFFF5F5F5),
+                                contentColor = if (selectedMode == "preset") Color.White else Color(0xFF666666)
+                            )
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("🎯", fontSize = 20.sp)
+                                Text("Presets coach", fontSize = 12.sp, textAlign = TextAlign.Center)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Contenu selon le mode sélectionné
+        if (selectedMode == "preset") {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = "Programmes prêts",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFE57373),
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(MachineData.workoutPresets) { preset ->
+                                Card(
+                                    modifier = Modifier
+                                        .width(200.dp)
+                                        .clickable { selectedPreset = preset },
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (selectedPreset == preset) Color(0xFFE57373) else Color(0xFFF8F9FA)
+                                    )
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = preset.emoji,
+                                            fontSize = 32.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = preset.nom,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (selectedPreset == preset) Color.White else Color(0xFF2E2E2E)
+                                        )
+                                        Text(
+                                            text = preset.focusMusculaire,
+                                            fontSize = 12.sp,
+                                            color = if (selectedPreset == preset) Color(0x80FFFFFF) else Color.Gray,
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = "${preset.machines.size} exercices",
+                                            fontSize = 12.sp,
+                                            color = if (selectedPreset == preset) Color.White else Color(0xFFE57373)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (selectedPreset != null) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Text(
+                                text = "Aperçu du programme",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFE57373),
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+
+                            selectedPreset!!.machines.forEach { machine ->
+                                Text(
+                                    text = "• ${machine.nom} (${machine.groupeMusculairePrimaire})",
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF2E2E2E),
+                                    modifier = Modifier.padding(vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (selectedMode == "manuel") {
+            item {
+                ManualWorkoutSelection(
+                    selectedMachines = selectedMachines,
+                    onMachinesUpdate = { selectedMachines = it }
+                )
+            }
+        }
+
+        // Bouton de démarrage
+        if ((selectedMode == "preset" && selectedPreset != null) ||
+            (selectedMode == "manuel" && selectedMachines.isNotEmpty())) {
+            item {
+                Button(
+                    onClick = {
+                        val machines = if (selectedMode == "preset") {
+                            selectedPreset!!.machines
+                        } else {
+                            selectedMachines
+                        }
+                        val workoutName = if (selectedMode == "preset") {
+                            "Preset: ${selectedPreset!!.nom}"
+                        } else {
+                            "Manuel (${selectedMachines.size} exercices)"
+                        }
+                        onStartWorkout(machines, workoutName)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFE57373)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(vertical = 4.dp)
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        Text("🏋️", fontSize = 20.sp, modifier = Modifier.padding(end = 8.dp))
-                        Text("Entraînements adaptatifs basés sur votre 1RM")
-                    }
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    ) {
-                        Text("⏱️", fontSize = 20.sp, modifier = Modifier.padding(end = 8.dp))
-                        Text("Timer de repos intelligent")
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "Démarrer",
+                            tint = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "🚀 DÉMARRER LA SÉANCE",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                     }
                 }
             }
@@ -2677,84 +1656,167 @@ fun RegisterScreen(navController: NavController, onAuthenticated: (Boolean) -> U
 }
 
 @Composable
-fun WorkoutHistoryScreen(navController: NavController) {
-    val context = LocalContext.current
+fun ManualWorkoutSelection(
+    selectedMachines: List<Machine>,
+    onMachinesUpdate: (List<Machine>) -> Unit
+) {
+    var selectedCategory by remember { mutableStateOf<CategorieMachine?>(null) }
 
-    // Charger l'historique depuis le stockage local
-    val workoutHistory = remember {
-        mutableStateOf(DataManager.loadWorkoutHistory(context))
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
-        // Header avec bouton retour
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 16.dp)
+        Column(
+            modifier = Modifier.padding(16.dp)
         ) {
-            IconButton(
-                onClick = { navController.popBackStack() }
+            Text(
+                text = "Sélection manuelle",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFE57373),
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            // Filtres par catégorie
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(bottom = 16.dp)
             ) {
-                Icon(
-                    Icons.Filled.ArrowBack,
-                    contentDescription = "Retour",
-                    tint = Color(0xFFFF6B35)
+                item {
+                    Button(
+                        onClick = { selectedCategory = null },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (selectedCategory == null) Color(0xFFE57373) else Color.White,
+                            contentColor = if (selectedCategory == null) Color.White else Color(0xFF666666)
+                        ),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Text("Toutes", fontSize = 12.sp)
+                    }
+                }
+                items(CategorieMachine.values()) { category ->
+                    Button(
+                        onClick = { selectedCategory = category },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (selectedCategory == category) Color(0xFFE57373) else Color.White,
+                            contentColor = if (selectedCategory == category) Color.White else Color(0xFF666666)
+                        ),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Text("${category.icone} ${category.displayName}", fontSize = 12.sp)
+                    }
+                }
+            }
+
+            // Compteur de machines sélectionnées
+            if (selectedMachines.isNotEmpty()) {
+                Text(
+                    text = "${selectedMachines.size} machine(s) sélectionnée(s)",
+                    fontSize = 14.sp,
+                    color = Color(0xFFE57373),
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
-            Text(
-                text = "Historique des séances",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFFF6B35)
-            )
-        }
 
-        // Statistiques globales
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFF8F9FA)
-            )
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                StatItem("${workoutHistory.value.size}", "Séances")
-                StatItem("${workoutHistory.value.sumOf { it.duration }}", "Min total")
-                StatItem("${workoutHistory.value.sumOf { it.calories }}", "Calories")
-                StatItem("${workoutHistory.value.count { it.performance == "Excellent" }}", "Excellentes")
+            // Liste des machines
+            val machinesFiltrees = MachineData.machines.filter { machine ->
+                selectedCategory == null || machine.categorie == selectedCategory
             }
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+            LazyColumn(
+                modifier = Modifier.height(300.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(machinesFiltrees) { machine ->
+                    val isSelected = selectedMachines.contains(machine)
 
-        // Liste des séances
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(workoutHistory.value) { session ->
-                WorkoutSessionCard(session)
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                if (isSelected) {
+                                    onMachinesUpdate(selectedMachines - machine)
+                                } else {
+                                    onMachinesUpdate(selectedMachines + machine)
+                                }
+                            },
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected) Color(0xFFE57373) else Color(0xFFF8F9FA)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = machine.categorie.icone,
+                                fontSize = 20.sp,
+                                modifier = Modifier.padding(end = 12.dp)
+                            )
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = machine.nom,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) Color.White else Color(0xFF2E2E2E)
+                                )
+                                Text(
+                                    text = machine.groupeMusculairePrimaire,
+                                    fontSize = 12.sp,
+                                    color = if (isSelected) Color(0x80FFFFFF) else Color.Gray
+                                )
+                            }
+
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Sélectionné",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-fun StatItem(value: String, label: String) {
+fun InfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            color = Color.Gray
+        )
+        Text(
+            text = value,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+@Composable
+fun StatCard(label: String, value: String) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = value,
-            fontSize = 20.sp,
+            fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFFFF6B35)
+            color = Color(0xFFE57373)
         )
         Text(
             text = label,
@@ -2765,95 +1827,878 @@ fun StatItem(value: String, label: String) {
 }
 
 @Composable
-fun WorkoutSessionCard(session: WorkoutSession) {
+fun NutritionCard(
+    icon: String,
+    label: String,
+    value: String,
+    subtitle: String
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.width(100.dp)
+    ) {
+        Text(
+            text = icon,
+            fontSize = 20.sp,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        Text(
+            text = value,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF1976D2),
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            color = Color.Gray,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = subtitle,
+            fontSize = 10.sp,
+            color = Color(0xFF666666),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+data class NavigationItem(
+    val title: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+)
+
+@Composable
+fun MycTheme(content: @Composable () -> Unit) {
+    MaterialTheme(
+        content = content
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WorkoutInProgressScreen(
+    workoutName: String,
+    machines: List<Machine>,
+    profileData: ProfileData,
+    onFinishWorkout: (Int, List<ExerciseRecord>) -> Unit,
+    onExitWorkout: () -> Unit
+) {
+    val context = LocalContext.current  // Ajout de cette ligne manquante
+
+    var currentWorkoutSession by remember {
+        mutableStateOf(
+            WorkoutSession(
+                workoutName = workoutName,
+                exercises = machines.map { machine ->
+                    val recommendation = calculateWorkoutRecommendations(profileData, emptyList(), machine)
+                    ExerciseSession(
+                        machine = machine,
+                        targetSets = recommendation.sets,
+                        targetReps = recommendation.reps,
+                        recommendedWeight = recommendation.weight,
+                        restTime = recommendation.restTime
+                    )
+                }
+            )
+        )
+    }
+
+    var showExitDialog by remember { mutableStateOf(false) }
+    var isResting by remember { mutableStateOf(false) }
+    var restTimeRemaining by remember { mutableStateOf(0) }
+
+    // Gestion du timer de repos
+    LaunchedEffect(isResting, restTimeRemaining) {
+        if (isResting && restTimeRemaining > 0) {
+            delay(1000)
+            restTimeRemaining--
+        } else if (isResting && restTimeRemaining == 0) {
+            isResting = false
+        }
+    }
+
+    if (isResting) {
+        // Écran de repos
+        RestScreen(
+            timeRemaining = restTimeRemaining,
+            onSkipRest = {
+                isResting = false
+                restTimeRemaining = 0
+            },
+            onFinishRest = {
+                isResting = false
+            }
+        )
+    } else {
+        // Écran d'entraînement principal
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF5F5F5))
+        ) {
+            // Header
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Entraînement en cours",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = { showExitDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Quitter",
+                            tint = Color.White
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFFE57373)
+                )
+            )
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
+                    // Informations de la séance
+                    WorkoutProgressCard(
+                        workoutSession = currentWorkoutSession,
+                        profileData = profileData
+                    )
+                }
+
+                if (currentWorkoutSession.currentExerciseIndex < currentWorkoutSession.exercises.size) {
+                    item {
+                        // Exercice en cours
+                        val currentExercise = currentWorkoutSession.exercises[currentWorkoutSession.currentExerciseIndex]
+                        CurrentExerciseCard(
+                            exerciseSession = currentExercise,
+                            onSetCompleted = { weight, reps ->
+                                // Ajouter la série terminée
+                                currentExercise.sets.add(
+                                    SetRecord(weight = weight, reps = reps, completed = true)
+                                )
+
+                                // Vérifier si l'exercice est terminé
+                                if (currentExercise.sets.size >= currentExercise.targetSets) {
+                                    currentExercise.isCompleted = true
+
+                                    // Passer à l'exercice suivant
+                                    if (currentWorkoutSession.currentExerciseIndex < currentWorkoutSession.exercises.size - 1) {
+                                        currentWorkoutSession = currentWorkoutSession.copy(
+                                            currentExerciseIndex = currentWorkoutSession.currentExerciseIndex + 1
+                                        )
+                                    } else {
+                                        // Séance terminée
+                                        currentWorkoutSession = currentWorkoutSession.copy(
+                                            isCompleted = true
+                                        )
+                                    }
+                                } else {
+                                    // Démarrer le repos entre les séries
+                                    restTimeRemaining = currentExercise.restTime
+                                    isResting = true
+                                }
+                            }
+                        )
+                    }
+                }
+
+                // Exercices suivants
+                items(currentWorkoutSession.exercises.drop(currentWorkoutSession.currentExerciseIndex + 1)) { exercise ->
+                    UpcomingExerciseCard(exerciseSession = exercise)
+                }
+
+                // Bouton terminer si séance finie
+                if (currentWorkoutSession.isCompleted) {
+                    item {
+                        Button(
+                            onClick = {
+                                val duration = ((System.currentTimeMillis() - currentWorkoutSession.startTime) / 60000).toInt()
+                                val exercisesCompleted = currentWorkoutSession.exercises.map { exercise ->
+                                    ExerciseRecord(
+                                        name = exercise.machine.nom,
+                                        sets = exercise.sets.size,
+                                        reps = exercise.sets.map { it.reps }.average().toInt(),
+                                        weight = exercise.sets.map { it.weight }.average()
+                                    )
+                                }
+
+                                // Sauvegarder localement
+                                onFinishWorkout(duration, exercisesCompleted)
+
+                                // Sauvegarder sur le serveur
+                                val syncManager = SyncManager(context)
+                                kotlinx.coroutines.GlobalScope.launch {
+                                    try {
+                                        syncManager.saveWorkoutToServer(
+                                            nom = currentWorkoutSession.workoutName,
+                                            dateDebut = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
+                                            dureeMinutes = duration,
+                                            exercises = exercisesCompleted
+                                        )
+                                    } catch (e: Exception) {
+                                        // Gérer l'erreur de synchronisation silencieusement
+                                        // Les données sont déjà sauvegardées localement
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF4CAF50)
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Terminer",
+                                    tint = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "🎉 TERMINER LA SÉANCE",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Dialog de confirmation de sortie
+    if (showExitDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title = { Text("Quitter l'entraînement ?") },
+            text = { Text("Êtes-vous sûr de vouloir quitter votre entraînement en cours ? Votre progression sera perdue.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showExitDialog = false
+                        onExitWorkout()
+                    }
+                ) {
+                    Text("Quitter", color = Color(0xFFE57373))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showExitDialog = false }
+                ) {
+                    Text("Continuer")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun RestScreen(
+    timeRemaining: Int,
+    onSkipRest: () -> Unit,
+    onFinishRest: () -> Unit
+) {
+    val progress = remember(timeRemaining) {
+        if (timeRemaining > 0) (timeRemaining.toFloat() / 90f) else 0f
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF1E1E1E))
+            .padding(32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "💤 Temps de repos",
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Timer circulaire
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.size(200.dp)
+        ) {
+            CircularProgressIndicator(
+                progress = progress,
+                modifier = Modifier.fillMaxSize(),
+                color = Color(0xFFE57373),
+                strokeWidth = 8.dp
+            )
+
+            Text(
+                text = "${timeRemaining}s",
+                fontSize = 48.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Text(
+            text = "Préparez-vous pour la prochaine série",
+            fontSize = 16.sp,
+            color = Color.Gray,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(48.dp))
+
+        Button(
+            onClick = onSkipRest,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFE57373)
+            )
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SkipNext,
+                    contentDescription = "Passer",
+                    tint = Color.White
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "PASSER",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun WorkoutProgressCard(
+    workoutSession: WorkoutSession,
+    profileData: ProfileData
+) {
+    val completedExercises = workoutSession.exercises.count { it.isCompleted }
+    val totalExercises = workoutSession.exercises.size
+    val progress = if (totalExercises > 0) completedExercises.toFloat() / totalExercises.toFloat() else 0f
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Header de la séance
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = session.date,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val performanceIcon = when (session.performance) {
-                        "Excellent" -> "🔥"
-                        "Très bien" -> "💪"
-                        "Bien" -> "✅"
-                        else -> "⚠️"
-                    }
+                Column {
                     Text(
-                        text = performanceIcon,
-                        fontSize = 16.sp,
-                        modifier = Modifier.padding(end = 4.dp)
+                        text = workoutSession.workoutName,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE57373)
                     )
                     Text(
-                        text = session.performance,
+                        text = "Objectif: ${profileData.objectif}",
                         fontSize = 14.sp,
-                        color = when (session.performance) {
-                            "Excellent" -> Color(0xFFFF6B35)
-                            "Très bien" -> Color(0xFF4CAF50)
-                            "Bien" -> Color(0xFF2196F3)
-                            else -> Color.Gray
-                        },
-                        fontWeight = FontWeight.Medium
+                        color = Color.Gray
                     )
                 }
+
+                Text(
+                    text = "$completedExercises/$totalExercises",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFE57373)
+                )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Métriques de la séance
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("⏱️ ${session.duration} min", fontSize = 12.sp, color = Color.Gray)
-                Text("🔥 ${session.calories} kcal", fontSize = 12.sp, color = Color.Gray)
-                Text("💪 ${session.totalWeight}kg", fontSize = 12.sp, color = Color.Gray)
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Exercices réalisés
-            Text(
-                text = "Exercices: ${session.exercises.joinToString(", ")}",
-                fontSize = 12.sp,
-                color = Color.Gray,
-                maxLines = 2
+            LinearProgressIndicator(
+                progress = progress,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp),
+                color = Color(0xFFE57373),
+                trackColor = Color(0xFFE0E0E0)
             )
         }
     }
 }
 
-// Data class pour représenter une séance d'entraînement
-data class WorkoutSession(
-    val date: String,
-    val duration: Int,
-    val exercises: List<String>,
-    val calories: Int,
-    val totalWeight: Int,
-    val performance: String
+@Composable
+fun CurrentExerciseCard(
+    exerciseSession: ExerciseSession,
+    onSetCompleted: (Double, Int) -> Unit
+) {
+    var weight by remember { mutableStateOf(exerciseSession.recommendedWeight.toString()) }
+    var reps by remember { mutableStateOf(exerciseSession.targetReps.toString()) }
+
+    val recommendation = remember(exerciseSession) {
+        ExerciseRecommendation(
+            sets = exerciseSession.targetSets,
+            reps = exerciseSession.targetReps,
+            weight = exerciseSession.recommendedWeight,
+            restTime = exerciseSession.restTime,
+            notes = generateExerciseNotes("Prise de masse", 25, exerciseSession.machine)
+        )
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            // Header exercice
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "${exerciseSession.machine.categorie.icone} ${exerciseSession.machine.nom}",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE57373)
+                    )
+                    Text(
+                        text = exerciseSession.machine.groupeMusculairePrimaire,
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+                }
+
+                Text(
+                    text = "Série ${exerciseSession.sets.size + 1}/${exerciseSession.targetSets}",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFE57373)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Recommandations
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        text = "📋 Recommandations",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE57373)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Poids: ${recommendation.weight.toInt()}kg • Reps: ${recommendation.reps} • Repos: ${recommendation.restTime}s",
+                        fontSize = 12.sp,
+                        color = Color(0xFF666666)
+                    )
+                    if (recommendation.notes.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = recommendation.notes,
+                            fontSize = 11.sp,
+                            color = Color(0xFF666666)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Historique des séries terminées
+            if (exerciseSession.sets.isNotEmpty()) {
+                Text(
+                    text = "Séries terminées:",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF666666)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                exerciseSession.sets.forEachIndexed { index, set ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Série ${index + 1}:",
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
+                        Text(
+                            text = "${set.weight.toInt()}kg × ${set.reps} reps",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF4CAF50)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // Saisie de la série actuelle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = weight,
+                    onValueChange = { weight = it },
+                    label = { Text("Poids (kg)") },
+                    modifier = Modifier.weight(1f),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = reps,
+                    onValueChange = { reps = it },
+                    label = { Text("Reps") },
+                    modifier = Modifier.weight(1f),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Bouton valider série
+            Button(
+                onClick = {
+                    val weightValue = weight.toDoubleOrNull() ?: 0.0
+                    val repsValue = reps.toIntOrNull() ?: 0
+                    if (weightValue > 0 && repsValue > 0) {
+                        onSetCompleted(weightValue, repsValue)
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFE57373)
+                )
+            ) {
+                Text(
+                    text = "✅ VALIDER LA SÉRIE",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun UpcomingExerciseCard(
+    exerciseSession: ExerciseSession
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA))
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = exerciseSession.machine.categorie.icone,
+                fontSize = 24.sp,
+                modifier = Modifier.padding(end = 12.dp)
+            )
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = exerciseSession.machine.nom,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF666666)
+                )
+                Text(
+                    text = "${exerciseSession.targetSets} séries × ${exerciseSession.targetReps} reps",
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
+            }
+
+            Icon(
+                imageVector = Icons.Default.AccessTime,
+                contentDescription = "À venir",
+                tint = Color.Gray,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+// Fonction pour calculer les recommandations d'entraînement
+fun calculateWorkoutRecommendations(
+    profileData: ProfileData,
+    workoutHistory: List<WorkoutEntry>,
+    machine: Machine
+): ExerciseRecommendation {
+    val age = calculateAge(profileData.dateNaissance)
+    val objectif = profileData.objectif
+
+    // Utiliser la nouvelle fonction intelligente pour le poids
+    val recommendedWeight = calculateSmartWeightRecommendation(
+        machine = machine,
+        workoutHistory = workoutHistory,
+        targetReps = when (objectif) {
+            "Force" -> 5
+            "Prise de masse" -> 10
+            "Endurance" -> 20
+            "Sèche" -> 15
+            else -> 10
+        },
+        objectif = objectif
+    )
+
+    // Recommandations selon l'objectif
+    val (sets, reps, rest) = when (objectif) {
+        "Force" -> Triple(5, 5, 180) // 5 séries, 5 reps, 3min repos
+        "Prise de masse" -> Triple(4, 10, 90) // 4 séries, 10 reps, 1.5min repos
+        "Endurance" -> Triple(3, 20, 60) // 3 séries, 20 reps, 1min repos
+        "Sèche" -> Triple(4, 15, 75) // 4 séries, 15 reps, 1.25min repos
+        else -> Triple(3, 12, 90) // Par défaut
+    }
+
+    return ExerciseRecommendation(
+        sets = sets,
+        reps = reps,
+        weight = recommendedWeight,
+        restTime = rest,
+        notes = generateExerciseNotes(objectif, age, machine)
+    )
+}
+
+data class ExerciseRecommendation(
+    val sets: Int,
+    val reps: Int,
+    val weight: Double,
+    val restTime: Int,
+    val notes: String
 )
 
-@Preview(showBackground = true)
-@Composable
-fun BasicFitAppPreview() {
-    BasicFitAppTheme {
-        BasicFitApp()
+fun generateExerciseNotes(objectif: String, age: Int, machine: Machine): String {
+    val baseNotes = mutableListOf<String>()
+
+    when (objectif) {
+        "Force" -> {
+            baseNotes.add("Concentrez-vous sur la technique")
+            baseNotes.add("Charges lourdes, mouvement contrôlé")
+            baseNotes.add("Repos complet entre séries")
+        }
+        "Prise de masse" -> {
+            baseNotes.add("Tempo : 3 sec descente, 1 sec montée")
+            baseNotes.add("Maximisez la tension musculaire")
+            baseNotes.add("Échauffement important")
+        }
+        "Endurance" -> {
+            baseNotes.add("Rythme soutenu")
+            baseNotes.add("Charges modérées")
+            baseNotes.add("Repos courts")
+        }
+        "Sèche" -> {
+            baseNotes.add("Intensité élevée")
+            baseNotes.add("Superset recommandé")
+            baseNotes.add("Brûlage maximal")
+        }
+    }
+
+    if (age > 50) {
+        baseNotes.add("Échauffement prolongé recommandé")
+    }
+
+    if (machine.necessite_supervision) {
+        baseNotes.add("⚠️ Supervision recommandée")
+    }
+
+    return baseNotes.joinToString(" • ")
+}
+
+// Fonction améliorée pour calculer les calories d'une séance
+fun calculateWorkoutCaloriesImproved(
+    exercises: List<ExerciseRecord>,
+    age: Int,
+    weight: Double,
+    gender: String
+): Int {
+    val totalCalories = exercises.sumOf { exercise ->
+        // Estimer l'intensité selon le poids et reps
+        val intensity = when {
+            exercise.weight > weight -> "Intense"
+            exercise.weight > weight * 0.5 -> "Modéré"
+            else -> "Léger"
+        }
+
+        val exerciseData = ExerciseCalorieData(
+            name = exercise.name,
+            sets = exercise.sets,
+            reps = exercise.reps,
+            weight = exercise.weight,
+            restTime = 90, // Valeur par défaut
+            intensity = intensity,
+            oneRepMax = estimateOneRepMax(exercise.weight, exercise.reps)
+        )
+
+        calculateExerciseCalories(exerciseData, age, weight, gender)
+    }
+
+    return totalCalories
+}
+
+// Fonction pour trouver les records personnels
+fun findPersonalRecords(
+    currentExercises: List<ExerciseRecord>,
+    workoutHistory: List<WorkoutEntry>
+): List<String> {
+    val records = mutableListOf<String>()
+
+    // Créer un historique par exercice
+    val exerciseHistory = workoutHistory.flatMap { workout ->
+        workout.exercises.map { exercise ->
+            Pair(exercise.name, exercise)
+        }
+    }.groupBy { it.first }
+
+    currentExercises.forEach { currentExercise ->
+        val history = exerciseHistory[currentExercise.name]?.map { it.second } ?: emptyList()
+
+        if (history.isNotEmpty()) {
+            val currentVolume = currentExercise.weight * currentExercise.reps
+            val bestPreviousVolume = history.maxOfOrNull { it.weight * it.reps } ?: 0.0
+            val bestPreviousWeight = history.maxOfOrNull { it.weight } ?: 0.0
+
+            when {
+                currentVolume > bestPreviousVolume -> {
+                    records.add("${currentExercise.name} : Nouveau record de volume (${currentVolume.toInt()}kg)")
+                }
+                currentExercise.weight > bestPreviousWeight -> {
+                    records.add("${currentExercise.name} : Nouveau record de poids (${currentExercise.weight.toInt()}kg)")
+                }
+            }
+        } else {
+            // Premier exercice de ce type
+            records.add("${currentExercise.name} : Premier exercice enregistré !")
+        }
+    }
+
+    return records
+}
+
+// Fonction pour calculer les recommandations de poids intelligentes
+fun calculateSmartWeightRecommendation(
+    machine: Machine,
+    workoutHistory: List<WorkoutEntry>,
+    targetReps: Int,
+    objectif: String
+): Double {
+    // Récupérer l'historique de cet exercice
+    val exerciseHistory = workoutHistory.flatMap { workout ->
+        workout.exercises.filter { it.name == machine.nom }
+    }.sortedBy { it.weight }
+
+    if (exerciseHistory.isEmpty()) {
+        // Première fois : recommandation basée sur le poids du corps
+        return when (machine.groupeMusculairePrimaire) {
+            "Pectoraux" -> 40.0
+            "Dos" -> 35.0
+            "Jambes" -> 60.0
+            "Épaules" -> 20.0
+            "Bras" -> 15.0
+            else -> 30.0
+        }
+    }
+
+    // Analyser les dernières performances
+    val lastPerformances = exerciseHistory.takeLast(3)
+    val lastPerformance = lastPerformances.last()
+
+    // Calculer le 1RM basé sur la dernière performance
+    val estimated1RM = estimateOneRepMax(lastPerformance.weight, lastPerformance.reps)
+
+    // Analyser si l'utilisateur a réussi ses dernières séries
+    val isProgressing = analyzeProgression(lastPerformances)
+
+    // Calculer le poids recommandé selon l'objectif et la progression
+    val targetWeight = when (objectif) {
+        "Force" -> estimated1RM * 0.85 // 85% du 1RM pour 3-5 reps
+        "Prise de masse" -> estimated1RM * 0.75 // 75% du 1RM pour 8-12 reps
+        "Endurance" -> estimated1RM * 0.60 // 60% du 1RM pour 15+ reps
+        "Sèche" -> estimated1RM * 0.70 // 70% du 1RM pour 12-15 reps
+        else -> estimated1RM * 0.75
+    }
+
+    // Ajuster selon la progression
+    val adjustedWeight = if (isProgressing) {
+        // L'utilisateur progresse bien, on peut augmenter
+        targetWeight * 1.05 // +5%
+    } else {
+        // L'utilisateur a des difficultés, on reste stable ou on diminue légèrement
+        targetWeight * 0.95 // -5%
+    }
+
+    // S'assurer que le poids est dans les limites de la machine
+    return adjustedWeight.coerceIn(machine.poidsMinimum, machine.poidsMaximum)
+}
+
+// Fonction pour analyser la progression des performances
+fun analyzeProgression(performances: List<ExerciseRecord>): Boolean {
+    if (performances.size < 2) return true
+
+    val lastPerformance = performances.last()
+    val previousPerformance = performances[performances.size - 2]
+
+    // Calculer le volume (poids × reps) pour comparer
+    val lastVolume = lastPerformance.weight * lastPerformance.reps
+    val previousVolume = previousPerformance.weight * previousPerformance.reps
+
+    // Considérer comme progression si:
+    // - Volume augmenté
+    // - Même volume mais plus de reps
+    // - Même reps mais plus de poids
+    return when {
+        lastVolume > previousVolume -> true
+        lastVolume == previousVolume && lastPerformance.reps >= previousPerformance.reps -> true
+        lastPerformance.weight > previousPerformance.weight -> true
+        else -> false
     }
 }
