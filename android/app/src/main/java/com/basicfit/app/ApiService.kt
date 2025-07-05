@@ -99,6 +99,9 @@ interface BasicFitApi {
     // Machines
     @GET("workouts/machines/")
     suspend fun getMachines(): ApiResponse<List<Any>>
+
+    @GET("users/android/ping/")
+    suspend fun ping(): retrofit2.Response<Void>
 }
 
 // ==============================================
@@ -137,7 +140,9 @@ class ApiService private constructor() {
 
     companion object {
         // URL de votre API Django sur Railway
-        private const val BASE_URL = "https://basicfitv2-production.up.railway.app/api/"
+        private const val BASE_URL = "https://basicfit-production.up.railway.app/api/"
+        // URL locale pour les tests (si besoin)
+        // private const val LOCAL_URL = "http://10.0.2.2:8000/api/"
 
         @Volatile
         private var INSTANCE: ApiService? = null
@@ -150,34 +155,81 @@ class ApiService private constructor() {
     }
 
     private lateinit var api: BasicFitApi
+    private var isInitialized = false
 
     fun initialize(context: Context) {
-        val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+        try {
+            val loggingInterceptor = HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.BODY
+            }
+
+            val client = OkHttpClient.Builder()
+                .addInterceptor(AuthInterceptor(context))
+                .addInterceptor(loggingInterceptor)
+                .connectTimeout(10, TimeUnit.SECONDS) // Réduit pour détecter rapidement les problèmes
+                .readTimeout(10, TimeUnit.SECONDS)
+                .writeTimeout(10, TimeUnit.SECONDS)
+                .build()
+
+            val retrofit = Retrofit.Builder()
+                .baseUrl(BASE_URL)
+                .client(client)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
+
+            api = retrofit.create(BasicFitApi::class.java)
+            isInitialized = true
+        } catch (e: Exception) {
+            // En cas d'erreur, l'app fonctionnera en mode local uniquement
+            isInitialized = false
         }
-
-        val client = OkHttpClient.Builder()
-            .addInterceptor(AuthInterceptor(context))
-            .addInterceptor(loggingInterceptor)
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .build()
-
-        val retrofit = Retrofit.Builder()
-            .baseUrl(BASE_URL)
-            .client(client)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-
-        api = retrofit.create(BasicFitApi::class.java)
     }
 
     fun getApi(): BasicFitApi {
-        if (!::api.isInitialized) {
+        if (!isInitialized) {
             throw IllegalStateException("ApiService not initialized. Call initialize() first.")
         }
         return api
+    }
+
+    // Fonction pour vérifier si l'API est disponible
+    fun isApiAvailable(): Boolean {
+        return isInitialized
+    }
+
+    // Nouvelle méthode pour tester la connectivité réelle
+    suspend fun testServerConnectivity(): Boolean {
+        return try {
+            if (!isInitialized) {
+                false
+            } else {
+                // Test simple avec un endpoint de ping
+                val response = api.ping()
+                response.isSuccessful
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // Méthode synchrone pour tester rapidement la connectivité
+    fun isServerReachable(): Boolean {
+        return try {
+            if (!isInitialized) return false
+
+            // Test rapide de connectivité réseau
+            val url = java.net.URL(BASE_URL)
+            val connection = url.openConnection() as java.net.HttpURLConnection
+            connection.connectTimeout = 3000 // 3 secondes
+            connection.readTimeout = 3000
+            connection.requestMethod = "HEAD"
+            val responseCode = connection.responseCode
+            connection.disconnect()
+
+            responseCode in 200..299 || responseCode == 404 // 404 est OK (endpoint existe mais pas cette route)
+        } catch (e: Exception) {
+            false
+        }
     }
 
     // Méthodes utilitaires
@@ -211,6 +263,33 @@ class AuthManager(private val context: Context) {
 
     suspend fun login(email: String, password: String): Result<AuthResponse> {
         return try {
+            // Vérifier si l'API est initialisée ET si le serveur est accessible
+            val serverReachable = apiService.isServerReachable()
+            if (!apiService.isApiAvailable() || !serverReachable) {
+                // Mode hors ligne - permettre la connexion avec des données par défaut
+                val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
+                prefs.edit().apply {
+                    putString("user_email", email)
+                    putString("user_nom", "Utilisateur")
+                    putString("user_prenom", "Local")
+                    putBoolean("is_logged_in", true)
+                    putBoolean("is_offline_mode", true)
+                    apply()
+                }
+
+                return Result.success(AuthResponse(
+                    success = true,
+                    message = if (!serverReachable) "🌐 Serveur non accessible - Mode hors ligne" else "📱 Connexion en mode hors ligne",
+                    user = UserResponse(
+                        id = 1,
+                        email = email,
+                        nom = "Utilisateur",
+                        prenom = "Local"
+                    ),
+                    token = "offline_token"
+                ))
+            }
+
             val request = LoginRequest(email, password)
             val response = apiService.getApi().login(request)
 
@@ -226,6 +305,7 @@ class AuthManager(private val context: Context) {
                         putString("user_nom", user.nom)
                         putString("user_prenom", user.prenom)
                         putBoolean("is_logged_in", true)
+                        putBoolean("is_offline_mode", false)
                         apply()
                     }
                 }
@@ -233,7 +313,37 @@ class AuthManager(private val context: Context) {
 
             Result.success(response)
         } catch (e: Exception) {
-            Result.failure(e)
+            // En cas d'erreur réseau, proposer le mode hors ligne
+            when {
+                e.message?.contains("404") == true -> {
+                    Result.failure(Exception("❌ Serveur non disponible. Connexion en mode hors ligne possible."))
+                }
+                e.message?.contains("timeout") == true || e.message?.contains("Unable to resolve host") == true -> {
+                    // Mode hors ligne automatique en cas de problème réseau
+                    val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
+                    prefs.edit().apply {
+                        putString("user_email", email)
+                        putString("user_nom", "Utilisateur")
+                        putString("user_prenom", "Local")
+                        putBoolean("is_logged_in", true)
+                        putBoolean("is_offline_mode", true)
+                        apply()
+                    }
+
+                    Result.success(AuthResponse(
+                        success = true,
+                        message = "📱 Mode hors ligne activé",
+                        user = UserResponse(
+                            id = 1,
+                            email = email,
+                            nom = "Utilisateur",
+                            prenom = "Local"
+                        ),
+                        token = "offline_token"
+                    ))
+                }
+                else -> Result.failure(Exception("❌ Erreur de connexion: ${e.message}"))
+            }
         }
     }
 
@@ -250,6 +360,33 @@ class AuthManager(private val context: Context) {
         niveauExperience: String? = null
     ): Result<AuthResponse> {
         return try {
+            // Vérifier si l'API est initialisée ET si le serveur est accessible
+            val serverReachable = apiService.isServerReachable()
+            if (!apiService.isApiAvailable() || !serverReachable) {
+                // Mode hors ligne - permettre l'inscription avec des données par défaut
+                val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
+                prefs.edit().apply {
+                    putString("user_email", email)
+                    putString("user_nom", nom)
+                    putString("user_prenom", prenom)
+                    putBoolean("is_logged_in", true)
+                    putBoolean("is_offline_mode", true)
+                    apply()
+                }
+
+                return Result.success(AuthResponse(
+                    success = true,
+                    message = if (!serverReachable) "🌐 Serveur non accessible - Inscription hors ligne" else "📱 Inscription en mode hors ligne",
+                    user = UserResponse(
+                        id = 1,
+                        email = email,
+                        nom = nom,
+                        prenom = prenom
+                    ),
+                    token = "offline_token"
+                ))
+            }
+
             val request = RegisterRequest(
                 email = email,
                 password = password,
@@ -276,6 +413,7 @@ class AuthManager(private val context: Context) {
                         putString("user_nom", user.nom)
                         putString("user_prenom", user.prenom)
                         putBoolean("is_logged_in", true)
+                        putBoolean("is_offline_mode", false)
                         apply()
                     }
                 }
@@ -283,7 +421,58 @@ class AuthManager(private val context: Context) {
 
             Result.success(response)
         } catch (e: Exception) {
-            Result.failure(e)
+            // En cas d'erreur réseau, créer le compte en mode hors ligne
+            when {
+                e.message?.contains("404") == true -> {
+                    // Créer automatiquement le compte en mode hors ligne
+                    val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
+                    prefs.edit().apply {
+                        putString("user_email", email)
+                        putString("user_nom", nom)
+                        putString("user_prenom", prenom)
+                        putBoolean("is_logged_in", true)
+                        putBoolean("is_offline_mode", true)
+                        apply()
+                    }
+
+                    Result.success(AuthResponse(
+                        success = true,
+                        message = "✅ Compte créé en mode hors ligne",
+                        user = UserResponse(
+                            id = 1,
+                            email = email,
+                            nom = nom,
+                            prenom = prenom
+                        ),
+                        token = "offline_token"
+                    ))
+                }
+                e.message?.contains("timeout") == true || e.message?.contains("Unable to resolve host") == true -> {
+                    // Mode hors ligne automatique
+                    val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
+                    prefs.edit().apply {
+                        putString("user_email", email)
+                        putString("user_nom", nom)
+                        putString("user_prenom", prenom)
+                        putBoolean("is_logged_in", true)
+                        putBoolean("is_offline_mode", true)
+                        apply()
+                    }
+
+                    Result.success(AuthResponse(
+                        success = true,
+                        message = "📱 Compte créé en mode hors ligne",
+                        user = UserResponse(
+                            id = 1,
+                            email = email,
+                            nom = nom,
+                            prenom = prenom
+                        ),
+                        token = "offline_token"
+                    ))
+                }
+                else -> Result.failure(Exception("❌ Erreur d'inscription: ${e.message}"))
+            }
         }
     }
 

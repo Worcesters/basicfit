@@ -13,6 +13,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from django.utils import timezone
 
 from .models import User, ProfilUtilisateur
 from .serializers import (
@@ -473,19 +474,11 @@ def android_register(request):
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def android_profile(request):
-    """Profil simplifié pour l'application Android"""
+    """
+    API simplifiée pour récupérer le profil utilisateur depuis Android
+    """
     try:
         user = request.user
-
-        # Import conditionnel pour éviter les dépendances circulaires
-        from apps.workouts.models import SeanceEntrainement
-
-        # Calculer les statistiques
-        total_seances = SeanceEntrainement.objects.filter(
-            utilisateur=user,
-            statut='TERMINEE'
-        ).count()
-
         return Response({
             'success': True,
             'user': {
@@ -493,13 +486,28 @@ def android_profile(request):
                 'email': user.email,
                 'nom': user.nom,
                 'prenom': user.prenom,
-                'date_inscription': user.date_joined.strftime('%d/%m/%Y'),
-                'total_seances': total_seances
+                'poids': user.poids,
+                'taille': user.taille,
+                'objectif_sportif': user.objectif_sportif,
+                'niveau_experience': user.niveau_experience,
+                'date_naissance': user.date_naissance.isoformat() if user.date_naissance else None,
             }
-        }, status=status.HTTP_200_OK)
-
+        })
     except Exception as e:
         return Response({
             'success': False,
-            'message': f'Erreur: {str(e)}'
+            'message': f'Erreur lors de la récupération du profil: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET', 'HEAD'])
+@permission_classes([permissions.AllowAny])
+def android_ping(request):
+    """
+    Endpoint simple pour tester la connectivité depuis l'application Android
+    """
+    return Response({
+        'success': True,
+        'message': 'Serveur BasicFit accessible',
+        'timestamp': timezone.now().isoformat()
+    })

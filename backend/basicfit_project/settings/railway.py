@@ -10,7 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Django settings
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-basicfit-production-key-2024')
-DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'  # False par défaut pour la production
 ALLOWED_HOSTS = ['*']
 
 # Applications Django complètes
@@ -152,12 +152,13 @@ SIMPLE_JWT = {
 # Modèle utilisateur personnalisé
 AUTH_USER_MODEL = 'users.User'
 
-# Static files
+# Static files - Configuration corrigée pour Railway
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [
-    BASE_DIR / 'static',
-]
+# Suppression de STATICFILES_DIRS car le répertoire n'existe pas
+# STATICFILES_DIRS = [
+#     BASE_DIR / 'static',
+# ]
 
 # Media files
 MEDIA_URL = '/media/'

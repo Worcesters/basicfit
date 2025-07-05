@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +42,13 @@ import java.time.Period
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.MainScope
 
@@ -297,6 +305,24 @@ fun MainScreen() {
     var showWorkoutSummary by remember { mutableStateOf(false) }
     var lastWorkoutSummary by remember { mutableStateOf<WorkoutSummary?>(null) }
     var showStatistics by remember { mutableStateOf(false) }
+    var syncStatus by remember { mutableStateOf("") }
+    var lastSyncTime by remember { mutableStateOf("") }
+    var connectionStatus by remember { mutableStateOf("Vérification...") }
+    var isOnline by remember { mutableStateOf(false) }
+
+    // Vérifier la connectivité au démarrage
+    LaunchedEffect(Unit) {
+        try {
+            val apiService = ApiService.getInstance()
+            apiService.initialize(context)
+            val serverReachable = apiService.isServerReachable()
+            isOnline = serverReachable
+            connectionStatus = if (serverReachable) "🟢 Connecté au serveur" else "🔴 Mode hors ligne"
+        } catch (e: Exception) {
+            isOnline = false
+            connectionStatus = "🔴 Mode hors ligne"
+        }
+    }
 
     if (!isLoggedIn) {
         // Écran de connexion/inscription
@@ -306,6 +332,25 @@ fun MainScreen() {
                 dataManager.saveProfileData(userProfile)
                 dataManager.setUserLoggedIn(true)
                 isLoggedIn = true
+
+                // Synchroniser les données depuis le serveur
+                val syncManager = SyncManager(context)
+                kotlinx.coroutines.GlobalScope.launch {
+                    try {
+                        // Récupérer l'historique depuis le serveur
+                        val serverHistory = syncManager.syncWorkoutHistory()
+                        kotlinx.coroutines.MainScope().launch {
+                            serverHistory.onSuccess { history ->
+                                // Fusionner avec l'historique local si nécessaire
+                                // Pour l'instant, on priorise les données serveur
+                                // workoutHistory = convertServerHistoryToLocal(history)
+                                // dataManager.saveWorkoutHistory(workoutHistory)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // Continuer avec les données locales en cas d'erreur réseau
+                    }
+                }
             }
         )
     } else if (showStatistics) {
@@ -935,42 +980,113 @@ fun ProfileScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            // Header avec bouton édition
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Mon Profil",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFE57373)
-                )
-                IconButton(
-                    onClick = {
-                        if (isEditing) {
-                            // Sauvegarder
-                            val newProfile = ProfileData(
-                                nom = nom,
-                                email = email,
-                                dateNaissance = dateNaissance,
-                                poids = poids.toDoubleOrNull() ?: 70.0,
-                                taille = taille.toIntOrNull() ?: 170,
-                                genre = genre,
-                                niveauActivite = niveauActivite,
-                                objectif = objectif
-                            )
-                            onSaveProfile(newProfile)
-                        }
-                        isEditing = !isEditing
-                    }
+            // Header avec bouton édition et statut de connexion
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = if (isEditing) Icons.Default.Check else Icons.Default.Edit,
-                        contentDescription = if (isEditing) "Sauvegarder" else "Éditer",
-                        tint = Color(0xFFE57373)
+                    Text(
+                        text = "Mon Profil",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE57373)
                     )
+                    IconButton(
+                        onClick = {
+                            if (isEditing) {
+                                // Sauvegarder
+                                val newProfile = ProfileData(
+                                    nom = nom,
+                                    email = email,
+                                    dateNaissance = dateNaissance,
+                                    poids = poids.toDoubleOrNull() ?: 70.0,
+                                    taille = taille.toIntOrNull() ?: 170,
+                                    genre = genre,
+                                    niveauActivite = niveauActivite,
+                                    objectif = objectif
+                                )
+                                onSaveProfile(newProfile)
+                            }
+                            isEditing = !isEditing
+                        }
+                    ) {
+                        Icon(
+                            imageVector = if (isEditing) Icons.Default.Check else Icons.Default.Edit,
+                            contentDescription = if (isEditing) "Sauvegarder" else "Éditer",
+                            tint = Color(0xFFE57373)
+                        )
+                    }
+                }
+
+                // Indicateur de statut de connexion
+                var connectionStatus by remember { mutableStateOf("Vérification...") }
+                var isOnline by remember { mutableStateOf(false) }
+
+                LaunchedEffect(Unit) {
+                    try {
+                        val apiService = ApiService.getInstance()
+                        apiService.initialize(context)
+                        val serverReachable = apiService.isServerReachable()
+                        isOnline = serverReachable
+                        connectionStatus = if (serverReachable) "🟢 Connecté au serveur" else "🔴 Mode hors ligne"
+                    } catch (e: Exception) {
+                        isOnline = false
+                        connectionStatus = "🔴 Mode hors ligne"
+                    }
+                }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isOnline) Color(0xFFE8F5E8) else Color(0xFFFFEBEE)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = connectionStatus,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (isOnline) Color(0xFF4CAF50) else Color(0xFFE57373)
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        Button(
+                            onClick = {
+                                // Tester la connexion manuellement
+                                GlobalScope.launch {
+                                    try {
+                                        val apiService = ApiService.getInstance()
+                                        val serverReachable = apiService.isServerReachable()
+                                        MainScope().launch {
+                                            isOnline = serverReachable
+                                            connectionStatus = if (serverReachable) "🟢 Connecté au serveur" else "🔴 Mode hors ligne"
+                                        }
+                                    } catch (e: Exception) {
+                                        MainScope().launch {
+                                            isOnline = false
+                                            connectionStatus = "🔴 Mode hors ligne"
+                                        }
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFE57373)
+                            ),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text(
+                                text = "🔄 Tester",
+                                fontSize = 12.sp,
+                                color = Color.White
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1245,6 +1361,7 @@ fun MachinesScreen(
     workoutHistory: List<WorkoutEntry>
 ) {
     var selectedCategory by remember { mutableStateOf<CategorieMachine?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -1257,6 +1374,39 @@ fun MachinesScreen(
             fontWeight = FontWeight.Bold,
             color = Color(0xFFE57373),
             modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        // Barre de recherche
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            label = { Text("Rechercher une machine...") },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Rechercher",
+                    tint = Color(0xFFE57373)
+                )
+            },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = "Effacer",
+                            tint = Color.Gray
+                        )
+                    }
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFFE57373),
+                focusedLabelColor = Color(0xFFE57373)
+            ),
+            singleLine = true
         )
 
         // Filtres par catégorie
@@ -1300,9 +1450,27 @@ fun MachinesScreen(
             }
         }
 
-        // Liste des machines
+        // Liste des machines filtrées
         val machinesFiltrees = MachineData.machines.filter { machine ->
-            selectedCategory == null || machine.categorie == selectedCategory
+            val matchesCategory = selectedCategory == null || machine.categorie == selectedCategory
+            val matchesSearch = searchQuery.isEmpty() ||
+                machine.nom.contains(searchQuery, ignoreCase = true) ||
+                machine.nomAnglais.contains(searchQuery, ignoreCase = true) ||
+                machine.groupeMusculairePrimaire.contains(searchQuery, ignoreCase = true) ||
+                machine.description.contains(searchQuery, ignoreCase = true) ||
+                machine.tags.any { it.contains(searchQuery, ignoreCase = true) }
+
+            matchesCategory && matchesSearch
+        }
+
+        // Affichage du nombre de résultats
+        if (searchQuery.isNotEmpty()) {
+            Text(
+                text = "${machinesFiltrees.size} machine(s) trouvée(s)",
+                fontSize = 14.sp,
+                color = Color.Gray,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
         }
 
         LazyColumn(
@@ -1310,6 +1478,35 @@ fun MachinesScreen(
         ) {
             items(machinesFiltrees) { machine ->
                 MachineCard(machine = machine)
+            }
+        }
+
+        // Message si aucun résultat
+        if (machinesFiltrees.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "🔍",
+                        fontSize = 48.sp,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    Text(
+                        text = "Aucune machine trouvée",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE57373)
+                    )
+                    Text(
+                        text = if (searchQuery.isNotEmpty()) "Essayez un autre terme de recherche" else "Changez les filtres",
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+                }
             }
         }
     }

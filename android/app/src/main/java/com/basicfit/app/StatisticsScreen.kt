@@ -65,19 +65,21 @@ fun StatisticsScreen(
         // Header
         TopAppBar(
             title = {
-                Text(
-                    text = "📊 Statistiques",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Retour",
-                        tint = Color.White
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Retour",
+                            tint = Color.White
+                        )
+                    }
+                    Text(
+                        text = "📊 Statistiques",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
                     )
                 }
             },
