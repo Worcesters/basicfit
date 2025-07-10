@@ -55,15 +55,14 @@ data class UserResponse(
 
 data class WorkoutRequest(
     val nom: String,
-    val date_debut: String,
-    val duree_minutes: Int,
-    val exercises: List<ExerciseRequest>
+    @SerializedName("duree") val duree: Int,
+    @SerializedName("exercices") val exercices: List<ExerciseRequest>
 )
 
 data class ExerciseRequest(
     val nom: String,
     val series: Int,
-    val repetitions: Int,
+    @SerializedName("reps") val repetitions: Int,
     val poids: Double
 )
 
@@ -541,9 +540,8 @@ class SyncManager(private val context: Context) {
 
             val request = WorkoutRequest(
                 nom = nom,
-                date_debut = dateDebut,
-                duree_minutes = dureeMinutes,
-                exercises = exerciseRequests
+                duree = dureeMinutes,
+                exercices = exerciseRequests
             )
 
             val response = apiService.getApi().saveWorkout(request)

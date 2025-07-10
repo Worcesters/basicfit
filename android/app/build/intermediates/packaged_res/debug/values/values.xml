@@ -4,6 +4,10 @@
     <color name="basicfit_light_gray">#F5F5F5</color>
     <color name="basicfit_orange">#FF6B35</color>
     <color name="black">#FF000000</color>
+    <color name="colorAccent">#5B8DEF</color>
+    <color name="colorPrimary">#00C8B5</color>
+    <color name="colorPrimaryDark">#009381</color>
+    <color name="ic_launcher_background">#FFFFFF</color>
     <color name="ic_launcher_bg">#00C8B5</color>
     <color name="purple_200">#FFBB86FC</color>
     <color name="purple_500">#FF6200EE</color>
@@ -11,18 +15,24 @@
     <color name="teal_200">#FF03DAC5</color>
     <color name="teal_700">#FF018786</color>
     <color name="white">#FFFFFFFF</color>
-    <string name="app_name">BasicFit</string>
-    <string name="error_loading_machines">Erreur lors du chargement des machines</string>
-    <string name="filter_all">Toutes</string>
-    <string name="filter_cable">Câble</string>
-    <string name="filter_cardio">Cardio</string>
-    <string name="filter_musculation">Musculation</string>
-    <string name="filter_poids_libre">Poids libre</string>
-    <string name="loading">Chargement...</string>
-    <string name="machines_title">Machines</string>
-    <string name="profile_title">Profil</string>
-    <string name="retry">Réessayer</string>
-    <string name="workouts_title">Entraînements</string>
+    <string name="app_name">mycoach-mobile</string>
+    <string name="custom_url_scheme">io.ionic.starter</string>
+    <string name="package_name">io.ionic.starter</string>
+    <string name="title_activity_main">mycoach-mobile</string>
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:background">@null</item>
+    </style>
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="android:background">@drawable/splash</item>
+    </style>
     <style name="Theme.BasicFitApp" parent="Theme.AppCompat.DayNight.NoActionBar">
         
         <item name="colorPrimary">@color/basicfit_orange</item>

@@ -1313,6 +1313,9 @@ color cardview_dark_background
 color cardview_light_background
 color cardview_shadow_end_color
 color cardview_shadow_start_color
+color colorAccent
+color colorPrimary
+color colorPrimaryDark
 color design_bottom_navigation_shadow_color
 color design_box_stroke_color
 color design_dark_default_color_background
@@ -1361,6 +1364,7 @@ color foreground_material_dark
 color foreground_material_light
 color highlighted_text_material_dark
 color highlighted_text_material_light
+color ic_launcher_background
 color ic_launcher_bg
 color m3_appbar_overlay_color
 color m3_assist_chip_icon_tint_color
@@ -2957,6 +2961,8 @@ drawable ic_clock_black_24dp
 drawable ic_email
 drawable ic_exit
 drawable ic_keyboard_black_24dp
+drawable ic_launcher_background
+drawable ic_launcher_foreground
 drawable ic_lock
 drawable ic_login
 drawable ic_logo_fg
@@ -3044,6 +3050,7 @@ drawable notification_template_icon_bg
 drawable notification_template_icon_low_bg
 drawable notification_tile_bg
 drawable notify_panel_notification_icon_bg
+drawable splash
 drawable test_level_drawable
 drawable tooltip_frame_dark
 drawable tooltip_frame_light
@@ -3621,6 +3628,7 @@ layout abc_search_dropdown_item_icons_2line
 layout abc_search_view
 layout abc_select_dialog_material
 layout abc_tooltip
+layout activity_main
 layout custom_dialog
 layout design_bottom_navigation_item
 layout design_bottom_sheet_dialog
@@ -3753,26 +3761,20 @@ string character_counter_pattern
 string clear_text_end_icon_content_description
 string close_drawer
 string close_sheet
+string custom_url_scheme
 string default_error_message
 string default_popup_window_title
 string dropdown_menu
 string error_a11y_label
 string error_icon_content_description
-string error_loading_machines
 string exposed_dropdown_menu_content_description
 string fab_transformation_scrim_behavior
 string fab_transformation_sheet_behavior
-string filter_all
-string filter_cable
-string filter_cardio
-string filter_musculation
-string filter_poids_libre
 string hide_bottom_view_on_scroll_behavior
 string icon_content_description
 string in_progress
 string indeterminate
 string item_view_role_description
-string loading
 string m3_exceed_max_badge_text_suffix
 string m3_ref_typeface_brand_medium
 string m3_ref_typeface_brand_regular
@@ -3845,7 +3847,6 @@ string m3c_time_picker_period_toggle_description
 string m3c_time_picker_pm
 string m3c_tooltip_long_press_label
 string m3c_tooltip_pane_description
-string machines_title
 string material_clock_display_divider
 string material_clock_toggle_content_description
 string material_hour_24h_suffix
@@ -3934,15 +3935,14 @@ string navigation_menu
 string not_selected
 string off
 string on
+string package_name
 string password_toggle_content_description
 string path_password_eye
 string path_password_eye_mask_strike_through
 string path_password_eye_mask_visible
 string path_password_strike_through
-string profile_title
 string range_end
 string range_start
-string retry
 string search_menu_title
 string searchbar_scrolling_view_behavior
 string searchview_clear_text_content_description
@@ -3954,9 +3954,9 @@ string status_bar_notification_info_overflow
 string switch_role
 string tab
 string template_percent
+string title_activity_main
 string tooltip_description
 string tooltip_label
-string workouts_title
 style AlertDialog_AppCompat
 style AlertDialog_AppCompat_Light
 style Animation_AppCompat_Dialog
@@ -3968,6 +3968,9 @@ style Animation_Material3_SideSheetDialog
 style Animation_Material3_SideSheetDialog_Left
 style Animation_Material3_SideSheetDialog_Right
 style Animation_MaterialComponents_BottomSheetDialog
+style AppTheme
+style AppTheme_NoActionBar
+style AppTheme_NoActionBarLaunch
 style Base_AlertDialog_AppCompat
 style Base_AlertDialog_AppCompat_Light
 style Base_Animation_AppCompat_Dialog
@@ -5242,4 +5245,6 @@ styleable ViewBackgroundHelper android_background backgroundTint backgroundTintM
 styleable ViewPager2 android_orientation
 styleable ViewStubCompat android_id android_layout android_inflatedId
 xml backup_rules
+xml config
 xml data_extraction_rules
+xml file_paths

@@ -15,4 +15,9 @@
 
     <!-- Background adaptive icon -->
     <color name="ic_launcher_bg">#00C8B5</color>
+
+    <!-- Couleurs primaires manquantes pour les thèmes hérités -->
+    <color name="colorPrimary">#00C8B5</color>
+    <color name="colorPrimaryDark">#009381</color>
+    <color name="colorAccent">#5B8DEF</color>
 </resources>
