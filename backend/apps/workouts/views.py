@@ -175,9 +175,20 @@ def sauvegarder_seance_simple(request):
                 machine = Machine.objects.filter(nom__icontains=exercice_data['nom']).first()
             except Machine.DoesNotExist:
                 # Créer une machine basique si elle n'existe pas
+                from apps.machines.models import CategorieMachine
+                # On prend ou crée la catégorie « MUSCULATION » comme défaut
+                categorie_defaut, _ = CategorieMachine.objects.get_or_create(nom='MUSCULATION', defaults={
+                    'description': 'Catégorie auto générée',
+                })
+
                 machine = Machine.objects.create(
                     nom=exercice_data['nom'],
-                    groupe_musculaire='Général'
+                    description='Créée automatiquement depuis import CSV',
+                    instructions='',
+                    categorie=categorie_defaut,
+                    increment_poids=2.5,
+                    poids_minimum=0.0,
+                    poids_maximum=200.0
                 )
 
             exercice = ExerciceSeance.objects.create(
