@@ -746,27 +746,36 @@ fun AuthScreen(
 
                             // Sélecteur de date (format français)
                             val dateFormatterFr = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
-                            val calendar = remember { java.util.Calendar.getInstance() }
+                            val contextDate = LocalContext.current
 
                             OutlinedTextField(
-                                value = dateNaissance,
-                                onValueChange = {}, // champ en lecture seule
+                                value = if (dateNaissance.isBlank()) "" else try {
+                                    LocalDate.parse(dateNaissance).format(dateFormatterFr)
+                                } catch (_: Exception) { dateNaissance },
+                                onValueChange = {},
                                 label = { Text("Date de naissance") },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        val year = calendar.get(java.util.Calendar.YEAR)
-                                        val month = calendar.get(java.util.Calendar.MONTH)
-                                        val day = calendar.get(java.util.Calendar.DAY_OF_MONTH)
-
-                                        android.app.DatePickerDialog(context, { _, y, m, d ->
-                                            val selected = LocalDate.of(y, m + 1, d)
-                                            dateNaissance = selected.format(dateFormatterFr)
-                                        }, year, month, day).show()
-                                    },
+                                modifier = Modifier.fillMaxWidth(),
                                 readOnly = true,
                                 singleLine = true,
-                                placeholder = { Text("JJ/MM/AAAA") }
+                                placeholder = { Text("JJ/MM/AAAA") },
+                                trailingIcon = {
+                                    IconButton(onClick = {
+                                        val today = LocalDate.now()
+                                        val init = try { LocalDate.parse(dateNaissance) } catch (_: Exception) { today.minusYears(25) }
+                                        android.app.DatePickerDialog(
+                                            contextDate,
+                                            { _, y, m, d ->
+                                                val picked = LocalDate.of(y, m + 1, d)
+                                                dateNaissance = picked.toString()
+                                            },
+                                            init.year,
+                                            init.monthValue - 1,
+                                            init.dayOfMonth
+                                        ).show()
+                                    }) {
+                                        Icon(Icons.Default.DateRange, contentDescription = "Choisir la date")
+                                    }
+                                }
                             )
 
                             Spacer(modifier = Modifier.height(16.dp))
@@ -1181,7 +1190,7 @@ fun ProfileScreen(
 
                         // Sélecteur date naissance – format JJ/MM/AAAA
                         val dateFormatterFr = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
-                        val calendar = remember { java.util.Calendar.getInstance() }
+                        val contextDate = LocalContext.current
 
                         OutlinedTextField(
                             value = if (dateNaissance.isBlank()) "" else try {
@@ -1189,26 +1198,28 @@ fun ProfileScreen(
                             } catch (_: Exception) { dateNaissance },
                             onValueChange = {},
                             label = { Text("Date de naissance") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    val now = LocalDate.now()
-                                    val initDate = try { LocalDate.parse(dateNaissance) } catch (_: Exception) { now.minusYears(25) }
-                                    val dlg = android.app.DatePickerDialog(
-                                        context,
-                                        { _, y, m, d ->
-                                            val selected = LocalDate.of(y, m + 1, d)
-                                            dateNaissance = selected.toString() // stockée ISO
-                                        },
-                                        initDate.year,
-                                        initDate.month.value - 1,
-                                        initDate.dayOfMonth
-                                    )
-                                    dlg.show()
-                                },
+                            modifier = Modifier.fillMaxWidth(),
                             readOnly = true,
                             singleLine = true,
-                            placeholder = { Text("JJ/MM/AAAA") }
+                            placeholder = { Text("JJ/MM/AAAA") },
+                            trailingIcon = {
+                                IconButton(onClick = {
+                                    val today = LocalDate.now()
+                                    val init = try { LocalDate.parse(dateNaissance) } catch (_: Exception) { today.minusYears(25) }
+                                    android.app.DatePickerDialog(
+                                        contextDate,
+                                        { _, y, m, d ->
+                                            val picked = LocalDate.of(y, m + 1, d)
+                                            dateNaissance = picked.toString()
+                                        },
+                                        init.year,
+                                        init.monthValue - 1,
+                                        init.dayOfMonth
+                                    ).show()
+                                }) {
+                                    Icon(Icons.Default.DateRange, contentDescription = "Choisir la date")
+                                }
+                            }
                         )
 
                         Spacer(modifier = Modifier.height(8.dp))
@@ -2754,10 +2765,10 @@ fun CurrentExerciseCard(
     LaunchedEffect(exerciseSession.sets.size) {
         if (exerciseSession.sets.isNotEmpty()) {
             val last = exerciseSession.sets.last()
-            weight = "${"%.1f".format(last.weight)}".trimEnd('0').trimEnd('.')
+            weight = String.format(java.util.Locale.US, "%.1f", last.weight).trimEnd('0').trimEnd('.')
             reps = last.reps.toString()
         } else {
-            weight = "${"%.1f".format(exerciseSession.recommendedWeight)}".trimEnd('0').trimEnd('.')
+            weight = String.format(java.util.Locale.US, "%.1f", exerciseSession.recommendedWeight).trimEnd('0').trimEnd('.')
             reps = exerciseSession.targetReps.toString()
         }
     }
