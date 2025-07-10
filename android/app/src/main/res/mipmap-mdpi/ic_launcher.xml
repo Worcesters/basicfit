@@ -15,4 +15,9 @@
         android:pathData="M54 18
             a36 36 0 1 1 0 72
             a36 36 0 1 1 0 -72" />
+
+    <!-- Haltère blanche -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,46h6v16h-6z M30,52h48v4h-48z M78,46h6v16h-6z" />
 </vector>

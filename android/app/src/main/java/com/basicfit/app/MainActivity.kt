@@ -464,9 +464,39 @@ fun MainScreen() {
                 workoutInProgress = true
             },
             onShowStatistics = { showStatistics = true },
-            onCsvImported = { importedWorkoutHistory ->
-                workoutHistory = workoutHistory + importedWorkoutHistory
+            onCsvImported = { imported ->
+                // Fusionne les entrées par date
+                val combined = (workoutHistory + imported).groupBy { it.date }.map { (date, entries) ->
+                    if (entries.size == 1) {
+                        entries.first()
+                    } else {
+                        // concatène les exercices & somme la durée/poids
+                        val allExercises = entries.flatMap { it.exercises }
+                        WorkoutEntry(
+                            date = date,
+                            mode = "Import CSV",
+                            exercises = allExercises,
+                            duration = entries.sumOf { it.duration },
+                            totalWeight = allExercises.sumOf { it.weight * it.reps }
+                        )
+                    }
+                }
+                workoutHistory = combined.sortedBy { it.date }
                 dataManager.saveWorkoutHistory(workoutHistory)
+
+                // Upload vers le serveur en arrière-plan si connecté
+                kotlinx.coroutines.GlobalScope.launch {
+                    val sync = SyncManager(context)
+                    combined.forEach { entry ->
+                        val result = sync.saveWorkoutToServer(
+                            nom = entry.mode,
+                            dateDebut = entry.date.toString(),
+                            dureeMinutes = entry.duration,
+                            exercises = entry.exercises
+                        )
+                        // Ignore échecs réseau ; les données restent locales
+                    }
+                }
             },
             onWorkoutHistoryChange = { newWorkoutHistory ->
                 workoutHistory = newWorkoutHistory
@@ -945,8 +975,18 @@ fun AppMainInterface(
                     onWorkoutHistoryChange = onWorkoutHistoryChange,
                     onCsvImported = onCsvImported,
                     onEntryClick = { entry ->
-                        val machines = entry.exercises.mapNotNull { record ->
-                            MachineData.machines.find { it.nom.equals(record.name, ignoreCase = true) }
+                        val machines = entry.exercises.map { record ->
+                            MachineData.machines.find { it.nom.equals(record.name, ignoreCase = true) } ?: Machine(
+                                id = 0,
+                                nom = record.name,
+                                description = "Import CSV",
+                                instructions = "",
+                                categorie = CategorieMachine.MUSCULATION,
+                                groupeMusculairePrimaire = "",
+                                incrementPoids = 2.5,
+                                poidsMinimum = 0.0,
+                                poidsMaximum = 200.0
+                            )
                         }
                         val workoutName = "Import ${entry.date}"
                         onStartWorkout(machines, workoutName)
@@ -1359,18 +1399,21 @@ fun MachinesScreen(
             val response = api.getMachines()
             if (response.success && response.data != null && response.data.isNotEmpty()) {
                 // Mapper MachineDto vers Machine du côté app (en conservant les champs principaux)
-                val remoteMachines = response.data.map { dto ->
-                    Machine(
-                        id = dto.id,
-                        nom = dto.nom,
-                        description = dto.description ?: "",
-                        instructions = dto.description ?: "",
-                        categorie = CategorieMachine.valueOf(dto.categorie ?: "MUSCULATION"),
-                        groupeMusculairePrimaire = "",
-                        incrementPoids = 2.5,
-                        poidsMinimum = 0.0,
-                        poidsMaximum = 200.0
-                    )
+                val remoteMachines = response.data.mapNotNull { dto ->
+                    try {
+                        Machine(
+                            id = dto.id,
+                            nom = dto.nom,
+                            description = dto.description ?: "",
+                            instructions = dto.description ?: "",
+                            categorie = CategorieMachine.values().find { it.name.equals(dto.categorie ?: "", true) }
+                                ?: CategorieMachine.MUSCULATION,
+                            groupeMusculairePrimaire = "",
+                            incrementPoids = 2.5,
+                            poidsMinimum = 0.0,
+                            poidsMaximum = 200.0
+                        )
+                    } catch (_: Exception) { null }
                 }
                 machines = remoteMachines
             }
@@ -2285,7 +2328,20 @@ fun WorkoutInProgressScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Mint
-                )
+                ),
+                actions = {
+                    if (!currentWorkoutSession.isCompleted && currentWorkoutSession.exercises.size > 1) {
+                        IconButton(onClick = {
+                            // Passer l'exercice : le mettre en fin de liste
+                            val list = currentWorkoutSession.exercises.toMutableList()
+                            val current = list.removeAt(currentWorkoutSession.currentExerciseIndex)
+                            list.add(current)
+                            currentWorkoutSession = currentWorkoutSession.copy(exercises = list)
+                        }) {
+                            Icon(imageVector = Icons.Default.SkipNext, contentDescription = "Passer", tint = Color.White)
+                        }
+                    }
+                },
             )
 
             LazyColumn(

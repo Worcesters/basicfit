@@ -139,6 +139,7 @@ private fun DayCell(
     val date = dayState.date
     val entriesToday = remember(workoutHistory) { workoutHistory.filter { it.date == date } }
     val hasCompleted = entriesToday.any { it.duration > 0 }
+    val exercisesToday = remember(entriesToday) { entriesToday.flatMap { it.exercises } }
 
     val isToday = date == LocalDate.now()
     val dayBackground = if (isToday) Color(0xFFFFF3E0) else Color.White // fond pêche clair pour aujourd'hui
@@ -171,7 +172,7 @@ private fun DayCell(
             Icon(
                 imageVector = Icons.Default.CheckCircle,
                 contentDescription = "Terminé",
-                tint = Color(0xFF4CAF50),
+                tint = SoftBlue,
                 modifier = Modifier
                     .size(12.dp)
                     .align(Alignment.TopEnd)
@@ -180,12 +181,13 @@ private fun DayCell(
         }
 
         Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-            entriesToday.take(5).forEach { entry ->
+            val firstEx = exercisesToday.firstOrNull()
+            if (firstEx != null) {
                 val dotColor = when {
-                    entry.mode.contains("cardio", true) -> SoftBlue // Cardio
-                    entry.mode.contains("haut", true) -> Color(0xFFFFA726) // orange clair
-                    entry.mode.contains("bas", true) -> Color(0xFF66BB6A) // vert
-                    else -> Accent // muscu par défaut
+                    firstEx.name.contains("cardio", true) -> SoftBlue
+                    firstEx.name.contains("dos", true) || firstEx.name.contains("row", true) -> Color(0xFF4285F4)
+                    firstEx.name.contains("leg", true) || firstEx.name.contains("squat", true) -> Color(0xFF66BB6A)
+                    else -> Accent
                 }
 
                 Box(
@@ -194,16 +196,17 @@ private fun DayCell(
                         .clip(CircleShape)
                         .background(dotColor)
                         .padding(1.dp)
-                        .clickable { onEntryClick(entry) }
+                        .clickable { onEntryClick(entriesToday.first()) }
                         .pointerInput(Unit) {
-                            detectDragGestures(onDragStart = { onDragStart(entry) }) { change, _ ->
+                            detectDragGestures(onDragStart = { onDragStart(entriesToday.first()) }) { change, _ ->
                                 change.consume()
                             }
                         }
                 )
             }
-            if (entriesToday.size > 3) {
-                Text("+${entriesToday.size - 3}", fontSize = 8.sp)
+
+            if (exercisesToday.size > 1) {
+                 Text("+${exercisesToday.size - 1}", fontSize = 8.sp)
             }
         }
     }
