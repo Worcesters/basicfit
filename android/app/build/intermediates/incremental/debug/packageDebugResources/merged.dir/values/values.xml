@@ -7,7 +7,7 @@
     <color name="colorAccent">#5B8DEF</color>
     <color name="colorPrimary">#00C8B5</color>
     <color name="colorPrimaryDark">#009381</color>
-    <color name="ic_launcher_background">#FFFFFF</color>
+    <color name="ic_launcher_background">#00C9A7</color>
     <color name="ic_launcher_bg">#00C8B5</color>
     <color name="purple_200">#FFBB86FC</color>
     <color name="purple_500">#FF6200EE</color>
@@ -15,10 +15,10 @@
     <color name="teal_200">#FF03DAC5</color>
     <color name="teal_700">#FF018786</color>
     <color name="white">#FFFFFFFF</color>
-    <string name="app_name">mycoach-mobile</string>
+    <string name="app_name">MYC</string>
     <string name="custom_url_scheme">io.ionic.starter</string>
     <string name="package_name">io.ionic.starter</string>
-    <string name="title_activity_main">mycoach-mobile</string>
+    <string name="title_activity_main">MYC</string>
     <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
         
         <item name="colorPrimary">@color/colorPrimary</item>

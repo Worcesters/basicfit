@@ -145,11 +145,11 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\jerem\.gradle\cach
 	android:fullBackupContent
 		ADDED from C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\AndroidManifest.xml:14:9-54
 	android:roundIcon
-		ADDED from C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\AndroidManifest.xml:17:9-49
+		ADDED from C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\AndroidManifest.xml:17:9-54
 	tools:targetApi
 		ADDED from C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\AndroidManifest.xml:21:9-29
 	android:icon
-		ADDED from C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\AndroidManifest.xml:15:9-44
+		ADDED from C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\AndroidManifest.xml:15:9-43
 	android:allowBackup
 		ADDED from C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\AndroidManifest.xml:12:9-35
 	android:theme

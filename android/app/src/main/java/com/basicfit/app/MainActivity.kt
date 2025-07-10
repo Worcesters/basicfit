@@ -59,6 +59,9 @@ import androidx.core.view.WindowCompat
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import com.basicfit.app.R
 
 // Palette couleur globale
 val Mint = Color(0xFF00C9A7)
@@ -182,6 +185,13 @@ class DataManager(private val context: Context) {
 
     fun clearUserData() {
         prefs.edit().clear().apply()
+    }
+
+    fun resetStats() {
+        // Réinitialiser les statistiques pour les nouveaux utilisateurs
+        prefs.edit()
+            .remove("workout_history")
+            .apply()
     }
 }
 
@@ -578,16 +588,28 @@ fun AuthScreen(
                                     )
                                     onLoginSuccess(userProfile)
                                 } else {
-                                    errorMessage = response.message
+                                    errorMessage = if (response.message.contains("Invalid", ignoreCase = true) ||
+                                                      response.message.contains("incorrects", ignoreCase = true) ||
+                                                      response.message.contains("not found", ignoreCase = true)) {
+                                        "Email ou mot de passe incorrect"
+                                    } else {
+                                        response.message ?: "Erreur de connexion"
+                                    }
                                 }
                             }.onFailure { exception ->
-                                errorMessage = "Erreur de connexion: ${exception.message}"
+                                errorMessage = when {
+                                    exception.message?.contains("Network", ignoreCase = true) == true ->
+                                        "Problème de connexion réseau"
+                                    exception.message?.contains("timeout", ignoreCase = true) == true ->
+                                        "Connexion trop lente, veuillez réessayer"
+                                    else -> "Impossible de se connecter au serveur"
+                                }
                             }
                             isLoading = false
                         }
                     } catch (e: Exception) {
                         MainScope().launch {
-                            errorMessage = "Erreur de connexion: ${e.message}"
+                            errorMessage = "Erreur de connexion inattendue"
                             isLoading = false
                         }
                     }
@@ -668,10 +690,12 @@ fun AuthScreen(
         verticalArrangement = Arrangement.Center
     ) {
         // Logo et titre
-        Text(
-            text = "💪",
-            fontSize = 64.sp,
-            modifier = Modifier.padding(bottom = 16.dp)
+        Image(
+            painter = painterResource(id = R.drawable.ic_app_logo),
+            contentDescription = "Logo Myc",
+            modifier = Modifier
+                .size(120.dp)
+                .padding(bottom = 16.dp)
         )
 
         Text(
@@ -753,150 +777,156 @@ fun AuthScreen(
                             )
 
                             Spacer(modifier = Modifier.height(16.dp))
-                        }
 
-                        OutlinedTextField(
-                            value = nom,
-                            onValueChange = { nom = it },
-                            label = { Text("Nom complet") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
+                            // Champs supplémentaires pour l'inscription
+                            OutlinedTextField(
+                                value = nom,
+                                onValueChange = { nom = it },
+                                label = { Text("Nom complet") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                        // Sélecteur de date (format français)
-                        val dateFormatterFr = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
-                        val contextDate = LocalContext.current
+                            // Sélecteur de date (format français)
+                            val dateFormatterFr = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+                            val contextDate = LocalContext.current
 
-                        OutlinedTextField(
-                            value = if (dateNaissance.isBlank()) "" else try {
-                                LocalDate.parse(dateNaissance).format(dateFormatterFr)
-                            } catch (_: Exception) { dateNaissance },
-                            onValueChange = {},
-                            label = { Text("Date de naissance") },
-                            modifier = Modifier.fillMaxWidth(),
-                            readOnly = true,
-                            singleLine = true,
-                            placeholder = { Text("JJ/MM/AAAA") },
-                            trailingIcon = {
-                                IconButton(onClick = {
-                                    val today = LocalDate.now()
-                                    val init = try { LocalDate.parse(dateNaissance) } catch (_: Exception) { today.minusYears(25) }
-                                    android.app.DatePickerDialog(
-                                        contextDate,
-                                        { _, y, m, d ->
-                                            val picked = LocalDate.of(y, m + 1, d)
-                                            dateNaissance = picked.toString()
-                                        },
-                                        init.year,
-                                        init.monthValue - 1,
-                                        init.dayOfMonth
-                                    ).show()
-                                }) {
-                                    Icon(Icons.Default.DateRange, contentDescription = "Choisir la date")
+                            OutlinedTextField(
+                                value = if (dateNaissance.isBlank()) "" else try {
+                                    LocalDate.parse(dateNaissance).format(dateFormatterFr)
+                                } catch (_: Exception) { dateNaissance },
+                                onValueChange = {},
+                                label = { Text("Date de naissance") },
+                                modifier = Modifier.fillMaxWidth(),
+                                readOnly = true,
+                                singleLine = true,
+                                placeholder = { Text("JJ/MM/AAAA") },
+                                trailingIcon = {
+                                    IconButton(onClick = {
+                                        val today = LocalDate.now()
+                                        val init = try { LocalDate.parse(dateNaissance) } catch (_: Exception) { today.minusYears(25) }
+                                        val datePickerDialog = android.app.DatePickerDialog(
+                                            contextDate,
+                                            { _, y, m, d ->
+                                                val picked = LocalDate.of(y, m + 1, d)
+                                                dateNaissance = picked.toString()
+                                            },
+                                            init.year,
+                                            init.monthValue - 1,
+                                            init.dayOfMonth
+                                        )
+                                        // Appliquer un fond blanc au DatePicker
+                                        datePickerDialog.window?.setBackgroundDrawableResource(android.R.color.white)
+                                        datePickerDialog.show()
+                                    }) {
+                                        Icon(Icons.Default.DateRange, contentDescription = "Choisir la date")
+                                    }
                                 }
-                            }
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = poids,
-                                onValueChange = { poids = it },
-                                label = { Text("Poids (kg)") },
-                                modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                             )
 
-                            OutlinedTextField(
-                                value = taille,
-                                onValueChange = { taille = it },
-                                label = { Text("Taille (cm)") },
-                                modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                            )
-                        }
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Sélection du genre
-                        Text(
-                            text = "Genre",
-                            fontSize = 14.sp,
-                            color = Color.Gray
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            listOf("Homme", "Femme").forEach { genreOption ->
-                                Button(
-                                    onClick = { genre = genreOption },
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = poids,
+                                    onValueChange = { poids = it },
+                                    label = { Text("Poids (kg)") },
                                     modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (genre == genreOption) Accent else Color(0xFFF5F5F5),
-                                        contentColor = if (genre == genreOption) Color.White else Color(0xFF666666)
-                                    )
-                                ) {
-                                    Text(genreOption)
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                )
+
+                                OutlinedTextField(
+                                    value = taille,
+                                    onValueChange = { taille = it },
+                                    label = { Text("Taille (cm)") },
+                                    modifier = Modifier.weight(1f),
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Sélection du genre
+                            Text(
+                                text = "Genre",
+                                fontSize = 14.sp,
+                                color = Color.Gray
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf("Homme", "Femme").forEach { genreOption ->
+                                    Button(
+                                        onClick = { genre = genreOption },
+                                        modifier = Modifier.weight(1f),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (genre == genreOption) Accent else Color(0xFFF5F5F5),
+                                            contentColor = if (genre == genreOption) Color.White else Color(0xFF666666)
+                                        )
+                                    ) {
+                                        Text(genreOption)
+                                    }
                                 }
                             }
-                        }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                        // Niveau d'activité
-                        Text(
-                            text = "Niveau d'activité",
-                            fontSize = 14.sp,
-                            color = Color.Gray
-                        )
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(listOf("Sédentaire", "Léger", "Modéré", "Actif", "Très actif")) { niveau ->
-                                Button(
-                                    onClick = { niveauActivite = niveau },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (niveauActivite == niveau) Accent else Color(0xFFF5F5F5),
-                                        contentColor = if (niveauActivite == niveau) Color.White else Color(0xFF666666)
-                                    )
-                                ) {
-                                    Text(niveau, fontSize = 12.sp)
+                            // Niveau d'activité
+                            Text(
+                                text = "Niveau d'activité",
+                                fontSize = 14.sp,
+                                color = Color.Gray
+                            )
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(listOf("Sédentaire", "Léger", "Modéré", "Actif", "Très actif")) { niveau ->
+                                    Button(
+                                        onClick = { niveauActivite = niveau },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (niveauActivite == niveau) Accent else Color(0xFFF5F5F5),
+                                            contentColor = if (niveauActivite == niveau) Color.White else Color(0xFF666666)
+                                        )
+                                    ) {
+                                        Text(niveau, fontSize = 12.sp)
+                                    }
                                 }
                             }
-                        }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                        // Objectif
-                        Text(
-                            text = "Objectif",
-                            fontSize = 14.sp,
-                            color = Color.Gray
-                        )
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(listOf("Maintenir", "Perdre du poids", "Prise de masse", "Sèche")) { obj ->
-                                Button(
-                                    onClick = { objectif = obj },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (objectif == obj) Accent else Color(0xFFF5F5F5),
-                                        contentColor = if (objectif == obj) Color.White else Color(0xFF666666)
-                                    )
-                                ) {
-                                    Text(obj, fontSize = 12.sp)
+                            // Objectif
+                            Text(
+                                text = "Objectif",
+                                fontSize = 14.sp,
+                                color = Color.Gray
+                            )
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(listOf("Maintenir", "Perdre du poids", "Prise de masse", "Sèche")) { obj ->
+                                    Button(
+                                        onClick = { objectif = obj },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (objectif == obj) Accent else Color(0xFFF5F5F5),
+                                            contentColor = if (objectif == obj) Color.White else Color(0xFF666666)
+                                        )
+                                    ) {
+                                        Text(obj, fontSize = 12.sp)
+                                    }
                                 }
                             }
-                        }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+                        } // fin des champs d'inscription
 
                         if (errorMessage.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(16.dp))
@@ -1081,7 +1111,7 @@ fun AppMainInterface(
                         selectedTextColor = Color.White,
                         unselectedIconColor = Color(0x80FFFFFF),
                         unselectedTextColor = Color(0x80FFFFFF),
-                        indicatorColor = SoftBlue
+                        indicatorColor = Color.Transparent
                     )
                 )
             }
@@ -1226,7 +1256,7 @@ fun ProfileScreen(
                                 IconButton(onClick = {
                                     val today = LocalDate.now()
                                     val init = try { LocalDate.parse(dateNaissance) } catch (_: Exception) { today.minusYears(25) }
-                                    android.app.DatePickerDialog(
+                                    val datePickerDialog = android.app.DatePickerDialog(
                                         contextDate,
                                         { _, y, m, d ->
                                             val picked = LocalDate.of(y, m + 1, d)
@@ -1235,7 +1265,10 @@ fun ProfileScreen(
                                         init.year,
                                         init.monthValue - 1,
                                         init.dayOfMonth
-                                    ).show()
+                                    )
+                                    // Appliquer un fond blanc au DatePicker
+                                    datePickerDialog.window?.setBackgroundDrawableResource(android.R.color.white)
+                                    datePickerDialog.show()
                                 }) {
                                     Icon(Icons.Default.DateRange, contentDescription = "Choisir la date")
                                 }

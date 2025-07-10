@@ -44,12 +44,12 @@
 28        android:extractNativeLibs="true"
 29        android:fullBackupContent="@xml/backup_rules"
 29-->C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\AndroidManifest.xml:14:9-54
-30        android:icon="@drawable/ic_logo_fg"
-30-->C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\AndroidManifest.xml:15:9-44
+30        android:icon="@mipmap/ic_launcher"
+30-->C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\AndroidManifest.xml:15:9-43
 31        android:label="@string/app_name"
 31-->C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\AndroidManifest.xml:16:9-41
-32        android:roundIcon="@drawable/ic_logo_fg"
-32-->C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\AndroidManifest.xml:17:9-49
+32        android:roundIcon="@mipmap/ic_launcher_round"
+32-->C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\AndroidManifest.xml:17:9-54
 33        android:supportsRtl="true"
 33-->C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\AndroidManifest.xml:18:9-35
 34        android:theme="@style/Theme.BasicFitApp"
