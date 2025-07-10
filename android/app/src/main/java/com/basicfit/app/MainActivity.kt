@@ -57,6 +57,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.graphics.Brush
 import androidx.core.view.WindowCompat
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 
 // Palette couleur globale
 val Mint = Color(0xFF00C9A7)
@@ -544,6 +546,9 @@ fun AuthScreen(
     var objectif by remember { mutableStateOf("Maintenir") }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+    // Nouvelle visibilité pour les champs mot de passe
+    var passwordVisible by remember { mutableStateOf(false) }
+    var confirmPasswordVisible by remember { mutableStateOf(false) }
 
     // Fonction pour gérer l'authentification
     fun handleAuth() {
@@ -716,164 +721,179 @@ fun AuthScreen(
                             label = { Text("Mot de passe") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            trailingIcon = {
+                                val visibilityIcon = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility
+                                val description = if (passwordVisible) "Masquer le mot de passe" else "Afficher le mot de passe"
+                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                    Icon(imageVector = visibilityIcon, contentDescription = description)
+                                }
+                            }
                         )
 
-                        // Champs supplémentaires pour l'inscription
-                        if (!isLoginMode) {
-                            Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
+                        if (!isLoginMode) {
                             OutlinedTextField(
                                 value = confirmPassword,
                                 onValueChange = { confirmPassword = it },
                                 label = { Text("Confirmer le mot de passe") },
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            OutlinedTextField(
-                                value = nom,
-                                onValueChange = { nom = it },
-                                label = { Text("Nom complet") },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Sélecteur de date (format français)
-                            val dateFormatterFr = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
-                            val contextDate = LocalContext.current
-
-                            OutlinedTextField(
-                                value = if (dateNaissance.isBlank()) "" else try {
-                                    LocalDate.parse(dateNaissance).format(dateFormatterFr)
-                                } catch (_: Exception) { dateNaissance },
-                                onValueChange = {},
-                                label = { Text("Date de naissance") },
-                                modifier = Modifier.fillMaxWidth(),
-                                readOnly = true,
-                                singleLine = true,
-                                placeholder = { Text("JJ/MM/AAAA") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                                 trailingIcon = {
-                                    IconButton(onClick = {
-                                        val today = LocalDate.now()
-                                        val init = try { LocalDate.parse(dateNaissance) } catch (_: Exception) { today.minusYears(25) }
-                                        android.app.DatePickerDialog(
-                                            contextDate,
-                                            { _, y, m, d ->
-                                                val picked = LocalDate.of(y, m + 1, d)
-                                                dateNaissance = picked.toString()
-                                            },
-                                            init.year,
-                                            init.monthValue - 1,
-                                            init.dayOfMonth
-                                        ).show()
-                                    }) {
-                                        Icon(Icons.Default.DateRange, contentDescription = "Choisir la date")
+                                    val visibilityIcon = if (confirmPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility
+                                    val description = if (confirmPasswordVisible) "Masquer le mot de passe" else "Afficher le mot de passe"
+                                    IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
+                                        Icon(imageVector = visibilityIcon, contentDescription = description)
                                     }
                                 }
                             )
 
                             Spacer(modifier = Modifier.height(16.dp))
+                        }
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                OutlinedTextField(
-                                    value = poids,
-                                    onValueChange = { poids = it },
-                                    label = { Text("Poids (kg)") },
+                        OutlinedTextField(
+                            value = nom,
+                            onValueChange = { nom = it },
+                            label = { Text("Nom complet") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Sélecteur de date (format français)
+                        val dateFormatterFr = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+                        val contextDate = LocalContext.current
+
+                        OutlinedTextField(
+                            value = if (dateNaissance.isBlank()) "" else try {
+                                LocalDate.parse(dateNaissance).format(dateFormatterFr)
+                            } catch (_: Exception) { dateNaissance },
+                            onValueChange = {},
+                            label = { Text("Date de naissance") },
+                            modifier = Modifier.fillMaxWidth(),
+                            readOnly = true,
+                            singleLine = true,
+                            placeholder = { Text("JJ/MM/AAAA") },
+                            trailingIcon = {
+                                IconButton(onClick = {
+                                    val today = LocalDate.now()
+                                    val init = try { LocalDate.parse(dateNaissance) } catch (_: Exception) { today.minusYears(25) }
+                                    android.app.DatePickerDialog(
+                                        contextDate,
+                                        { _, y, m, d ->
+                                            val picked = LocalDate.of(y, m + 1, d)
+                                            dateNaissance = picked.toString()
+                                        },
+                                        init.year,
+                                        init.monthValue - 1,
+                                        init.dayOfMonth
+                                    ).show()
+                                }) {
+                                    Icon(Icons.Default.DateRange, contentDescription = "Choisir la date")
+                                }
+                            }
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = poids,
+                                onValueChange = { poids = it },
+                                label = { Text("Poids (kg)") },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+
+                            OutlinedTextField(
+                                value = taille,
+                                onValueChange = { taille = it },
+                                label = { Text("Taille (cm)") },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Sélection du genre
+                        Text(
+                            text = "Genre",
+                            fontSize = 14.sp,
+                            color = Color.Gray
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf("Homme", "Femme").forEach { genreOption ->
+                                Button(
+                                    onClick = { genre = genreOption },
                                     modifier = Modifier.weight(1f),
-                                    singleLine = true,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                )
-
-                                OutlinedTextField(
-                                    value = taille,
-                                    onValueChange = { taille = it },
-                                    label = { Text("Taille (cm)") },
-                                    modifier = Modifier.weight(1f),
-                                    singleLine = true,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Sélection du genre
-                            Text(
-                                text = "Genre",
-                                fontSize = 14.sp,
-                                color = Color.Gray
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                listOf("Homme", "Femme").forEach { genreOption ->
-                                    Button(
-                                        onClick = { genre = genreOption },
-                                        modifier = Modifier.weight(1f),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (genre == genreOption) Accent else Color(0xFFF5F5F5),
-                                            contentColor = if (genre == genreOption) Color.White else Color(0xFF666666)
-                                        )
-                                    ) {
-                                        Text(genreOption)
-                                    }
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (genre == genreOption) Accent else Color(0xFFF5F5F5),
+                                        contentColor = if (genre == genreOption) Color.White else Color(0xFF666666)
+                                    )
+                                ) {
+                                    Text(genreOption)
                                 }
                             }
+                        }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                            // Niveau d'activité
-                            Text(
-                                text = "Niveau d'activité",
-                                fontSize = 14.sp,
-                                color = Color.Gray
-                            )
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(listOf("Sédentaire", "Léger", "Modéré", "Actif", "Très actif")) { niveau ->
-                                    Button(
-                                        onClick = { niveauActivite = niveau },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (niveauActivite == niveau) Accent else Color(0xFFF5F5F5),
-                                            contentColor = if (niveauActivite == niveau) Color.White else Color(0xFF666666)
-                                        )
-                                    ) {
-                                        Text(niveau, fontSize = 12.sp)
-                                    }
+                        // Niveau d'activité
+                        Text(
+                            text = "Niveau d'activité",
+                            fontSize = 14.sp,
+                            color = Color.Gray
+                        )
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(listOf("Sédentaire", "Léger", "Modéré", "Actif", "Très actif")) { niveau ->
+                                Button(
+                                    onClick = { niveauActivite = niveau },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (niveauActivite == niveau) Accent else Color(0xFFF5F5F5),
+                                        contentColor = if (niveauActivite == niveau) Color.White else Color(0xFF666666)
+                                    )
+                                ) {
+                                    Text(niveau, fontSize = 12.sp)
                                 }
                             }
+                        }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                            // Objectif
-                            Text(
-                                text = "Objectif",
-                                fontSize = 14.sp,
-                                color = Color.Gray
-                            )
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(listOf("Maintenir", "Perdre du poids", "Prise de masse", "Sèche")) { obj ->
-                                    Button(
-                                        onClick = { objectif = obj },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (objectif == obj) Accent else Color(0xFFF5F5F5),
-                                            contentColor = if (objectif == obj) Color.White else Color(0xFF666666)
-                                        )
-                                    ) {
-                                        Text(obj, fontSize = 12.sp)
-                                    }
+                        // Objectif
+                        Text(
+                            text = "Objectif",
+                            fontSize = 14.sp,
+                            color = Color.Gray
+                        )
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(listOf("Maintenir", "Perdre du poids", "Prise de masse", "Sèche")) { obj ->
+                                Button(
+                                    onClick = { objectif = obj },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (objectif == obj) Accent else Color(0xFFF5F5F5),
+                                        contentColor = if (objectif == obj) Color.White else Color(0xFF666666)
+                                    )
+                                ) {
+                                    Text(obj, fontSize = 12.sp)
                                 }
                             }
                         }

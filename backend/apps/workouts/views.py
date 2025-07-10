@@ -146,12 +146,16 @@ def sauvegarder_seance_simple(request):
         seance = SeanceEntrainement.objects.create(
             utilisateur=user,
             nom=data.get('nom', f"Séance du {timezone.now().strftime('%d/%m/%Y')}"),
-            date_debut=timezone.now() - timedelta(minutes=data.get('duree', 45)),
-            date_fin=timezone.now(),
-            duree_prevue=data.get('duree', 45),
-            statut='TERMINEE',
-            note_ressenti=data.get('note_ressenti', 7),
-            commentaire=data.get('commentaire', '')
+
+            # accepte indifféremment “date” (provenant du CSV) ou “date_prevue”
+            date_prevue = data.get('date') or data.get('date_prevue') or timezone.now(),
+
+            date_debut  = timezone.now() - timedelta(minutes=data.get('duree', 45)),
+            date_fin    = timezone.now(),
+            duree_prevue= data.get('duree', 45),
+            statut      = 'TERMINEE',
+            note_ressenti = data.get('note_ressenti', 7),
+            commentaire   = data.get('commentaire', '')
         )
 
         # Ajouter les exercices
