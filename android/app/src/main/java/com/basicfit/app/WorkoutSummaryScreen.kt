@@ -82,7 +82,7 @@ fun WorkoutSummaryScreen(
                 )
             },
             colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color(0xFFE57373)
+                containerColor = Accent
             )
         )
 
@@ -141,7 +141,7 @@ fun WorkoutSummaryScreen(
                         .fillMaxWidth()
                         .height(56.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFE57373)
+                        containerColor = Accent
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -184,7 +184,7 @@ fun WorkoutStatsCard(
                 text = "📊 ${workoutSummary.workoutName}",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFFE57373),
+                color = Accent,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
@@ -253,7 +253,7 @@ fun StatItem(
             text = value,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFFE57373)
+            color = Accent
         )
         Text(
             text = label,
@@ -276,7 +276,7 @@ fun ProgressionGraphCard(comparisons: List<WorkoutComparison>) {
                 text = "📈 Progression par exercice",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFFE57373),
+                color = Accent,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
@@ -389,7 +389,7 @@ fun ExerciseComparisonsCard(
                     text = "🔄 Comparaisons",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFE57373)
+                    color = Accent
                 )
                 Text(
                     text = "$improvementCount/$totalComparisons améliorés",
@@ -459,7 +459,7 @@ fun ComparisonItem(comparison: WorkoutComparison) {
 fun PersonalRecordsCard(records: List<String>) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
+        colors = CardDefaults.cardColors(containerColor = AccentLight)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -468,7 +468,7 @@ fun PersonalRecordsCard(records: List<String>) {
                 text = "🏆 Records personnels !",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFFE57373),
+                color = Accent,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
@@ -512,7 +512,7 @@ fun RecommendationsCard(
                 text = "💡 Recommandations",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFFE57373),
+                color = Accent,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
@@ -524,7 +524,7 @@ fun RecommendationsCard(
                     Text(
                         text = "•",
                         fontSize = 14.sp,
-                        color = Color(0xFFE57373),
+                        color = Accent,
                         modifier = Modifier.padding(end = 8.dp, top = 2.dp)
                     )
                     Text(

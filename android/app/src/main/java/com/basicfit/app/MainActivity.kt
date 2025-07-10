@@ -51,6 +51,21 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.MainScope
+import com.basicfit.app.data.AuthManager
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.ui.graphics.Brush
+import androidx.core.view.WindowCompat
+import androidx.compose.ui.graphics.toArgb
+
+// Palette couleur globale
+val Mint = Color(0xFF00C9A7)
+val SoftBlue = Color(0xFF6DD5ED)
+val LightBackground = Color(0xFFF0F4F8)
+val TextPrimary = Color(0xFF083D3B) // teal foncé, bonne lisibilité
+val TextSecondary = Color(0xFF4E6E6E)
+val Accent = Mint                    // accent principal
+val AccentLight = SoftBlue.copy(alpha = .15f)  // fond doux
 
 // Data classes
 data class ProfileData(
@@ -184,6 +199,16 @@ fun calculateBMI(weight: Double, height: Int): Double {
     }
 }
 
+fun getBmiCategory(bmi: Double): String {
+    return when {
+        bmi == 0.0 -> "N/A"
+        bmi < 18.5 -> "Insuffisance pondérale"
+        bmi < 25 -> "Corpulence normale"
+        bmi < 30 -> "Surpoids"
+        else -> "Obésité"
+    }
+}
+
 fun calculateDailyCalories(age: Int, weight: Double, height: Int, gender: String, niveauActivite: String): Int {
     val bmr = if (gender.lowercase() == "homme") {
         (10 * weight + 6.25 * height - 5 * age + 5)
@@ -281,6 +306,9 @@ fun calculateBurnedCalories(weight: Double, duration: Int, intensity: String): I
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Couleur de la barre de statut
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+        window.statusBarColor = Mint.toArgb()
         setContent {
             MycTheme {
                 MainScreen()
@@ -377,6 +405,7 @@ fun MainScreen() {
             workoutName = currentWorkoutName,
             machines = currentWorkoutMachines,
             profileData = profileData,
+            workoutHistory = workoutHistory,
             onFinishWorkout = { duration, exercisesCompleted ->
                 // Sauvegarder la séance
                 val newEntry = WorkoutEntry(
@@ -435,6 +464,14 @@ fun MainScreen() {
                 workoutInProgress = true
             },
             onShowStatistics = { showStatistics = true },
+            onCsvImported = { importedWorkoutHistory ->
+                workoutHistory = workoutHistory + importedWorkoutHistory
+                dataManager.saveWorkoutHistory(workoutHistory)
+            },
+            onWorkoutHistoryChange = { newWorkoutHistory ->
+                workoutHistory = newWorkoutHistory
+                dataManager.saveWorkoutHistory(workoutHistory)
+            },
             onLogout = {
                 dataManager.setUserLoggedIn(false)
                 dataManager.clearUserData()
@@ -595,7 +632,7 @@ fun AuthScreen(
             text = "Myc",
             fontSize = 32.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFFE57373),
+            color = Accent,
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
@@ -717,7 +754,7 @@ fun AuthScreen(
                                         onClick = { genre = genreOption },
                                         modifier = Modifier.weight(1f),
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (genre == genreOption) Color(0xFFE57373) else Color(0xFFF5F5F5),
+                                            containerColor = if (genre == genreOption) Accent else Color(0xFFF5F5F5),
                                             contentColor = if (genre == genreOption) Color.White else Color(0xFF666666)
                                         )
                                     ) {
@@ -741,7 +778,7 @@ fun AuthScreen(
                                     Button(
                                         onClick = { niveauActivite = niveau },
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (niveauActivite == niveau) Color(0xFFE57373) else Color(0xFFF5F5F5),
+                                            containerColor = if (niveauActivite == niveau) Accent else Color(0xFFF5F5F5),
                                             contentColor = if (niveauActivite == niveau) Color.White else Color(0xFF666666)
                                         )
                                     ) {
@@ -765,7 +802,7 @@ fun AuthScreen(
                                     Button(
                                         onClick = { objectif = obj },
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (objectif == obj) Color(0xFFE57373) else Color(0xFFF5F5F5),
+                                            containerColor = if (objectif == obj) Accent else Color(0xFFF5F5F5),
                                             contentColor = if (objectif == obj) Color.White else Color(0xFF666666)
                                         )
                                     ) {
@@ -794,7 +831,7 @@ fun AuthScreen(
                                 .height(48.dp),
                             enabled = !isLoading,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFE57373)
+                                containerColor = Accent
                             )
                         ) {
                             if (isLoading) {
@@ -828,7 +865,7 @@ fun AuthScreen(
                                 } else {
                                     "Déjà un compte ? Se connecter"
                                 },
-                                color = Color(0xFFE57373)
+                                color = Accent
                             )
                         }
                     }
@@ -849,18 +886,21 @@ fun AppMainInterface(
     onProfileUpdate: (ProfileData) -> Unit,
     onStartWorkout: (List<Machine>, String) -> Unit,
     onShowStatistics: () -> Unit,
+    onCsvImported: (List<WorkoutEntry>) -> Unit,
+    onWorkoutHistoryChange: (List<WorkoutEntry>) -> Unit,
     onLogout: () -> Unit
 ) {
     val navItems = listOf(
         NavigationItem("Profil", Icons.Default.Person),
         NavigationItem("Machines", Icons.Default.FitnessCenter),
-        NavigationItem("Entraînement", Icons.Default.PlayArrow)
+        NavigationItem("Entraînement", Icons.Default.PlayArrow),
+        NavigationItem("Calendrier", Icons.Default.DateRange)
     )
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF5F5F5))
+            .background(LightBackground)
     ) {
         // Header
         TopAppBar(
@@ -873,7 +913,7 @@ fun AppMainInterface(
                 )
             },
             colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color(0xFFE57373)
+                containerColor = Mint
             )
         )
 
@@ -900,13 +940,27 @@ fun AppMainInterface(
                     workoutHistory = workoutHistory,
                     onStartWorkout = onStartWorkout
                 )
+                3 -> CalendarScreen(
+                    workoutHistory = workoutHistory,
+                    onWorkoutHistoryChange = onWorkoutHistoryChange,
+                    onCsvImported = onCsvImported,
+                    onEntryClick = { entry ->
+                        val machines = entry.exercises.mapNotNull { record ->
+                            MachineData.machines.find { it.nom.equals(record.name, ignoreCase = true) }
+                        }
+                        val workoutName = "Import ${entry.date}"
+                        onStartWorkout(machines, workoutName)
+                    },
+                    onGoToWorkout = { onTabChange(2) }
+                )
             }
         }
 
         // Bottom Navigation
         NavigationBar(
-            containerColor = Color(0xFFE57373),
-            contentColor = Color.White
+            containerColor = Mint,
+            contentColor = Color.White,
+            modifier = Modifier.navigationBarsPadding()
         ) {
             navItems.forEachIndexed { index, item ->
                 NavigationBarItem(
@@ -931,7 +985,7 @@ fun AppMainInterface(
                         selectedTextColor = Color.White,
                         unselectedIconColor = Color(0x80FFFFFF),
                         unselectedTextColor = Color(0x80FFFFFF),
-                        indicatorColor = Color(0x30FFFFFF)
+                        indicatorColor = SoftBlue
                     )
                 )
             }
@@ -967,6 +1021,7 @@ fun ProfileScreen(
     val weightNum = poids.toDoubleOrNull() ?: 70.0
     val heightNum = taille.toIntOrNull() ?: 170
     val bmi = calculateBMI(weightNum, heightNum)
+    val bmiCategory = getBmiCategory(bmi)
     val caloriesPerDay = calculateDailyCalories(age, weightNum, heightNum, genre, niveauActivite)
     val goalCalories = calculateGoalBasedCalories(age, weightNum, heightNum, genre, niveauActivite, objectif)
     val nutritionalRecommendations = getNutritionalRecommendations(objectif, weightNum)
@@ -991,7 +1046,7 @@ fun ProfileScreen(
                         text = "Mon Profil",
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFE57373)
+                        color = Accent
                     )
                     IconButton(
                         onClick = {
@@ -1015,79 +1070,12 @@ fun ProfileScreen(
                         Icon(
                             imageVector = if (isEditing) Icons.Default.Check else Icons.Default.Edit,
                             contentDescription = if (isEditing) "Sauvegarder" else "Éditer",
-                            tint = Color(0xFFE57373)
+                            tint = Accent
                         )
                     }
                 }
 
-                // Indicateur de statut de connexion
-                var connectionStatus by remember { mutableStateOf("Vérification...") }
-                var isOnline by remember { mutableStateOf(false) }
-
-                LaunchedEffect(Unit) {
-                    try {
-                        val apiService = ApiService.getInstance()
-                        apiService.initialize(context)
-                        val serverReachable = apiService.isServerReachable()
-                        isOnline = serverReachable
-                        connectionStatus = if (serverReachable) "🟢 Connecté au serveur" else "🔴 Mode hors ligne"
-                    } catch (e: Exception) {
-                        isOnline = false
-                        connectionStatus = "🔴 Mode hors ligne"
-                    }
-                }
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isOnline) Color(0xFFE8F5E8) else Color(0xFFFFEBEE)
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = connectionStatus,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = if (isOnline) Color(0xFF4CAF50) else Color(0xFFE57373)
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                        Button(
-                            onClick = {
-                                // Tester la connexion manuellement
-                                GlobalScope.launch {
-                                    try {
-                                        val apiService = ApiService.getInstance()
-                                        val serverReachable = apiService.isServerReachable()
-                                        MainScope().launch {
-                                            isOnline = serverReachable
-                                            connectionStatus = if (serverReachable) "🟢 Connecté au serveur" else "🔴 Mode hors ligne"
-                                        }
-                                    } catch (e: Exception) {
-                                        MainScope().launch {
-                                            isOnline = false
-                                            connectionStatus = "🔴 Mode hors ligne"
-                                        }
-                                    }
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFE57373)
-                            ),
-                            modifier = Modifier.height(32.dp)
-                        ) {
-                            Text(
-                                text = "🔄 Tester",
-                                fontSize = 12.sp,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
+                // (Bloc de test connexion supprimé)
             }
         }
 
@@ -1103,7 +1091,7 @@ fun ProfileScreen(
                         text = "Informations personnelles",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFE57373),
+                        color = Accent,
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
 
@@ -1133,6 +1121,7 @@ fun ProfileScreen(
                         InfoRow("Genre", genre)
                         InfoRow("Niveau d'activité", niveauActivite)
                         InfoRow("Objectif", objectif)
+                        InfoRow("IMC", "${"%.1f".format(bmi)} ($bmiCategory)")
                     }
                 }
             }
@@ -1151,7 +1140,7 @@ fun ProfileScreen(
                         text = "Statistiques",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFE57373),
+                        color = Accent,
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
 
@@ -1180,7 +1169,7 @@ fun ProfileScreen(
                         text = "🍽️ Recommandations nutritionnelles",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFE57373),
+                        color = Accent,
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
 
@@ -1270,7 +1259,7 @@ fun ProfileScreen(
                             text = "Conseils personnalisés",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFE57373),
+                            color = Accent,
                             modifier = Modifier.padding(bottom = 12.dp)
                         )
 
@@ -1360,6 +1349,36 @@ fun MachinesScreen(
     profileData: ProfileData,
     workoutHistory: List<WorkoutEntry>
 ) {
+    val context = LocalContext.current
+    var machines by remember { mutableStateOf(MachineData.machines) }
+
+    // Charger depuis l'API à la première composition
+    LaunchedEffect(Unit) {
+        try {
+            val api = ApiService.getInstance().apply { initialize(context) }.getApi()
+            val response = api.getMachines()
+            if (response.success && response.data != null && response.data.isNotEmpty()) {
+                // Mapper MachineDto vers Machine du côté app (en conservant les champs principaux)
+                val remoteMachines = response.data.map { dto ->
+                    Machine(
+                        id = dto.id,
+                        nom = dto.nom,
+                        description = dto.description ?: "",
+                        instructions = dto.description ?: "",
+                        categorie = CategorieMachine.valueOf(dto.categorie ?: "MUSCULATION"),
+                        groupeMusculairePrimaire = "",
+                        incrementPoids = 2.5,
+                        poidsMinimum = 0.0,
+                        poidsMaximum = 200.0
+                    )
+                }
+                machines = remoteMachines
+            }
+        } catch (e: Exception) {
+            // Garde la liste locale en cas d'erreur réseau
+        }
+    }
+
     var selectedCategory by remember { mutableStateOf<CategorieMachine?>(null) }
     var searchQuery by remember { mutableStateOf("") }
 
@@ -1372,7 +1391,7 @@ fun MachinesScreen(
             text = "Machines disponibles",
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFFE57373),
+            color = Accent,
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
@@ -1385,7 +1404,7 @@ fun MachinesScreen(
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = "Rechercher",
-                    tint = Color(0xFFE57373)
+                    tint = Accent
                 )
             },
             trailingIcon = {
@@ -1403,8 +1422,8 @@ fun MachinesScreen(
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFFE57373),
-                focusedLabelColor = Color(0xFFE57373)
+                focusedBorderColor = Accent,
+                focusedLabelColor = Accent
             ),
             singleLine = true
         )
@@ -1418,7 +1437,7 @@ fun MachinesScreen(
                 Button(
                     onClick = { selectedCategory = null },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (selectedCategory == null) Color(0xFFE57373) else Color.White,
+                        containerColor = if (selectedCategory == null) Accent else Color.White,
                         contentColor = if (selectedCategory == null) Color.White else Color(0xFF666666)
                     ),
                     shape = RoundedCornerShape(20.dp),
@@ -1435,7 +1454,7 @@ fun MachinesScreen(
                 Button(
                     onClick = { selectedCategory = category },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (selectedCategory == category) Color(0xFFE57373) else Color.White,
+                        containerColor = if (selectedCategory == category) Accent else Color.White,
                         contentColor = if (selectedCategory == category) Color.White else Color(0xFF666666)
                     ),
                     shape = RoundedCornerShape(20.dp),
@@ -1451,7 +1470,7 @@ fun MachinesScreen(
         }
 
         // Liste des machines filtrées
-        val machinesFiltrees = MachineData.machines.filter { machine ->
+        val machinesFiltrees = machines.filter { machine ->
             val matchesCategory = selectedCategory == null || machine.categorie == selectedCategory
             val matchesSearch = searchQuery.isEmpty() ||
                 machine.nom.contains(searchQuery, ignoreCase = true) ||
@@ -1499,7 +1518,7 @@ fun MachinesScreen(
                         text = "Aucune machine trouvée",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFE57373)
+                        color = Accent
                     )
                     Text(
                         text = if (searchQuery.isNotEmpty()) "Essayez un autre terme de recherche" else "Changez les filtres",
@@ -1550,7 +1569,7 @@ fun MachineCard(machine: Machine) {
                         color = when (machine.niveauDifficulte) {
                             NiveauDifficulte.DEBUTANT -> Color(0xFF4CAF50)
                             NiveauDifficulte.INTERMEDIAIRE -> Color(0xFFFF9800)
-                            NiveauDifficulte.AVANCE -> Color(0xFFE57373)
+                            NiveauDifficulte.AVANCE -> Accent
                             NiveauDifficulte.EXPERT -> Color(0xFFF44336)
                         },
                         fontWeight = FontWeight.Medium
@@ -1560,7 +1579,7 @@ fun MachineCard(machine: Machine) {
                 Icon(
                     imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = if (expanded) "Réduire" else "Développer",
-                    tint = Color(0xFFE57373)
+                    tint = Accent
                 )
             }
 
@@ -1578,7 +1597,7 @@ fun MachineCard(machine: Machine) {
                             text = "Description",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFE57373)
+                            color = Accent
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
@@ -1601,7 +1620,7 @@ fun MachineCard(machine: Machine) {
                             text = "Instructions d'utilisation",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFE57373)
+                            color = Accent
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
@@ -1637,7 +1656,7 @@ fun WorkoutScreen(
                 text = "🏋️ Planifier un entraînement",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFFE57373)
+                color = Accent
             )
         }
 
@@ -1654,7 +1673,7 @@ fun WorkoutScreen(
                         text = "Type d'entraînement",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFE57373),
+                        color = Accent,
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
 
@@ -1666,7 +1685,7 @@ fun WorkoutScreen(
                             onClick = { selectedMode = "manuel" },
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (selectedMode == "manuel") Color(0xFFE57373) else Color(0xFFF5F5F5),
+                                containerColor = if (selectedMode == "manuel") Mint else LightBackground,
                                 contentColor = if (selectedMode == "manuel") Color.White else Color(0xFF666666)
                             )
                         ) {
@@ -1682,7 +1701,7 @@ fun WorkoutScreen(
                             onClick = { selectedMode = "preset" },
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (selectedMode == "preset") Color(0xFFE57373) else Color(0xFFF5F5F5),
+                                containerColor = if (selectedMode == "preset") Mint else LightBackground,
                                 contentColor = if (selectedMode == "preset") Color.White else Color(0xFF666666)
                             )
                         ) {
@@ -1712,7 +1731,7 @@ fun WorkoutScreen(
                             text = "Programmes prêts",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFE57373),
+                            color = Accent,
                             modifier = Modifier.padding(bottom = 12.dp)
                         )
 
@@ -1725,7 +1744,7 @@ fun WorkoutScreen(
                                         .width(200.dp)
                                         .clickable { selectedPreset = preset },
                                     colors = CardDefaults.cardColors(
-                                        containerColor = if (selectedPreset == preset) Color(0xFFE57373) else Color(0xFFF8F9FA)
+                                        containerColor = if (selectedPreset == preset) Accent else Color(0xFFF8F9FA)
                                     )
                                 ) {
                                     Column(
@@ -1753,7 +1772,7 @@ fun WorkoutScreen(
                                         Text(
                                             text = "${preset.machines.size} exercices",
                                             fontSize = 12.sp,
-                                            color = if (selectedPreset == preset) Color.White else Color(0xFFE57373)
+                                            color = if (selectedPreset == preset) Color.White else Accent
                                         )
                                     }
                                 }
@@ -1776,7 +1795,7 @@ fun WorkoutScreen(
                                 text = "Aperçu du programme",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFFE57373),
+                                color = Accent,
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
 
@@ -1825,7 +1844,7 @@ fun WorkoutScreen(
                         .fillMaxWidth()
                         .height(56.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFE57373)
+                        containerColor = Accent
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -1857,7 +1876,34 @@ fun ManualWorkoutSelection(
     selectedMachines: List<Machine>,
     onMachinesUpdate: (List<Machine>) -> Unit
 ) {
+    val context = LocalContext.current
+    var machinesCatalog by remember { mutableStateOf(MachineData.machines) }
     var selectedCategory by remember { mutableStateOf<CategorieMachine?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    // Chargement distant au premier affichage
+    LaunchedEffect(Unit) {
+        try {
+            val api = ApiService.getInstance().apply { initialize(context) }.getApi()
+            val response = api.getMachines()
+            if (response.success && !response.data.isNullOrEmpty()) {
+                val remote = response.data.map { dto ->
+                    Machine(
+                        id = dto.id,
+                        nom = dto.nom,
+                        description = dto.description ?: "",
+                        instructions = dto.description ?: "",
+                        categorie = CategorieMachine.values().find { it.name == (dto.categorie ?: "MUSCULATION") } ?: CategorieMachine.MUSCULATION,
+                        groupeMusculairePrimaire = "",
+                        incrementPoids = 2.5,
+                        poidsMinimum = 0.0,
+                        poidsMaximum = 200.0
+                    )
+                }
+                machinesCatalog = remote
+            }
+        } catch (_: Exception) { }
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1870,8 +1916,33 @@ fun ManualWorkoutSelection(
                 text = "Sélection manuelle",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFFE57373),
+                color = Mint,
                 modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            // Champ de recherche
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                label = { Text("Rechercher une machine...") },
+                leadingIcon = {
+                    Icon(imageVector = Icons.Default.Search, contentDescription = null, tint = Mint)
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(imageVector = Icons.Default.Clear, contentDescription = "Effacer", tint = Color.Gray)
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Mint,
+                    focusedLabelColor = Mint
+                ),
+                singleLine = true
             )
 
             // Filtres par catégorie
@@ -1883,7 +1954,7 @@ fun ManualWorkoutSelection(
                     Button(
                         onClick = { selectedCategory = null },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (selectedCategory == null) Color(0xFFE57373) else Color.White,
+                            containerColor = if (selectedCategory == null) Mint else Color.White,
                             contentColor = if (selectedCategory == null) Color.White else Color(0xFF666666)
                         ),
                         shape = RoundedCornerShape(20.dp),
@@ -1896,7 +1967,7 @@ fun ManualWorkoutSelection(
                     Button(
                         onClick = { selectedCategory = category },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (selectedCategory == category) Color(0xFFE57373) else Color.White,
+                            containerColor = if (selectedCategory == category) Mint else Color.White,
                             contentColor = if (selectedCategory == category) Color.White else Color(0xFF666666)
                         ),
                         shape = RoundedCornerShape(20.dp),
@@ -1912,15 +1983,19 @@ fun ManualWorkoutSelection(
                 Text(
                     text = "${selectedMachines.size} machine(s) sélectionnée(s)",
                     fontSize = 14.sp,
-                    color = Color(0xFFE57373),
+                    color = Accent,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
 
             // Liste des machines
-            val machinesFiltrees = MachineData.machines.filter { machine ->
-                selectedCategory == null || machine.categorie == selectedCategory
+            val machinesFiltrees = machinesCatalog.filter { machine ->
+                val matchesCat = selectedCategory == null || machine.categorie == selectedCategory
+                val matchesSearch = searchQuery.isBlank() ||
+                    machine.nom.contains(searchQuery, true) ||
+                    machine.groupeMusculairePrimaire.contains(searchQuery, true)
+                matchesCat && matchesSearch
             }
 
             LazyColumn(
@@ -1941,7 +2016,7 @@ fun ManualWorkoutSelection(
                                 }
                             },
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isSelected) Color(0xFFE57373) else Color(0xFFF8F9FA)
+                            containerColor = if (isSelected) Mint else Color(0xFFF8F9FA)
                         )
                     ) {
                         Row(
@@ -2013,7 +2088,7 @@ fun StatCard(label: String, value: String) {
             text = value,
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFFE57373)
+            color = Accent
         )
         Text(
             text = label,
@@ -2068,7 +2143,20 @@ data class NavigationItem(
 
 @Composable
 fun MycTheme(content: @Composable () -> Unit) {
+    val colorScheme = lightColorScheme(
+        primary = Mint,
+        primaryContainer = SoftBlue,
+        secondary = SoftBlue,
+        secondaryContainer = SoftBlue,
+        background = LightBackground,
+        surface = Color.White,
+        onPrimary = Color.White,
+        onSecondary = Color.White,
+        onBackground = TextPrimary,
+        onSurface = TextPrimary
+    )
     MaterialTheme(
+        colorScheme = colorScheme,
         content = content
     )
 }
@@ -2079,17 +2167,32 @@ fun WorkoutInProgressScreen(
     workoutName: String,
     machines: List<Machine>,
     profileData: ProfileData,
+    workoutHistory: List<WorkoutEntry>,
     onFinishWorkout: (Int, List<ExerciseRecord>) -> Unit,
     onExitWorkout: () -> Unit
 ) {
     val context = LocalContext.current  // Ajout de cette ligne manquante
 
-    var currentWorkoutSession by remember {
+    // Sélection de l'objectif de la séance
+    var selectedGoal by remember { mutableStateOf<String?>(null) }
+
+    // Construit la session en fonction de l'objectif choisi
+    var currentWorkoutSession by remember(selectedGoal) {
         mutableStateOf(
             WorkoutSession(
                 workoutName = workoutName,
                 exercises = machines.map { machine ->
-                    val recommendation = calculateWorkoutRecommendations(profileData, emptyList(), machine)
+                    val goalObjective = when (selectedGoal) {
+                        "Puissance" -> "Force"
+                        "Volume" -> "Prise de masse"
+                        "Endurance" -> "Endurance"
+                        else -> profileData.objectif
+                    }
+                    val recommendation = calculateWorkoutRecommendations(
+                        profileData.copy(objectif = goalObjective),
+                        workoutHistory,
+                        machine
+                    )
                     ExerciseSession(
                         machine = machine,
                         targetSets = recommendation.sets,
@@ -2100,6 +2203,32 @@ fun WorkoutInProgressScreen(
                 }
             )
         )
+    }
+
+    // Dialog pour choisir l'objectif avant de commencer réellement
+    if (selectedGoal == null) {
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {},
+            title = { Text("Choisissez votre objectif") },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    val goals = listOf("Puissance", "Volume", "Endurance")
+                    goals.forEach { goal ->
+                        Button(
+                            onClick = { selectedGoal = goal },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Accent)
+                        ) {
+                            Text(goal, color = Color.White)
+                        }
+                    }
+                }
+            }
+        )
+        return // Ne montre pas la suite tant que l'objectif n'est pas choisi
     }
 
     var showExitDialog by remember { mutableStateOf(false) }
@@ -2155,7 +2284,7 @@ fun WorkoutInProgressScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFFE57373)
+                    containerColor = Mint
                 )
             )
 
@@ -2173,7 +2302,8 @@ fun WorkoutInProgressScreen(
                     )
                 }
 
-                if (currentWorkoutSession.currentExerciseIndex < currentWorkoutSession.exercises.size) {
+                // Affiche l'exercice en cours uniquement si la séance n'est pas terminée
+                if (!currentWorkoutSession.isCompleted && currentWorkoutSession.currentExerciseIndex < currentWorkoutSession.exercises.size) {
                     item {
                         // Exercice en cours
                         val currentExercise = currentWorkoutSession.exercises[currentWorkoutSession.currentExerciseIndex]
@@ -2222,11 +2352,12 @@ fun WorkoutInProgressScreen(
                             onClick = {
                                 val duration = ((System.currentTimeMillis() - currentWorkoutSession.startTime) / 60000).toInt()
                                 val exercisesCompleted = currentWorkoutSession.exercises.map { exercise ->
+                                    val bestSet = exercise.sets.maxByOrNull { it.weight * it.reps } ?: exercise.sets.last()
                                     ExerciseRecord(
                                         name = exercise.machine.nom,
                                         sets = exercise.sets.size,
-                                        reps = exercise.sets.map { it.reps }.average().toInt(),
-                                        weight = exercise.sets.map { it.weight }.average()
+                                        reps = bestSet.reps,
+                                        weight = bestSet.weight
                                     )
                                 }
 
@@ -2293,7 +2424,7 @@ fun WorkoutInProgressScreen(
                         onExitWorkout()
                     }
                 ) {
-                    Text("Quitter", color = Color(0xFFE57373))
+                    Text("Quitter", color = Accent)
                 }
             },
             dismissButton = {
@@ -2343,7 +2474,7 @@ fun RestScreen(
             CircularProgressIndicator(
                 progress = progress,
                 modifier = Modifier.fillMaxSize(),
-                color = Color(0xFFE57373),
+                color = Accent,
                 strokeWidth = 8.dp
             )
 
@@ -2372,7 +2503,7 @@ fun RestScreen(
                 .fillMaxWidth()
                 .height(48.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFE57373)
+                containerColor = Accent
             )
         ) {
             Row(
@@ -2421,7 +2552,7 @@ fun WorkoutProgressCard(
                         text = workoutSession.workoutName,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFE57373)
+                        color = Accent
                     )
                     Text(
                         text = "Objectif: ${profileData.objectif}",
@@ -2434,7 +2565,7 @@ fun WorkoutProgressCard(
                     text = "$completedExercises/$totalExercises",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFE57373)
+                    color = Accent
                 )
             }
 
@@ -2445,7 +2576,7 @@ fun WorkoutProgressCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(8.dp),
-                color = Color(0xFFE57373),
+                color = Accent,
                 trackColor = Color(0xFFE0E0E0)
             )
         }
@@ -2457,8 +2588,20 @@ fun CurrentExerciseCard(
     exerciseSession: ExerciseSession,
     onSetCompleted: (Double, Int) -> Unit
 ) {
-    var weight by remember { mutableStateOf(exerciseSession.recommendedWeight.toString()) }
-    var reps by remember { mutableStateOf(exerciseSession.targetReps.toString()) }
+    var weight by remember { mutableStateOf("") }
+    var reps by remember { mutableStateOf("") }
+
+    // Préremplissage selon la progression des séries
+    LaunchedEffect(exerciseSession.sets.size) {
+        if (exerciseSession.sets.isNotEmpty()) {
+            val last = exerciseSession.sets.last()
+            weight = "${"%.1f".format(last.weight)}".trimEnd('0').trimEnd('.')
+            reps = last.reps.toString()
+        } else {
+            weight = "${"%.1f".format(exerciseSession.recommendedWeight)}".trimEnd('0').trimEnd('.')
+            reps = exerciseSession.targetReps.toString()
+        }
+    }
 
     val recommendation = remember(exerciseSession) {
         ExerciseRecommendation(
@@ -2472,7 +2615,7 @@ fun CurrentExerciseCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
+        colors = CardDefaults.cardColors(containerColor = AccentLight)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -2488,7 +2631,7 @@ fun CurrentExerciseCard(
                         text = "${exerciseSession.machine.categorie.icone} ${exerciseSession.machine.nom}",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFE57373)
+                        color = Accent
                     )
                     Text(
                         text = exerciseSession.machine.groupeMusculairePrimaire,
@@ -2501,7 +2644,7 @@ fun CurrentExerciseCard(
                     text = "Série ${exerciseSession.sets.size + 1}/${exerciseSession.targetSets}",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFE57373)
+                    color = Accent
                 )
             }
 
@@ -2517,7 +2660,7 @@ fun CurrentExerciseCard(
                         text = "📋 Recommandations",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFE57373)
+                        color = Accent
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
@@ -2575,12 +2718,15 @@ fun CurrentExerciseCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                val weightPattern = remember { Regex("^\\d{0,3}(\\.\\d?)?") }
                 OutlinedTextField(
                     value = weight,
-                    onValueChange = { weight = it },
+                    onValueChange = { input ->
+                        if (weightPattern.matches(input)) weight = input
+                    },
                     label = { Text("Poids (kg)") },
                     modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true
                 )
 
@@ -2609,7 +2755,7 @@ fun CurrentExerciseCard(
                     .fillMaxWidth()
                     .height(48.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFE57373)
+                    containerColor = Accent
                 )
             ) {
                 Text(
@@ -2672,37 +2818,81 @@ fun calculateWorkoutRecommendations(
     machine: Machine
 ): ExerciseRecommendation {
     val age = calculateAge(profileData.dateNaissance)
-    val objectif = profileData.objectif
+    val objectif = profileData.objectif // "Force", "Prise de masse", "Endurance", "Sèche"
 
-    // Utiliser la nouvelle fonction intelligente pour le poids
+    // 1) Analyse de l'historique pour cette machine
+    val exerciseRecords = workoutHistory.flatMap { it.exercises }
+        .filter { it.name.equals(machine.nom, ignoreCase = true) }
+
+    val historyCount = exerciseRecords.size
+    val best1RM = exerciseRecords.maxOfOrNull { estimateOneRepMax(it.weight, it.reps) } ?: 0.0
+
+    // 2) Détermination du niveau selon le volume d'historique
+    val level = when {
+        historyCount < 5 -> "Débutant"
+        historyCount < 15 -> "Intermédiaire"
+        else -> "Avancé"
+    }
+
+    // 3) Détermination des reps cibles selon l'objectif
+    val targetReps = when (objectif) {
+        "Force" -> 4
+        "Prise de masse" -> 10
+        "Endurance" -> 18
+        "Sèche" -> 12
+        else -> 10
+    }
+
+    // 4) Poids recommandé basé sur le smart algoritme (progression incluse)
     val recommendedWeight = calculateSmartWeightRecommendation(
         machine = machine,
         workoutHistory = workoutHistory,
-        targetReps = when (objectif) {
-            "Force" -> 5
-            "Prise de masse" -> 10
-            "Endurance" -> 20
-            "Sèche" -> 15
-            else -> 10
-        },
+        targetReps = targetReps,
         objectif = objectif
     )
 
-    // Recommandations selon l'objectif
-    val (sets, reps, rest) = when (objectif) {
-        "Force" -> Triple(5, 5, 180) // 5 séries, 5 reps, 3min repos
-        "Prise de masse" -> Triple(4, 10, 90) // 4 séries, 10 reps, 1.5min repos
-        "Endurance" -> Triple(3, 20, 60) // 3 séries, 20 reps, 1min repos
-        "Sèche" -> Triple(4, 15, 75) // 4 séries, 15 reps, 1.25min repos
-        else -> Triple(3, 12, 90) // Par défaut
+    // 5) Sets / Rest ajustés selon le niveau & l'objectif
+    val (sets, rest) = when (objectif) {
+        "Force" -> when (level) {
+            "Débutant" -> Pair(3, 180)
+            "Intermédiaire" -> Pair(4, 180)
+            else -> Pair(5, 240)
+        }
+        "Prise de masse" -> when (level) {
+            "Débutant" -> Pair(3, 90)
+            "Intermédiaire" -> Pair(4, 90)
+            else -> Pair(5, 120)
+        }
+        "Endurance" -> when (level) {
+            "Débutant" -> Pair(2, 45)
+            "Intermédiaire" -> Pair(3, 60)
+            else -> Pair(4, 60)
+        }
+        "Sèche" -> when (level) {
+            "Débutant" -> Pair(3, 75)
+            "Intermédiaire" -> Pair(4, 75)
+            else -> Pair(4, 90)
+        }
+        else -> Pair(3, 90)
     }
+
+    // 6) Tempo indicatif
+    val tempo = when (objectif) {
+        "Force" -> "2-0-1"
+        "Prise de masse" -> "3-1-2"
+        "Endurance" -> "2-0-2"
+        "Sèche" -> "2-0-2"
+        else -> "2-0-2"
+    }
+
+    val notes = generateExerciseNotes(objectif, age, machine) + " • Tempo $tempo"
 
     return ExerciseRecommendation(
         sets = sets,
-        reps = reps,
+        reps = targetReps,
         weight = recommendedWeight,
         restTime = rest,
-        notes = generateExerciseNotes(objectif, age, machine)
+        notes = notes
     )
 }
 
@@ -2828,13 +3018,16 @@ fun calculateSmartWeightRecommendation(
     targetReps: Int,
     objectif: String
 ): Double {
-    // Récupérer l'historique de cet exercice
-    val exerciseHistory = workoutHistory.flatMap { workout ->
-        workout.exercises.filter { it.name == machine.nom }
-    }.sortedBy { it.weight }
+    // Créer une liste (date, exercise) pour conserver l'ordre chronologique
+    val exerciseHistory = workoutHistory
+        .sortedBy { it.date } // ordre chronologique croissant
+        .flatMap { workout ->
+            workout.exercises.filter { it.name.equals(machine.nom, ignoreCase = true) }
+                .map { Pair(workout.date, it) }
+        }
 
     if (exerciseHistory.isEmpty()) {
-        // Première fois : recommandation basée sur le poids du corps
+        // première fois – idem qu'avant
         return when (machine.groupeMusculairePrimaire) {
             "Pectoraux" -> 40.0
             "Dos" -> 35.0
@@ -2845,8 +3038,8 @@ fun calculateSmartWeightRecommendation(
         }
     }
 
-    // Analyser les dernières performances
-    val lastPerformances = exerciseHistory.takeLast(3)
+    // Prendre les 3 dernières occurrences (les plus récentes)
+    val lastPerformances = exerciseHistory.takeLast(3).map { it.second }
     val lastPerformance = lastPerformances.last()
 
     // Calculer le 1RM basé sur la dernière performance
@@ -2855,26 +3048,30 @@ fun calculateSmartWeightRecommendation(
     // Analyser si l'utilisateur a réussi ses dernières séries
     val isProgressing = analyzeProgression(lastPerformances)
 
-    // Calculer le poids recommandé selon l'objectif et la progression
-    val targetWeight = when (objectif) {
-        "Force" -> estimated1RM * 0.85 // 85% du 1RM pour 3-5 reps
-        "Prise de masse" -> estimated1RM * 0.75 // 75% du 1RM pour 8-12 reps
-        "Endurance" -> estimated1RM * 0.60 // 60% du 1RM pour 15+ reps
-        "Sèche" -> estimated1RM * 0.70 // 70% du 1RM pour 12-15 reps
-        else -> estimated1RM * 0.75
+    // Calculer le poids de base selon le 1RM et le nombre de reps cibles (Epley inversée)
+    // Formule: poids = 1RM / (1 + reps/30)
+    val baseWeight = estimated1RM / (1 + targetReps / 30.0)
+
+    // Ajuster selon l'objectif (petite marge)
+    val objectiveFactor = when (objectif) {
+        "Force" -> 1.05 // +5% pour charger un peu plus (reps faibles)
+        "Prise de masse" -> 1.0
+        "Endurance" -> 0.9 // un peu moins lourd
+        "Sèche" -> 0.95
+        else -> 1.0
     }
 
+    var targetWeight = baseWeight * objectiveFactor
+
     // Ajuster selon la progression
-    val adjustedWeight = if (isProgressing) {
-        // L'utilisateur progresse bien, on peut augmenter
+    targetWeight = if (isProgressing) {
         targetWeight * 1.05 // +5%
     } else {
-        // L'utilisateur a des difficultés, on reste stable ou on diminue légèrement
         targetWeight * 0.95 // -5%
     }
 
     // S'assurer que le poids est dans les limites de la machine
-    return adjustedWeight.coerceIn(machine.poidsMinimum, machine.poidsMaximum)
+    return targetWeight.coerceIn(machine.poidsMinimum, machine.poidsMaximum)
 }
 
 // Fonction pour analyser la progression des performances

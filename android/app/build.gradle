@@ -93,4 +93,5 @@ dependencies {
 
     debugImplementation 'androidx.compose.ui:ui-tooling'
     debugImplementation 'androidx.compose.ui:ui-test-manifest'
+    implementation "io.github.boguszpawlowski.composecalendar:composecalendar:1.4.0"
 }

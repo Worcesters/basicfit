@@ -84,7 +84,7 @@ fun StatisticsScreen(
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color(0xFFE57373)
+                containerColor = Accent
             )
         )
 
@@ -160,7 +160,7 @@ fun StatsOverviewCard(
                 text = "📈 Vue d'ensemble",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFFE57373),
+                color = Accent,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
@@ -232,7 +232,7 @@ fun MonthlyFrequencyCard(workoutHistory: List<WorkoutEntry>) {
                 text = "📅 Fréquence mensuelle",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFFE57373),
+                color = Accent,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
@@ -277,13 +277,14 @@ fun WeightProgressionCard(progressionData: List<Pair<String, List<Double>>>) {
                 text = "📈 Progression des charges",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFFE57373),
+                color = Accent,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
             progressionData.take(3).forEach { (exercise, weights) ->
-                val progression = if (weights.size >= 2) {
-                    ((weights.last() - weights.first()) / weights.first() * 100).toInt()
+                val base = weights.first()
+                val progression = if (weights.size >= 2 && base != 0.0) {
+                    ((weights.last() - base) / base * 100).toInt()
                 } else 0
 
                 Row(
@@ -342,7 +343,7 @@ fun FavoriteExercisesCard(exerciseFrequency: List<Pair<String, Int>>) {
                 text = "⭐ Exercices favoris",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFFE57373),
+                color = Accent,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
@@ -361,7 +362,7 @@ fun FavoriteExercisesCard(exerciseFrequency: List<Pair<String, Int>>) {
                             text = "${index + 1}.",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFE57373),
+                            color = Accent,
                             modifier = Modifier.width(20.dp)
                         )
                         Text(
@@ -404,7 +405,7 @@ fun ObjectiveAnalysisCard(
                 text = "🎯 Analyse selon votre objectif",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFFE57373),
+                color = Accent,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
@@ -460,12 +461,13 @@ fun MuscleGroupDistributionCard(workoutHistory: List<WorkoutEntry>) {
                 text = "🎯 Répartition par groupe musculaire",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFFE57373),
+                color = Accent,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
             muscleGroups.forEach { (group, count) ->
-                val percentage = (count.toFloat() / muscleGroups.sumOf { it.second } * 100).toInt()
+                val totalCount = muscleGroups.sumOf { it.second }
+                val percentage = if (totalCount > 0) (count.toFloat() / totalCount * 100).toInt() else 0
 
                 Row(
                     modifier = Modifier
@@ -504,7 +506,7 @@ fun DrawScope.drawMonthlyFrequencyChart(monthlyData: Map<LocalDate, Int>) {
         val barWidthActual = barWidth * 0.6f
 
         drawRect(
-            color = Color(0xFFE57373),
+            color = Accent,
             topLeft = Offset(x, size.height - barHeight),
             size = androidx.compose.ui.geometry.Size(barWidthActual, barHeight)
         )

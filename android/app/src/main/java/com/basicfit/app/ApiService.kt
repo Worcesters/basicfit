@@ -73,6 +73,13 @@ data class ApiResponse<T>(
     val data: T? = null
 )
 
+data class MachineDto(
+    val id: Int,
+    val nom: String,
+    val description: String? = null,
+    val categorie: String? = null
+)
+
 // ==============================================
 // INTERFACE API RETROFIT
 // ==============================================
@@ -98,7 +105,7 @@ interface BasicFitApi {
 
     // Machines
     @GET("workouts/machines/")
-    suspend fun getMachines(): ApiResponse<List<Any>>
+    suspend fun getMachines(): ApiResponse<List<MachineDto>>
 
     @GET("users/android/ping/")
     suspend fun ping(): retrofit2.Response<Void>

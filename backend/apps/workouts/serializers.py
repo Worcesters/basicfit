@@ -9,9 +9,11 @@ from apps.core.models import ModeEntrainement
 
 class MachineSerializer(serializers.ModelSerializer):
     """Serializer pour les machines"""
+    categorie = serializers.CharField(source='categorie.nom')
+
     class Meta:
         model = Machine
-        fields = ['id', 'nom', 'nom_technique', 'groupe_musculaire', 'description']
+        fields = ['id', 'nom', 'description', 'categorie']
 
 
 class VarianteMachineSerializer(serializers.ModelSerializer):

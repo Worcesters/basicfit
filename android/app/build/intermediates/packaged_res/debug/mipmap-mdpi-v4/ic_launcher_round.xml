@@ -4,28 +4,18 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path android:fillColor="@color/basicfit_orange"
-          android:pathData="M54,4
-                           C81,4 104,27 104,54
-                           C104,81 81,104 54,104
-                           C27,104 4,81 4,54
-                           C4,27 27,4 54,4
-                           Z"/>
-    <path android:fillColor="#FFFFFF"
-          android:pathData="M54,30
-                           C66,30 76,40 76,52
-                           C76,64 66,74 54,74
-                           C42,74 32,64 32,52
-                           C32,40 42,30 54,30
-                           Z
-                           M46,46
-                           L46,58
-                           L50,58
-                           L50,70
-                           L58,70
-                           L58,58
-                           L62,58
-                           L62,46
-                           L46,46
-                           Z"/>
+
+    <!-- Cercle extérieur mint (bord) -->
+    <path
+        android:fillColor="#00C9A7"
+        android:pathData="M54,4
+            a50 50 0 1 1 0 100
+            a50 50 0 1 1 0 -100" />
+
+    <!-- Cercle intérieur SoftBlue -->
+    <path
+        android:fillColor="#6DD5ED"
+        android:pathData="M54,18
+            a36 36 0 1 1 0 72
+            a36 36 0 1 1 0 -72" />
 </vector>
