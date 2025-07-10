@@ -167,7 +167,11 @@ class DataManager(private val context: Context) {
     }
 
     fun isUserLoggedIn(): Boolean {
-        return prefs.getBoolean("is_logged_in", false)
+        // On considère l'utilisateur connecté uniquement si le flag est présent
+        // ET si un token d'authentification est stocké.
+        val flag = prefs.getBoolean("is_logged_in", false)
+        val token = prefs.getString("auth_token", null)
+        return flag && !token.isNullOrBlank()
     }
 
     fun setUserLoggedIn(isLoggedIn: Boolean) {
@@ -182,7 +186,14 @@ class DataManager(private val context: Context) {
 // Fonctions utilitaires
 fun calculateAge(dateNaissance: String): Int {
     return try {
-        val birthDate = LocalDate.parse(dateNaissance, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+        // Accepte ISO (yyyy-MM-dd) et format français (dd/MM/yyyy)
+        val formats = listOf(
+            DateTimeFormatter.ofPattern("yyyy-MM-dd"),
+            DateTimeFormatter.ofPattern("dd/MM/yyyy")
+        )
+        val birthDate = formats.firstNotNullOf { fmt ->
+            runCatching { LocalDate.parse(dateNaissance, fmt) }.getOrNull()
+        }
         val currentDate = LocalDate.now()
         Period.between(birthDate, currentDate).years
     } catch (e: Exception) {
@@ -733,13 +744,29 @@ fun AuthScreen(
 
                             Spacer(modifier = Modifier.height(16.dp))
 
+                            // Sélecteur de date (format français)
+                            val dateFormatterFr = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+                            val calendar = remember { java.util.Calendar.getInstance() }
+
                             OutlinedTextField(
                                 value = dateNaissance,
-                                onValueChange = { dateNaissance = it },
-                                label = { Text("Date de naissance (YYYY-MM-DD)") },
-                                modifier = Modifier.fillMaxWidth(),
+                                onValueChange = {}, // champ en lecture seule
+                                label = { Text("Date de naissance") },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val year = calendar.get(java.util.Calendar.YEAR)
+                                        val month = calendar.get(java.util.Calendar.MONTH)
+                                        val day = calendar.get(java.util.Calendar.DAY_OF_MONTH)
+
+                                        android.app.DatePickerDialog(context, { _, y, m, d ->
+                                            val selected = LocalDate.of(y, m + 1, d)
+                                            dateNaissance = selected.format(dateFormatterFr)
+                                        }, year, month, day).show()
+                                    },
+                                readOnly = true,
                                 singleLine = true,
-                                placeholder = { Text("1990-01-01") }
+                                placeholder = { Text("JJ/MM/AAAA") }
                             )
 
                             Spacer(modifier = Modifier.height(16.dp))
@@ -1150,7 +1177,81 @@ fun ProfileScreen(
                             label = { Text("Email") },
                             modifier = Modifier.fillMaxWidth()
                         )
-                        // Ajout autres champs...
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Sélecteur date naissance – format JJ/MM/AAAA
+                        val dateFormatterFr = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy") }
+                        val calendar = remember { java.util.Calendar.getInstance() }
+
+                        OutlinedTextField(
+                            value = if (dateNaissance.isBlank()) "" else try {
+                                LocalDate.parse(dateNaissance).format(dateFormatterFr)
+                            } catch (_: Exception) { dateNaissance },
+                            onValueChange = {},
+                            label = { Text("Date de naissance") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val now = LocalDate.now()
+                                    val initDate = try { LocalDate.parse(dateNaissance) } catch (_: Exception) { now.minusYears(25) }
+                                    val dlg = android.app.DatePickerDialog(
+                                        context,
+                                        { _, y, m, d ->
+                                            val selected = LocalDate.of(y, m + 1, d)
+                                            dateNaissance = selected.toString() // stockée ISO
+                                        },
+                                        initDate.year,
+                                        initDate.month.value - 1,
+                                        initDate.dayOfMonth
+                                    )
+                                    dlg.show()
+                                },
+                            readOnly = true,
+                            singleLine = true,
+                            placeholder = { Text("JJ/MM/AAAA") }
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = poids,
+                                onValueChange = { poids = it },
+                                label = { Text("Poids (kg)") },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+
+                            OutlinedTextField(
+                                value = taille,
+                                onValueChange = { taille = it },
+                                label = { Text("Taille (cm)") },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Objectif – choix rapide
+                        Text("Objectif", fontSize = 14.sp, color = Color.Gray)
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(listOf("Maintenir", "Perdre du poids", "Prise de masse", "Sèche")) { obj ->
+                                Button(
+                                    onClick = { objectif = obj },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (objectif == obj) Accent else Color(0xFFF5F5F5),
+                                        contentColor = if (objectif == obj) Color.White else Color(0xFF666666)
+                                    )
+                                ) { Text(obj, fontSize = 12.sp) }
+                            }
+                        }
+
                     } else {
                         // Mode affichage
                         InfoRow("Nom", nom)
@@ -1397,10 +1498,10 @@ fun MachinesScreen(
     LaunchedEffect(Unit) {
         try {
             val api = ApiService.getInstance().apply { initialize(context) }.getApi()
-            val response = api.getMachines()
-            if (response.success && response.data != null && response.data.isNotEmpty()) {
+            val fetched = api.getMachines()
+            if (fetched.isNotEmpty()) {
                 // Mapper MachineDto vers Machine du côté app (en conservant les champs principaux)
-                val remoteMachines = response.data.mapNotNull { dto ->
+                val remoteMachines = fetched.mapNotNull { dto ->
                     try {
                         Machine(
                             id = dto.id,
@@ -1930,9 +2031,9 @@ fun ManualWorkoutSelection(
     LaunchedEffect(Unit) {
         try {
             val api = ApiService.getInstance().apply { initialize(context) }.getApi()
-            val response = api.getMachines()
-            if (response.success && !response.data.isNullOrEmpty()) {
-                val remote = response.data.map { dto ->
+            val fetched = api.getMachines()
+            if (fetched.isNotEmpty()) {
+                val remote = fetched.map { dto ->
                     Machine(
                         id = dto.id,
                         nom = dto.nom,

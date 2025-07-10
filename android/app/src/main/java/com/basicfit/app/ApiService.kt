@@ -104,8 +104,9 @@ interface BasicFitApi {
     suspend fun getWorkoutHistory(): ApiResponse<List<Any>>
 
     // Machines
+    // Retourne directement la liste sans wrapper JSON
     @GET("workouts/machines/")
-    suspend fun getMachines(): ApiResponse<List<MachineDto>>
+    suspend fun getMachines(): List<MachineDto>
 
     @GET("users/android/ping/")
     suspend fun ping(): retrofit2.Response<Void>
