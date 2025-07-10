@@ -1361,6 +1361,7 @@ color foreground_material_dark
 color foreground_material_light
 color highlighted_text_material_dark
 color highlighted_text_material_light
+color ic_launcher_bg
 color m3_appbar_overlay_color
 color m3_assist_chip_icon_tint_color
 color m3_assist_chip_stroke_color
@@ -2943,6 +2944,7 @@ drawable design_ic_visibility
 drawable design_ic_visibility_off
 drawable design_password_eye
 drawable design_snackbar_background
+drawable ic_app_logo
 drawable ic_arrow_back_black_24
 drawable ic_call_answer
 drawable ic_call_answer_low
@@ -2957,6 +2959,7 @@ drawable ic_exit
 drawable ic_keyboard_black_24dp
 drawable ic_lock
 drawable ic_login
+drawable ic_logo_fg
 drawable ic_logout
 drawable ic_m3_chip_check
 drawable ic_m3_chip_checked_circle
