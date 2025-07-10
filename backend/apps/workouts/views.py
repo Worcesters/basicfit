@@ -7,7 +7,8 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime
+from django.utils.dateparse import parse_datetime
 
 from .models import SeanceEntrainement, ExerciceSeance, SeriExercice, ProgressionMachine
 from .serializers import (
@@ -142,13 +143,20 @@ def sauvegarder_seance_simple(request):
         data = request.data
         user = request.user
 
+        # ------ Gestion date prévue ------
+        raw_date = data.get('date') or data.get('date_prevue')
+        if isinstance(raw_date, str):
+            # Support ISO 8601 ou formats courants
+            parsed = parse_datetime(raw_date) or datetime.fromisoformat(raw_date.replace('Z', '+00:00'))
+            date_prevue = timezone.make_aware(parsed) if parsed.tzinfo is None else parsed
+        else:
+            date_prevue = raw_date or timezone.now()
+
         # Créer la séance
         seance = SeanceEntrainement.objects.create(
             utilisateur=user,
             nom=data.get('nom', f"Séance du {timezone.now().strftime('%d/%m/%Y')}"),
-
-            # accepte indifféremment “date” (provenant du CSV) ou “date_prevue”
-            date_prevue = data.get('date') or data.get('date_prevue') or timezone.now(),
+            date_prevue = date_prevue,
 
             date_debut  = timezone.now() - timedelta(minutes=data.get('duree', 45)),
             date_fin    = timezone.now(),
@@ -163,6 +171,8 @@ def sauvegarder_seance_simple(request):
             # Récupérer la machine par nom
             try:
                 machine = Machine.objects.get(nom__icontains=exercice_data['nom'])
+            except Machine.MultipleObjectsReturned:
+                machine = Machine.objects.filter(nom__icontains=exercice_data['nom']).first()
             except Machine.DoesNotExist:
                 # Créer une machine basique si elle n'existe pas
                 machine = Machine.objects.create(
