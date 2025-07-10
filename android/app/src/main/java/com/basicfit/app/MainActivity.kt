@@ -1390,7 +1390,8 @@ fun MachinesScreen(
     workoutHistory: List<WorkoutEntry>
 ) {
     val context = LocalContext.current
-    var machines by remember { mutableStateOf(MachineData.machines) }
+    // Utiliser une liste vide par défaut pour tester le chargement depuis l'API uniquement
+    var machines by remember { mutableStateOf<List<Machine>>(emptyList()) }
 
     // Charger depuis l'API à la première composition
     LaunchedEffect(Unit) {
@@ -1920,7 +1921,8 @@ fun ManualWorkoutSelection(
     onMachinesUpdate: (List<Machine>) -> Unit
 ) {
     val context = LocalContext.current
-    var machinesCatalog by remember { mutableStateOf(MachineData.machines) }
+    // Liste vide au démarrage – sera peuplée par la réponse réseau
+    var machinesCatalog by remember { mutableStateOf<List<Machine>>(emptyList()) }
     var selectedCategory by remember { mutableStateOf<CategorieMachine?>(null) }
     var searchQuery by remember { mutableStateOf("") }
 
