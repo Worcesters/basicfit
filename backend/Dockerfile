@@ -43,4 +43,7 @@ USER appuser
 EXPOSE 8000
 
 # Script de démarrage
-CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn --bind 0.0.0.0:8000 --workers 3 basicfit_project.wsgi:application"]
+CMD ["sh", "-c", "\
+   python manage.py migrate --noinput && \
+   python manage.py createsuperuser --noinput || true && \
+   gunicorn --bind 0.0.0.0:8000 --workers 3 basicfit_project.wsgi:application"]

@@ -137,7 +137,23 @@ class DataManager(private val context: Context) {
             }
 
             override fun deserialize(json: com.google.gson.JsonElement?, typeOfT: java.lang.reflect.Type?, context: com.google.gson.JsonDeserializationContext?): java.time.LocalDate {
-                return java.time.LocalDate.parse(json?.asString)
+                if (json == null) return java.time.LocalDate.now()
+
+                return if (json.isJsonPrimitive && json.asJsonPrimitive.isString) {
+                    // Nouveau format ISO "yyyy-MM-dd"
+                    java.time.LocalDate.parse(json.asString)
+                } else if (json.isJsonObject) {
+                    // Ancien format Gson par défaut : objet avec year / month / day
+                    val obj = json.asJsonObject
+                    val year = obj["year"]?.asInt ?: obj["YEAR"]?.asInt ?: 1970
+                    // Certains dumps contiennent monthValue, d'autres month (1-12)
+                    val month = obj["monthValue"]?.asInt ?: obj["month"]?.asInt ?: 1
+                    val day = obj["dayOfMonth"]?.asInt ?: obj["day"]?.asInt ?: 1
+                    java.time.LocalDate.of(year, month, day)
+                } else {
+                    // Valeur inattendue → date par défaut
+                    java.time.LocalDate.now()
+                }
             }
         })
         .create()
@@ -1528,7 +1544,8 @@ fun ProfileScreen(
             }
         }
 
-        // Bouton de déconnexion
+        /*
+        // Bouton de déconnexion (désactivé pour l'instant ; code conservé à titre de référence)
         item {
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -1561,6 +1578,7 @@ fun ProfileScreen(
                 }
             }
         }
+        */
     }
 }
 
