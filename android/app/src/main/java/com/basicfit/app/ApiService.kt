@@ -76,6 +76,7 @@ data class MachineDto(
     val id: Int,
     val nom: String,
     val description: String? = null,
+    val instructions: String? = null,
     val categorie: String? = null
 )
 

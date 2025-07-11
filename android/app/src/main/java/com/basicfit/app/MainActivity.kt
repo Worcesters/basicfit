@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
 import java.time.LocalDate
 import java.time.Period
@@ -128,7 +129,18 @@ data class SetRecord(
 // Classe DataManager pour gérer les données
 class DataManager(private val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
-    private val gson = Gson()
+    // Gson avec support LocalDate (format ISO)
+    private val gson: Gson = GsonBuilder()
+        .registerTypeAdapter(java.time.LocalDate::class.java, object : com.google.gson.JsonSerializer<java.time.LocalDate>, com.google.gson.JsonDeserializer<java.time.LocalDate> {
+            override fun serialize(src: java.time.LocalDate?, typeOfSrc: java.lang.reflect.Type?, context: com.google.gson.JsonSerializationContext?): com.google.gson.JsonElement {
+                return com.google.gson.JsonPrimitive(src?.toString())
+            }
+
+            override fun deserialize(json: com.google.gson.JsonElement?, typeOfT: java.lang.reflect.Type?, context: com.google.gson.JsonDeserializationContext?): java.time.LocalDate {
+                return java.time.LocalDate.parse(json?.asString)
+            }
+        })
+        .create()
 
     fun saveProfileData(profile: ProfileData) {
         val json = gson.toJson(profile)
@@ -382,6 +394,9 @@ fun MainScreen() {
                 profileData = userProfile
                 dataManager.saveProfileData(userProfile)
                 dataManager.setUserLoggedIn(true)
+                // On réinitialise l'historique local afin d'éviter d'afficher 200 séances par défaut
+                // pour les nouveaux comptes ou les utilisateurs venant de se connecter sans données.
+                dataManager.resetStats()
                 isLoggedIn = true
 
                 // Synchroniser les données depuis le serveur
@@ -1571,7 +1586,7 @@ fun MachinesScreen(
                             id = dto.id,
                             nom = dto.nom,
                             description = dto.description ?: "",
-                            instructions = dto.description ?: "",
+                            instructions = dto.instructions ?: dto.description ?: "",
                             categorie = CategorieMachine.values().find { it.name.equals(dto.categorie ?: "", true) }
                                 ?: CategorieMachine.MUSCULATION,
                             groupeMusculairePrimaire = "",
@@ -2102,7 +2117,7 @@ fun ManualWorkoutSelection(
                         id = dto.id,
                         nom = dto.nom,
                         description = dto.description ?: "",
-                        instructions = dto.description ?: "",
+                        instructions = dto.instructions ?: dto.description ?: "",
                         categorie = CategorieMachine.values().find { it.name == (dto.categorie ?: "MUSCULATION") } ?: CategorieMachine.MUSCULATION,
                         groupeMusculairePrimaire = "",
                         incrementPoids = 2.5,
