@@ -193,9 +193,11 @@ class DataManager(private val context: Context) {
 
     fun getTotalStats(): Triple<Int, Int, Int> {
         val workoutHistory = loadWorkoutHistory()
-        val totalSessions = workoutHistory.size
-        val totalMinutes = workoutHistory.sumOf { it.duration }
-        val totalCalories = workoutHistory.sumOf { calculateBurnedCalories(loadProfileData().poids, it.duration, "Modéré") }
+        // Filtrer uniquement les séances complétées
+        val completedWorkouts = workoutHistory.filter { it.duration > 0 }
+        val totalSessions = completedWorkouts.size
+        val totalMinutes = completedWorkouts.sumOf { it.duration }
+        val totalCalories = completedWorkouts.sumOf { calculateBurnedCalories(loadProfileData().poids, it.duration, "Modéré") }
         return Triple(totalSessions, totalMinutes, totalCalories)
     }
 
@@ -1098,7 +1100,8 @@ fun AppMainInterface(
                                 nom = record.name,
                                 description = "Import CSV",
                                 instructions = "",
-                                categorie = CategorieMachine.MUSCULATION,
+                                categorie = CategorieMachine.values().find { it.name.equals(record.name, ignoreCase = true) }
+                                    ?: CategorieMachine.MUSCULATION,
                                 groupeMusculairePrimaire = "",
                                 incrementPoids = 2.5,
                                 poidsMinimum = 0.0,
@@ -1604,7 +1607,7 @@ fun MachinesScreen(
                             id = dto.id,
                             nom = dto.nom,
                             description = dto.description ?: "",
-                            instructions = dto.instructions ?: dto.description ?: "",
+                            instructions = dto.instructions ?: "",
                             categorie = CategorieMachine.values().find { it.name.equals(dto.categorie ?: "", true) }
                                 ?: CategorieMachine.MUSCULATION,
                             groupeMusculairePrimaire = "",
@@ -2135,8 +2138,9 @@ fun ManualWorkoutSelection(
                         id = dto.id,
                         nom = dto.nom,
                         description = dto.description ?: "",
-                        instructions = dto.instructions ?: dto.description ?: "",
-                        categorie = CategorieMachine.values().find { it.name == (dto.categorie ?: "MUSCULATION") } ?: CategorieMachine.MUSCULATION,
+                        instructions = dto.instructions ?: "",
+                        categorie = CategorieMachine.values().find { it.name.equals(dto.categorie ?: "", true) }
+                            ?: CategorieMachine.MUSCULATION,
                         groupeMusculairePrimaire = "",
                         incrementPoids = 2.5,
                         poidsMinimum = 0.0,
