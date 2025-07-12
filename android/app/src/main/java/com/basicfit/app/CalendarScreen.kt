@@ -48,6 +48,9 @@ fun CalendarScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
+    // Ajout pour le bouton de vidage du calendrier
+    var showClearDialog by remember { mutableStateOf(false) }
+
     // State: mois actuellement affiché
     val currentMonth = remember { YearMonth.now() }
     val calendarState = rememberCalendarState(currentMonth)
@@ -85,6 +88,13 @@ fun CalendarScreen(
                 onClick = { csvLauncher.launch(arrayOf("text/*", "application/*", "*/*")) },
                 colors = ButtonDefaults.buttonColors(containerColor = Accent)
             ) { Text("📂 Importer CSV", color = Color.White) }
+
+            Spacer(Modifier.width(8.dp))
+
+            Button(
+                onClick = { showClearDialog = true },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)) // rouge pour alerte
+            ) { Text("🗑️ Vider calendrier", color = Color.White) }
         }
 
         Spacer(Modifier.height(8.dp))
@@ -123,6 +133,30 @@ fun CalendarScreen(
                     )
                 }
             }
+        }
+
+        // Pop-up de confirmation
+        if (showClearDialog) {
+            AlertDialog(
+                onDismissRequest = { showClearDialog = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        // Conserver uniquement les séances complétées
+                        val remaining = workoutHistory.filter { it.duration > 0 }
+                        onWorkoutHistoryChange(remaining)
+                        showClearDialog = false
+                    }) {
+                        Text("Confirmer", color = Accent)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearDialog = false }) {
+                        Text("Annuler")
+                    }
+                },
+                title = { Text("Confirmer la suppression") },
+                text = { Text("Voulez-vous vraiment vider le calendrier des séances non terminées ?") }
+            )
         }
     }
 }

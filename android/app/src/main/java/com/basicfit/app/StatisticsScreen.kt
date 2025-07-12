@@ -34,28 +34,29 @@ fun StatisticsScreen(
 ) {
     val context = LocalContext.current
 
-    // Calculer les statistiques
-    val totalWorkouts = workoutHistory.size
-    val totalMinutes = workoutHistory.sumOf { it.duration }
-    val totalVolume = workoutHistory.sumOf { it.totalWeight }
+    // Calculer les statistiques (uniquement séances complétées)
+    val completedWorkouts = workoutHistory.filter { it.duration > 0 }
+    val totalWorkouts = completedWorkouts.size
+    val totalMinutes = completedWorkouts.sumOf { it.duration }
+    val totalVolume = completedWorkouts.sumOf { it.totalWeight }
     val averageDuration = if (totalWorkouts > 0) totalMinutes / totalWorkouts else 0
 
     // Analyse des 30 derniers jours
-    val last30Days = workoutHistory.filter {
+    val last30Days = completedWorkouts.filter {
         ChronoUnit.DAYS.between(it.date, LocalDate.now()) <= 30
     }
 
     val frequencyPerWeek = (last30Days.size * 7) / 30.0
 
     // Exercices favoris
-    val exerciseFrequency = workoutHistory.flatMap { it.exercises }
+    val exerciseFrequency = completedWorkouts.flatMap { it.exercises }
         .groupBy { it.name }
         .mapValues { it.value.size }
         .toList()
         .sortedByDescending { it.second }
 
     // Progression des charges
-    val progressionData = calculateWeightProgression(workoutHistory)
+    val progressionData = calculateWeightProgression(completedWorkouts)
 
     Column(
         modifier = Modifier
