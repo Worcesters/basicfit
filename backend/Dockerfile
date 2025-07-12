@@ -1,42 +1,37 @@
-# Dockerfile pour BasicFit Backend Django
+# ---- Base Image ----
+    FROM python:3.11-slim
 
-FROM python:3.11-slim
+    # ---- Environnement système ----
+    ENV PYTHONDONTWRITEBYTECODE=1 \
+        PYTHONUNBUFFERED=1
 
-# Variables d'environnement
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    # ---- Dépendances système pour PostgreSQL, gettext, etc. ----
+    RUN apt-get update && apt-get install -y \
+        gcc \
+        libpq-dev \
+        gettext \
+        && rm -rf /var/lib/apt/lists/*
 
-# Installer les dépendances système
-RUN apt-get update && apt-get install -y \
-    gcc \
-    libpq-dev \
-    gettext \
-    && rm -rf /var/lib/apt/lists/*
+    # ---- Dossier de travail ----
+    WORKDIR /app
 
-# Définir le répertoire de travail
-WORKDIR /app
+    # ---- Copier les dépendances Python ----
+    COPY requirements.txt .
+    RUN pip install --no-cache-dir -r requirements.txt
 
-# Copier les dépendances
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+    # ---- Copier tout le projet ----
+    COPY . .
 
-# Copier le reste du projet
-COPY . .
+    # ---- Rendre le script de démarrage exécutable ----
+    RUN chmod +x entrypoint.sh
 
-# Rendre les répertoires nécessaires
-RUN mkdir -p logs staticfiles media
+    # ---- Créer un utilisateur non-root ----
+    RUN adduser --disabled-password --gecos '' appuser && \
+        chown -R appuser:appuser /app
+    USER appuser
 
-# Créer un utilisateur non-root
-RUN adduser --disabled-password --gecos '' appuser && \
-    chown -R appuser:appuser /app
-USER appuser
+    # ---- Port exposé pour Gunicorn ----
+    EXPOSE 8000
 
-# Copier et autoriser le script d'entrypoint
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-# Exposer le port
-EXPOSE 8000
-
-# Point d'entrée
-ENTRYPOINT ["/entrypoint.sh"]
+    # ---- Point d’entrée ----
+    ENTRYPOINT ["./entrypoint.sh"]
