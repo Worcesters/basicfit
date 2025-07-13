@@ -223,6 +223,44 @@ class DataManager(private val context: Context) {
             .remove("workout_history")
             .apply()
     }
+
+    // Nouvelles méthodes pour sauvegarder l'état d'entraînement en cours
+    fun saveCurrentWorkoutSession(session: WorkoutSession?) {
+        if (session != null) {
+            val json = gson.toJson(session)
+            prefs.edit().putString("current_workout_session", json).apply()
+        } else {
+            prefs.edit().remove("current_workout_session").apply()
+        }
+    }
+
+    fun loadCurrentWorkoutSession(): WorkoutSession? {
+        val json = prefs.getString("current_workout_session", null)
+        return if (json != null) {
+            try {
+                gson.fromJson(json, WorkoutSession::class.java)
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+    }
+
+    fun saveWorkoutInProgress(isInProgress: Boolean) {
+        prefs.edit().putBoolean("workout_in_progress", isInProgress).apply()
+    }
+
+    fun isWorkoutInProgress(): Boolean {
+        return prefs.getBoolean("workout_in_progress", false)
+    }
+
+    fun clearCurrentWorkout() {
+        prefs.edit()
+            .remove("current_workout_session")
+            .putBoolean("workout_in_progress", false)
+            .apply()
+    }
 }
 
 // Fonctions utilitaires
@@ -379,7 +417,7 @@ fun MainScreen() {
     var selectedTabIndex by remember { mutableStateOf(0) }
     var profileData by remember { mutableStateOf(dataManager.loadProfileData()) }
     var workoutHistory by remember { mutableStateOf(dataManager.loadWorkoutHistory()) }
-    var workoutInProgress by remember { mutableStateOf(false) }
+    var workoutInProgress by remember { mutableStateOf(dataManager.isWorkoutInProgress()) }
     var currentWorkoutMachines by remember { mutableStateOf<List<Machine>>(emptyList()) }
     var currentWorkoutName by remember { mutableStateOf("") }
     var isLoggedIn by remember { mutableStateOf(dataManager.isUserLoggedIn()) }
@@ -390,6 +428,30 @@ fun MainScreen() {
     var lastSyncTime by remember { mutableStateOf("") }
     var connectionStatus by remember { mutableStateOf("Vérification...") }
     var isOnline by remember { mutableStateOf(false) }
+
+    // Restaurer l'état d'entraînement en cours si nécessaire
+    LaunchedEffect(Unit) {
+        if (dataManager.isWorkoutInProgress()) {
+            val savedSession = dataManager.loadCurrentWorkoutSession()
+            if (savedSession != null) {
+                // Restaurer l'état d'entraînement
+                currentWorkoutName = savedSession.workoutName
+                currentWorkoutMachines = savedSession.exercises.map { it.machine }
+                workoutInProgress = true
+
+                // Afficher une notification de restauration
+                android.widget.Toast.makeText(
+                    context,
+                    "✅ Votre entraînement a été restauré",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                // État incohérent, nettoyer
+                dataManager.clearCurrentWorkout()
+                workoutInProgress = false
+            }
+        }
+    }
 
     // Vérifier la connectivité au démarrage
     LaunchedEffect(Unit) {
@@ -462,6 +524,7 @@ fun MainScreen() {
             machines = currentWorkoutMachines,
             profileData = profileData,
             workoutHistory = workoutHistory,
+            dataManager = dataManager,
             onFinishWorkout = { duration, exercisesCompleted ->
                 // Sauvegarder la séance
                 val newEntry = WorkoutEntry(
@@ -473,6 +536,9 @@ fun MainScreen() {
                 )
                 workoutHistory = workoutHistory + newEntry
                 dataManager.saveWorkoutHistory(workoutHistory)
+
+                // Nettoyer l'état d'entraînement sauvegardé
+                dataManager.clearCurrentWorkout()
 
                 // Créer le récapitulatif
                 val age = calculateAge(profileData.dateNaissance)
@@ -497,6 +563,8 @@ fun MainScreen() {
                 showWorkoutSummary = true
             },
             onExitWorkout = {
+                // Nettoyer l'état d'entraînement sauvegardé
+                dataManager.clearCurrentWorkout()
                 workoutInProgress = false
                 currentWorkoutMachines = emptyList()
                 currentWorkoutName = ""
@@ -2421,6 +2489,7 @@ fun WorkoutInProgressScreen(
     machines: List<Machine>,
     profileData: ProfileData,
     workoutHistory: List<WorkoutEntry>,
+    dataManager: DataManager,
     onFinishWorkout: (Int, List<ExerciseRecord>) -> Unit,
     onExitWorkout: () -> Unit
 ) {
@@ -2432,7 +2501,8 @@ fun WorkoutInProgressScreen(
     // Construit la session en fonction de l'objectif choisi
     var currentWorkoutSession by remember(selectedGoal) {
         mutableStateOf(
-            WorkoutSession(
+            // Essayer de restaurer une session sauvegardée, sinon créer une nouvelle
+            dataManager.loadCurrentWorkoutSession() ?: WorkoutSession(
                 workoutName = workoutName,
                 exercises = machines.map { machine ->
                     val goalObjective = when (selectedGoal) {
@@ -2456,6 +2526,22 @@ fun WorkoutInProgressScreen(
                 }
             )
         )
+    }
+
+    // Sauvegarder automatiquement l'état de la session
+    LaunchedEffect(currentWorkoutSession) {
+        dataManager.saveCurrentWorkoutSession(currentWorkoutSession)
+        dataManager.saveWorkoutInProgress(true)
+    }
+
+    // Sauvegarder automatiquement l'état toutes les 30 secondes
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(30000) // 30 secondes
+            if (dataManager.isWorkoutInProgress()) {
+                dataManager.saveCurrentWorkoutSession(currentWorkoutSession)
+            }
+        }
     }
 
     // Dialog pour choisir l'objectif avant de commencer réellement
@@ -2510,6 +2596,36 @@ fun WorkoutInProgressScreen(
                 isResting = false
             }
         )
+    } else if (showExitDialog) {
+        // Dialog de confirmation pour quitter l'entraînement
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title = { Text("Quitter l'entraînement ?") },
+            text = {
+                Text("Votre progression sera sauvegardée automatiquement. Vous pourrez reprendre votre entraînement plus tard.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        // Sauvegarder l'état avant de quitter
+                        dataManager.saveCurrentWorkoutSession(currentWorkoutSession)
+                        showExitDialog = false
+                        onExitWorkout()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE57373))
+                ) {
+                    Text("Quitter", color = Color.White)
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showExitDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Accent)
+                ) {
+                    Text("Continuer", color = Color.White)
+                }
+            }
+        )
     } else {
         // Écran d'entraînement principal
         Column(
@@ -2528,7 +2644,11 @@ fun WorkoutInProgressScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = { showExitDialog = true }) {
+                    IconButton(onClick = {
+                        // Sauvegarder l'état avant de quitter
+                        dataManager.saveCurrentWorkoutSession(currentWorkoutSession)
+                        showExitDialog = true
+                    }) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Quitter",
@@ -2629,6 +2749,9 @@ fun WorkoutInProgressScreen(
 
                                 // Sauvegarder localement
                                 onFinishWorkout(duration, exercisesCompleted)
+
+                                // Nettoyer l'état d'entraînement sauvegardé
+                                dataManager.clearCurrentWorkout()
 
                                 // Sauvegarder sur le serveur
                                 val syncManager = SyncManager(context)
