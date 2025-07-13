@@ -1603,6 +1603,9 @@ fun MachinesScreen(
                 // Mapper MachineDto vers Machine du côté app (en conservant les champs principaux)
                 val remoteMachines = fetched.mapNotNull { dto ->
                     try {
+                        // Debug: afficher les données reçues
+                        android.util.Log.d("MachineDebug", "Machine: ${dto.nom}, Instructions: '${dto.instructions}'")
+
                         Machine(
                             id = dto.id,
                             nom = dto.nom,
@@ -1621,6 +1624,7 @@ fun MachinesScreen(
             }
         } catch (e: Exception) {
             // Garde la liste locale en cas d'erreur réseau
+            android.util.Log.e("MachineDebug", "Erreur API: ${e.message}")
         }
     }
 
@@ -1868,6 +1872,8 @@ fun MachineCard(machine: Machine) {
                             color = Accent
                         )
                         Spacer(modifier = Modifier.height(4.dp))
+                        // Debug: afficher la valeur des instructions
+                        android.util.Log.d("MachineDebug", "Affichage instructions pour ${machine.nom}: '${machine.instructions}'")
                         Text(
                             text = machine.instructions,
                             fontSize = 12.sp,
