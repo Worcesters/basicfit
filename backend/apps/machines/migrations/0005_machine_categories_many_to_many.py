@@ -1,0 +1,101 @@
+from django.db import migrations, models
+import django.db.models.deletion
+
+def create_machine_categories_m2m(apps, schema_editor):
+    Machine = apps.get_model('machines', 'Machine')
+    Categorie = apps.get_model('machines', 'CategorieMachine')
+    MachineCategorie = apps.get_model('machines', 'MachineCategorie')
+
+    # Créer la table de liaison pour les catégories multiples
+    for machine in Machine.objects.all():
+        # Set pour tracker les catégories déjà ajoutées pour cette machine
+        categories_ajoutees = set()
+
+        # Ajouter la catégorie principale actuelle
+        if machine.categorie and machine.categorie.id not in categories_ajoutees:
+            MachineCategorie.objects.get_or_create(
+                machine=machine,
+                categorie=machine.categorie,
+                defaults={'is_primary': True, 'ordre': 0}
+            )
+            categories_ajoutees.add(machine.categorie.id)
+
+        # Ajouter les catégories secondaires basées sur les tags
+        if machine.tags:
+            tags = [tag.strip().lower() for tag in machine.tags.split(',')]
+            ordre_secondaire = 1
+
+            # Mapping des tags vers catégories
+            if 'cable' in tags:
+                cable_cat = Categorie.objects.filter(nom='CABLE').first()
+                if cable_cat and cable_cat.id not in categories_ajoutees:
+                    MachineCategorie.objects.get_or_create(
+                        machine=machine,
+                        categorie=cable_cat,
+                        defaults={'is_primary': False, 'ordre': ordre_secondaire}
+                    )
+                    categories_ajoutees.add(cable_cat.id)
+                    ordre_secondaire += 1
+
+            if 'cardio' in tags:
+                cardio_cat = Categorie.objects.filter(nom='CARDIO').first()
+                if cardio_cat and cardio_cat.id not in categories_ajoutees:
+                    MachineCategorie.objects.get_or_create(
+                        machine=machine,
+                        categorie=cardio_cat,
+                        defaults={'is_primary': False, 'ordre': ordre_secondaire}
+                    )
+                    categories_ajoutees.add(cardio_cat.id)
+                    ordre_secondaire += 1
+
+            if 'poids' in tags or 'haltères' in tags or 'barre' in tags:
+                poids_cat = Categorie.objects.filter(nom='POIDS_LIBRE').first()
+                if poids_cat and poids_cat.id not in categories_ajoutees:
+                    MachineCategorie.objects.get_or_create(
+                        machine=machine,
+                        categorie=poids_cat,
+                        defaults={'is_primary': False, 'ordre': ordre_secondaire}
+                    )
+                    categories_ajoutees.add(poids_cat.id)
+                    ordre_secondaire += 1
+
+def reverse_machine_categories_m2m(apps, schema_editor):
+    MachineCategorie = apps.get_model('machines', 'MachineCategorie')
+    MachineCategorie.objects.all().delete()
+
+class Migration(migrations.Migration):
+    dependencies = [
+        ("machines", "0004_add_categories_and_cardio_machines"),
+    ]
+    operations = [
+        # Créer la table de liaison
+        migrations.CreateModel(
+            name='MachineCategorie',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='Date de création')),
+                ('updated_at', models.DateTimeField(auto_now=True, verbose_name='Date de modification')),
+                ('is_primary', models.BooleanField(default=False, verbose_name='Catégorie principale')),
+                ('ordre', models.PositiveIntegerField(default=0, verbose_name='Ordre d\'affichage')),
+                ('machine', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='categories_associees', to='machines.machine', verbose_name='Machine')),
+                ('categorie', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='machines_associees', to='machines.categoriemachine', verbose_name='Catégorie')),
+            ],
+            options={
+                'verbose_name': 'Association Machine-Catégorie',
+                'verbose_name_plural': 'Associations Machine-Catégorie',
+                'unique_together': {('machine', 'categorie')},
+                'ordering': ['machine', 'ordre', 'categorie'],
+            },
+        ),
+        # Ajouter un index pour optimiser les requêtes
+        migrations.AddIndex(
+            model_name='machinecategorie',
+            index=models.Index(fields=['machine', 'is_primary'], name='machines_mac_machine_123456_idx'),
+        ),
+        migrations.AddIndex(
+            model_name='machinecategorie',
+            index=models.Index(fields=['categorie', 'is_primary'], name='machines_mac_categor_789012_idx'),
+        ),
+        # Remplir la table avec les données existantes
+        migrations.RunPython(create_machine_categories_m2m, reverse_machine_categories_m2m),
+    ]

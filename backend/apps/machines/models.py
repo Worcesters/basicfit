@@ -314,3 +314,38 @@ class VarianteMachine(TimeStampedModel):
 
     def __str__(self):
         return f"{self.machine.nom} - {self.nom}"
+
+
+class MachineCategorie(TimeStampedModel):
+    """
+    Modèle de liaison pour permettre à une machine d'appartenir à plusieurs catégories
+    """
+    machine = models.ForeignKey(
+        Machine,
+        on_delete=models.CASCADE,
+        related_name='categories_associees',
+        verbose_name="Machine"
+    )
+    categorie = models.ForeignKey(
+        CategorieMachine,
+        on_delete=models.CASCADE,
+        related_name='machines_associees',
+        verbose_name="Catégorie"
+    )
+    is_primary = models.BooleanField(
+        default=False,
+        verbose_name="Catégorie principale"
+    )
+    ordre = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Ordre d'affichage"
+    )
+
+    class Meta:
+        verbose_name = "Association Machine-Catégorie"
+        verbose_name_plural = "Associations Machine-Catégorie"
+        unique_together = ['machine', 'categorie']
+        ordering = ['machine', 'ordre', 'categorie']
+
+    def __str__(self):
+        return f"{self.machine.nom} - {self.categorie.nom}"

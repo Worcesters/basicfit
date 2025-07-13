@@ -2,7 +2,7 @@
 Configuration de l'admin Django pour les machines BasicFit
 """
 from django.contrib import admin
-from .models import GroupeMusculaire, CategorieMachine, Machine, VarianteMachine
+from .models import GroupeMusculaire, CategorieMachine, Machine, VarianteMachine, MachineCategorie
 
 
 @admin.register(GroupeMusculaire)
@@ -38,7 +38,13 @@ class CategorieMachineAdmin(admin.ModelAdmin):
 class VarianteMachineInline(admin.TabularInline):
     model = VarianteMachine
     extra = 0
-    fields = ['nom', 'description', 'niveau_difficulte', 'is_active']
+    fields = ['nom', 'niveau_difficulte', 'is_active']
+
+
+class MachineCategorieInline(admin.TabularInline):
+    model = MachineCategorie
+    extra = 1
+    fields = ['categorie', 'is_primary', 'ordre']
 
 
 @admin.register(Machine)
@@ -55,7 +61,7 @@ class MachineAdmin(admin.ModelAdmin):
     search_fields = ['nom', 'nom_anglais', 'description', 'tags']
     filter_horizontal = ['groupes_musculaires_primaires', 'groupes_musculaires_secondaires']
     ordering = ['categorie', 'ordre_affichage', 'nom']
-    inlines = [VarianteMachineInline]
+    inlines = [VarianteMachineInline, MachineCategorieInline]
 
     fieldsets = (
         ('Informations générales', {
@@ -114,3 +120,21 @@ class VarianteMachineAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('machine')
+
+
+@admin.register(MachineCategorie)
+class MachineCategorieAdmin(admin.ModelAdmin):
+    list_display = ['machine', 'categorie', 'is_primary', 'ordre', 'created_at']
+    list_filter = ['is_primary', 'categorie', 'created_at']
+    list_editable = ['is_primary', 'ordre']
+    search_fields = ['machine__nom', 'categorie__nom']
+    ordering = ['machine', 'ordre', 'categorie']
+
+    fieldsets = (
+        (None, {
+            'fields': ('machine', 'categorie', 'is_primary', 'ordre')
+        }),
+    )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('machine', 'categorie')

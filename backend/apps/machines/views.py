@@ -67,12 +67,23 @@ def machines_list(request):
                     'icone': groupe.icone
                 })
 
+            # Récupérer toutes les catégories de la machine
+            categories = []
+            for assoc in machine.categories_associees.all().order_by('-is_primary', 'ordre'):
+                categories.append({
+                    'nom': assoc.categorie.get_nom_display(),
+                    'code': assoc.categorie.nom,
+                    'is_primary': assoc.is_primary,
+                    'ordre': assoc.ordre
+                })
+
             data.append({
                 'id': machine.id,
                 'nom': machine.nom,
                 'nom_anglais': machine.nom_anglais or machine.nom,
                 'categorie': machine.categorie.get_nom_display() if machine.categorie else None,
                 'categorie_code': machine.categorie.nom if machine.categorie else None,
+                'categories': categories,  # Nouvelles catégories multiples
                 'description': machine.description,
                 'instructions': machine.instructions,
                 'niveau_difficulte': machine.get_niveau_difficulte_display(),
