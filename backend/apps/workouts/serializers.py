@@ -13,7 +13,7 @@ class MachineSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Machine
-        fields = ['id', 'nom', 'description', 'categorie']
+        fields = ['id', 'nom', 'description', 'instructions', 'categorie']
 
 
 class VarianteMachineSerializer(serializers.ModelSerializer):
