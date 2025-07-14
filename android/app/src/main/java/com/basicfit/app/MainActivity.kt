@@ -3417,6 +3417,10 @@ fun calculateSmartWeightRecommendation(
     targetReps: Int,
     objectif: String
 ): Double {
+    // Détection machine assistée
+    val isAssist = machine.nom.contains("assist", ignoreCase = true) ||
+        machine.tags.any { it.contains("assisté", ignoreCase = true) }
+
     // Créer une liste (date, exercise) pour conserver l'ordre chronologique
     val exerciseHistory = workoutHistory
         .sortedBy { it.date } // ordre chronologique croissant
@@ -3435,14 +3439,14 @@ fun calculateSmartWeightRecommendation(
             "Bras" -> 10.0
             else -> 20.0
         }
-
-        // Ajuster selon l'objectif pour les débutants
+        // Pour les machines assistées, on commence plus haut (plus facile)
+        val startWeight = if (isAssist) baseWeight * 2 else baseWeight
         return when (objectif) {
-            "Force" -> baseWeight * 0.8 // Plus léger pour la technique
-            "Prise de masse" -> baseWeight
-            "Endurance" -> baseWeight * 0.7 // Très léger pour les reps élevées
-            "Sèche" -> baseWeight * 0.9
-            else -> baseWeight
+            "Force" -> startWeight * 0.8
+            "Prise de masse" -> startWeight
+            "Endurance" -> startWeight * 0.7
+            "Sèche" -> startWeight * 0.9
+            else -> startWeight
         }
     }
 
@@ -3457,36 +3461,41 @@ fun calculateSmartWeightRecommendation(
     val isProgressing = analyzeProgression(lastPerformances)
 
     // Calculer le poids de base selon le 1RM et le nombre de reps cibles (Epley inversée)
-    // Formule: poids = 1RM / (1 + reps/30)
     val baseWeight = estimated1RM / (1 + targetReps / 30.0)
-
-    // Ajuster selon l'objectif (petite marge)
     val objectiveFactor = when (objectif) {
-        "Force" -> 1.05 // +5% pour charger un peu plus (reps faibles)
+        "Force" -> 1.05
         "Prise de masse" -> 1.0
-        "Endurance" -> 0.9 // un peu moins lourd
+        "Endurance" -> 0.9
         "Sèche" -> 0.95
         else -> 1.0
     }
-
     var targetWeight = baseWeight * objectiveFactor
 
-    // Ajuster selon la progression
-    targetWeight = if (isProgressing) {
-        targetWeight * 1.08 // +8% pour encourager la progression
+    // Inverser la logique pour les machines assistées
+    if (isAssist) {
+        targetWeight = if (isProgressing) {
+            targetWeight * 0.92 // Progression = moins d'assistance
+        } else {
+            targetWeight * 1.08 // Stagnation = plus d'assistance
+        }
     } else {
-        targetWeight * 0.92 // -8% si pas de progression
+        targetWeight = if (isProgressing) {
+            targetWeight * 1.08
+        } else {
+            targetWeight * 0.92
+        }
     }
 
     // Ajuster selon le nombre de séances récentes
     val recentSessions = exerciseHistory.count {
         it.first.isAfter(java.time.LocalDate.now().minusDays(7))
     }
-
-    when {
-        recentSessions >= 3 -> targetWeight * 1.05 // Fréquence élevée = progression
-        recentSessions == 0 -> targetWeight * 0.9 // Pas d'entraînement récent = plus léger
-        else -> targetWeight // Fréquence normale
+    targetWeight = when {
+        isAssist && recentSessions >= 3 -> targetWeight * 0.95 // Plus tu t'entraînes, moins d'assistance
+        isAssist && recentSessions == 0 -> targetWeight * 1.1 // Pas d'entraînement récent = plus d'assistance
+        !isAssist && recentSessions >= 3 -> targetWeight * 1.05
+        !isAssist && recentSessions == 0 -> targetWeight * 0.9
+        else -> targetWeight
     }
 
     // S'assurer que le poids est dans les limites de la machine

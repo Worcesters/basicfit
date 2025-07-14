@@ -327,6 +327,36 @@ object MachineData {
             popularite = 80,
             tags = listOf("triceps", "bras", "isolation", "extension")
         ),
+        Machine(
+            id = 18,
+            nom = "Seated Triceps Press",
+            nomAnglais = "Seated Triceps Press",
+            description = "Machine guidée pour l'isolation des triceps en position assise",
+            instructions = "Assis sur la machine, placez vos avant-bras sur les coussinets et étendez les coudes en contractant les triceps. Gardez le dos droit et les coudes fixes.",
+            categorie = CategorieMachine.MACHINE_GUIDEE,
+            groupeMusculairePrimaire = "Bras",
+            incrementPoids = 2.5,
+            poidsMinimum = 10.0,
+            poidsMaximum = 80.0,
+            niveauDifficulte = NiveauDifficulte.DEBUTANT,
+            popularite = 75,
+            tags = listOf("triceps", "bras", "isolation", "machine guidée", "assise")
+        ),
+        Machine(
+            id = 19,
+            nom = "Dip Assist",
+            nomAnglais = "Dip Assist",
+            description = "Machine assistée pour les dips, permettant de travailler les triceps et pectoraux",
+            instructions = "Placez vos genoux sur la plateforme et vos mains sur les barres parallèles. Descendez en fléchissant les coudes puis remontez en poussant sur les triceps et pectoraux.",
+            categorie = CategorieMachine.MACHINE_GUIDEE,
+            groupeMusculairePrimaire = "Bras",
+            incrementPoids = 5.0,
+            poidsMinimum = 20.0,
+            poidsMaximum = 150.0,
+            niveauDifficulte = NiveauDifficulte.INTERMEDIAIRE,
+            popularite = 70,
+            tags = listOf("triceps", "pectoraux", "dips", "assisté", "polyarticulaire")
+        ),
 
         // CARDIO
         Machine(
