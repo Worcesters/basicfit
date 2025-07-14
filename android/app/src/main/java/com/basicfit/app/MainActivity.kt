@@ -556,6 +556,9 @@ fun MainScreen() {
                     personalRecords = personalRecords
                 )
 
+                // Forcer la mise à jour des recommandations pour le prochain entraînement
+                // Les recommandations se mettront à jour automatiquement grâce au remember(workoutHistory)
+
                 // Passer à l'écran de récapitulatif
                 workoutInProgress = false
                 currentWorkoutMachines = emptyList()
@@ -2499,7 +2502,7 @@ fun WorkoutInProgressScreen(
     var selectedGoal by remember { mutableStateOf<String?>(null) }
 
     // Construit la session en fonction de l'objectif choisi
-    var currentWorkoutSession by remember(selectedGoal) {
+    var currentWorkoutSession by remember(selectedGoal, workoutHistory) {
         mutableStateOf(
             // Essayer de restaurer une session sauvegardée, sinon créer une nouvelle
             dataManager.loadCurrentWorkoutSession() ?: WorkoutSession(
@@ -3002,6 +3005,13 @@ fun CurrentExerciseCard(
         )
     }
 
+    // Afficher un message si pas de poids recommandé
+    val weightDisplay = if (exerciseSession.recommendedWeight > 0) {
+        "${exerciseSession.recommendedWeight.toInt()} kg"
+    } else {
+        "Poids à déterminer"
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = AccentLight)
@@ -3053,7 +3063,7 @@ fun CurrentExerciseCard(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Poids: ${recommendation.weight.toInt()}kg • Reps: ${recommendation.reps} • Repos: ${recommendation.restTime}s",
+                        text = "Poids: $weightDisplay • Reps: ${recommendation.reps} • Repos: ${recommendation.restTime}s",
                         fontSize = 12.sp,
                         color = Color(0xFF666666)
                     )
@@ -3416,14 +3426,23 @@ fun calculateSmartWeightRecommendation(
         }
 
     if (exerciseHistory.isEmpty()) {
-        // première fois – idem qu'avant
-        return when (machine.groupeMusculairePrimaire) {
-            "Pectoraux" -> 40.0
-            "Dos" -> 35.0
-            "Jambes" -> 60.0
-            "Épaules" -> 20.0
-            "Bras" -> 15.0
-            else -> 30.0
+        // Première fois - poids de départ selon le groupe musculaire et l'objectif
+        val baseWeight = when (machine.groupeMusculairePrimaire) {
+            "Pectoraux" -> 30.0
+            "Dos" -> 25.0
+            "Jambes" -> 40.0
+            "Épaules" -> 15.0
+            "Bras" -> 10.0
+            else -> 20.0
+        }
+
+        // Ajuster selon l'objectif pour les débutants
+        return when (objectif) {
+            "Force" -> baseWeight * 0.8 // Plus léger pour la technique
+            "Prise de masse" -> baseWeight
+            "Endurance" -> baseWeight * 0.7 // Très léger pour les reps élevées
+            "Sèche" -> baseWeight * 0.9
+            else -> baseWeight
         }
     }
 
@@ -3454,9 +3473,20 @@ fun calculateSmartWeightRecommendation(
 
     // Ajuster selon la progression
     targetWeight = if (isProgressing) {
-        targetWeight * 1.05 // +5%
+        targetWeight * 1.08 // +8% pour encourager la progression
     } else {
-        targetWeight * 0.95 // -5%
+        targetWeight * 0.92 // -8% si pas de progression
+    }
+
+    // Ajuster selon le nombre de séances récentes
+    val recentSessions = exerciseHistory.count {
+        it.first.isAfter(java.time.LocalDate.now().minusDays(7))
+    }
+
+    when {
+        recentSessions >= 3 -> targetWeight * 1.05 // Fréquence élevée = progression
+        recentSessions == 0 -> targetWeight * 0.9 // Pas d'entraînement récent = plus léger
+        else -> targetWeight // Fréquence normale
     }
 
     // S'assurer que le poids est dans les limites de la machine
