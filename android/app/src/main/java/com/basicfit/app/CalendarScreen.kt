@@ -51,6 +51,9 @@ fun CalendarScreen(
     // Ajout pour le bouton de vidage du calendrier
     var showClearDialog by remember { mutableStateOf(false) }
 
+    // State pour afficher les détails d'une séance
+    var selectedWorkout by remember { mutableStateOf<WorkoutEntry?>(null) }
+
     // State: mois actuellement affiché
     val currentMonth = remember { YearMonth.now() }
     val calendarState = rememberCalendarState(currentMonth)
@@ -127,7 +130,9 @@ fun CalendarScreen(
                                     }
                                     draggedEntry = null
                                 },
-                                onEntryClick = onEntryClick
+                                onEntryClick = { entry ->
+                                    selectedWorkout = entry
+                                }
                             )
                         }
                     )
@@ -156,6 +161,14 @@ fun CalendarScreen(
                 },
                 title = { Text("Confirmer la suppression") },
                 text = { Text("Voulez-vous vraiment vider le calendrier des séances non terminées ?") }
+            )
+        }
+
+        // Affichage des détails d'une séance
+        selectedWorkout?.let { workout ->
+            WorkoutDetailCard(
+                workoutEntry = workout,
+                onBack = { selectedWorkout = null }
             )
         }
     }

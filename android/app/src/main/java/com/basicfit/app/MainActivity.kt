@@ -3049,6 +3049,41 @@ fun CurrentExerciseCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Image GIF de démonstration (si disponible)
+            exerciseSession.machine.imageGif?.let { gifUrl ->
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F0F0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "🎬 Démonstration",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Accent
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Ici on pourrait utiliser une bibliothèque comme Coil pour charger le GIF
+                        // Pour l'instant, on affiche un placeholder
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                                .background(Color(0xFFE0E0E0)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "GIF de démonstration",
+                                fontSize = 12.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
             // Recommandations
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8)),
@@ -3176,36 +3211,73 @@ fun UpcomingExerciseCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA))
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(16.dp)
         ) {
-            Text(
-                text = exerciseSession.machine.categorie.icone,
-                fontSize = 24.sp,
-                modifier = Modifier.padding(end = 12.dp)
-            )
-
-            Column(modifier = Modifier.weight(1f)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = exerciseSession.machine.nom,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF666666)
+                    text = exerciseSession.machine.categorie.icone,
+                    fontSize = 24.sp,
+                    modifier = Modifier.padding(end = 12.dp)
                 )
-                Text(
-                    text = "${exerciseSession.targetSets} séries × ${exerciseSession.targetReps} reps",
-                    fontSize = 12.sp,
-                    color = Color.Gray
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = exerciseSession.machine.nom,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF666666)
+                    )
+                    Text(
+                        text = "${exerciseSession.targetSets} séries × ${exerciseSession.targetReps} reps",
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                }
+
+                Icon(
+                    imageVector = Icons.Default.AccessTime,
+                    contentDescription = "À venir",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
-            Icon(
-                imageVector = Icons.Default.AccessTime,
-                contentDescription = "À venir",
-                tint = Color.Gray,
-                modifier = Modifier.size(20.dp)
-            )
+            // Image GIF de démonstration (si disponible)
+            exerciseSession.machine.imageGif?.let { gifUrl ->
+                Spacer(modifier = Modifier.height(12.dp))
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F0F0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        Text(
+                            text = "🎬 Démonstration",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Accent
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(80.dp)
+                                .background(Color(0xFFE0E0E0)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "GIF de démonstration",
+                                fontSize = 10.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -3522,5 +3594,148 @@ fun analyzeProgression(performances: List<ExerciseRecord>): Boolean {
         lastVolume == previousVolume && lastPerformance.reps >= previousPerformance.reps -> true
         lastPerformance.weight > previousPerformance.weight -> true
         else -> false
+    }
+}
+
+@Composable
+fun WorkoutDetailCard(
+    workoutEntry: WorkoutEntry,
+    onBack: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF5F5F5))
+            .padding(16.dp)
+    ) {
+        // Header avec bouton retour
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Retour",
+                    tint = Accent
+                )
+            }
+
+            Text(
+                text = "Détails de la séance",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Accent
+            )
+
+            Spacer(modifier = Modifier.width(48.dp)) // Pour centrer le titre
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Informations de la séance
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Séance du ${workoutEntry.date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Accent
+                )
+
+                if (workoutEntry.duration > 0) {
+                    Text(
+                        text = "Durée: ${workoutEntry.duration} minutes",
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Liste des exercices avec GIFs
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(workoutEntry.exercises) { exercise ->
+                ExerciseDetailCard(exercise = exercise)
+            }
+        }
+    }
+}
+
+@Composable
+fun ExerciseDetailCard(exercise: ExerciseRecord) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header de l'exercice
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = exercise.name,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Accent
+                    )
+                    Text(
+                        text = "${exercise.sets} séries × ${exercise.reps} reps",
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+                }
+
+                Text(
+                    text = "${exercise.weight.toInt()} kg",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF4CAF50)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // GIF de démonstration (placeholder pour l'instant)
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F0F0)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        text = "🎬 Démonstration",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Accent
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp)
+                            .background(Color(0xFFE0E0E0)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "GIF de démonstration",
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
+                    }
+                }
+            }
+        }
     }
 }

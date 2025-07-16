@@ -9,11 +9,16 @@ from apps.core.models import ModeEntrainement
 
 class MachineSerializer(serializers.ModelSerializer):
     """Serializer pour les machines"""
-    categorie = serializers.CharField(source='categorie.nom')
+    image_gif = serializers.ImageField(read_only=True)
 
     class Meta:
         model = Machine
-        fields = ['id', 'nom', 'description', 'instructions', 'categorie']
+        fields = [
+            'id', 'nom', 'nom_anglais', 'description', 'instructions',
+            'categorie', 'niveau_difficulte', 'est_disponible',
+            'image_principale', 'image_gif', 'video_demonstration',
+            'tags', 'popularite', 'necessite_supervision'
+        ]
 
 
 class VarianteMachineSerializer(serializers.ModelSerializer):
@@ -35,9 +40,10 @@ class SeriExerciceSerializer(serializers.ModelSerializer):
     class Meta:
         model = SeriExercice
         fields = [
-            'id', 'numero_serie', 'repetitions_prevues', 'poids_prevu',
-            'repetitions_realisees', 'poids_utilise', 'repos_reel',
-            'statut', 'duree_serie', 'note_effort', 'commentaire'
+            'id', 'numero_serie', 'repetitions_prevues', 'duree_prevue',
+            'poids_prevu', 'repetitions_realisees', 'duree_realisee',
+            'poids_utilise', 'repos_reel', 'statut', 'duree_serie',
+            'note_effort', 'commentaire'
         ]
 
 
@@ -54,10 +60,10 @@ class ExerciceSeanceSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'machine', 'machine_id', 'variante', 'variante_id',
             'ordre_dans_seance', 'series_prevues', 'repetitions_prevues',
-            'poids_prevu', 'repos_prevu', 'statut', 'nombre_series',
-            'repetitions_realisees', 'poids_utilise', 'volume_total',
-            'tonnage_total', 'duree_totale', 'note_ressenti',
-            'commentaire', 'series'
+            'duree_prevue', 'poids_prevu', 'repos_prevu', 'statut',
+            'nombre_series', 'repetitions_realisees', 'duree_realisee',
+            'poids_utilise', 'volume_total', 'tonnage_total', 'duree_totale',
+            'note_ressenti', 'commentaire', 'series'
         ]
 
 

@@ -117,12 +117,14 @@ class ExerciceSeanceAdmin(admin.ModelAdmin):
         }),
         ('Planification', {
             'fields': (
-                'series_prevues', 'repetitions_prevues', 'poids_prevu', 'repos_prevu'
+                'series_prevues', 'repetitions_prevues', 'duree_prevue',
+                'poids_prevu', 'repos_prevu'
             )
         }),
         ('Résultats', {
             'fields': (
-                'nombre_series', 'repetitions_realisees', 'poids_utilise'
+                'nombre_series', 'repetitions_realisees', 'duree_realisee',
+                'poids_utilise'
             )
         }),
         ('Métriques', {
@@ -148,8 +150,9 @@ class ExerciceSeanceAdmin(admin.ModelAdmin):
 @admin.register(SeriExercice)
 class SeriExerciceAdmin(admin.ModelAdmin):
     list_display = [
-        'exercice', 'numero_serie', 'repetitions_prevues', 'poids_prevu',
-        'repetitions_realisees', 'poids_utilise', 'statut', 'note_effort'
+        'exercice', 'numero_serie', 'repetitions_prevues', 'duree_prevue',
+        'poids_prevu', 'repetitions_realisees', 'duree_realisee',
+        'poids_utilise', 'statut', 'note_effort'
     ]
     list_filter = [
         'statut', 'note_effort', 'exercice__machine__categorie', 'created_at'
@@ -166,10 +169,10 @@ class SeriExerciceAdmin(admin.ModelAdmin):
             'fields': ('exercice', 'numero_serie', 'statut')
         }),
         ('Planification', {
-            'fields': ('repetitions_prevues', 'poids_prevu', 'repos_prevu')
+            'fields': ('repetitions_prevues', 'duree_prevue', 'poids_prevu', 'repos_prevu')
         }),
         ('Résultats', {
-            'fields': ('repetitions_realisees', 'poids_utilise', 'repos_reel')
+            'fields': ('repetitions_realisees', 'duree_realisee', 'poids_utilise', 'repos_reel')
         }),
         ('Métriques', {
             'fields': ('duree_serie', 'frequence_cardiaque_apres', 'note_effort'),

@@ -17,7 +17,8 @@ data class Machine(
     val popularite: Int = 0,
     val estDisponible: Boolean = true,
     val necessite_supervision: Boolean = false,
-    val tags: List<String> = emptyList()
+    val tags: List<String> = emptyList(),
+    val imageGif: String? = null
 )
 
 enum class CategorieMachine(val displayName: String, val couleur: String, val icone: String) {

@@ -244,6 +244,12 @@ class ExerciceSeance(TimeStampedModel):
         default=10,
         verbose_name="Répétitions prévues"
     )
+    duree_prevue = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Durée prévue en secondes (pour exercices de durée)",
+        verbose_name="Durée prévue (s)"
+    )
     poids_prevu = models.FloatField(
         help_text="Poids prévu en kg",
         verbose_name="Poids prévu (kg)"
@@ -269,11 +275,23 @@ class ExerciceSeance(TimeStampedModel):
         default=0,
         verbose_name="Répétitions totales réalisées"
     )
+    duree_realisee = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Durée réalisée en secondes (pour exercices de durée)",
+        verbose_name="Durée réalisée (s)"
+    )
     poids_utilise = models.FloatField(
         null=True,
         blank=True,
         help_text="Poids réellement utilisé en kg",
         verbose_name="Poids utilisé (kg)"
+    )
+    repos_reel = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Repos réel en secondes",
+        verbose_name="Repos réel (s)"
     )
 
     # Métriques calculées
@@ -385,6 +403,12 @@ class SeriExercice(TimeStampedModel):
     repetitions_prevues = models.PositiveIntegerField(
         verbose_name="Répétitions prévues"
     )
+    duree_prevue = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Durée prévue en secondes (pour exercices de durée)",
+        verbose_name="Durée prévue (s)"
+    )
     poids_prevu = models.FloatField(
         verbose_name="Poids prévu (kg)"
     )
@@ -399,16 +423,16 @@ class SeriExercice(TimeStampedModel):
         default=0,
         verbose_name="Répétitions réalisées"
     )
+    duree_realisee = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Durée réalisée en secondes (pour exercices de durée)",
+        verbose_name="Durée réalisée (s)"
+    )
     poids_utilise = models.FloatField(
         null=True,
         blank=True,
         verbose_name="Poids utilisé (kg)"
-    )
-    repos_reel = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        help_text="Repos réel en secondes",
-        verbose_name="Repos réel (s)"
     )
 
     # Métriques

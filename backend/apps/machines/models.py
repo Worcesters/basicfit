@@ -102,6 +102,11 @@ class Machine(SoftDeletableModel):
         ('EXPERT', 'Expert'),
     ]
 
+    TYPES_EXERCICE = [
+        ('REPETITIONS', 'Répétitions'),
+        ('DUREE', 'Durée'),
+    ]
+
     nom = models.CharField(
         max_length=100,
         verbose_name="Nom de la machine"
@@ -117,6 +122,15 @@ class Machine(SoftDeletableModel):
     instructions = models.TextField(
         help_text="Instructions d'utilisation détaillées",
         verbose_name="Instructions d'utilisation"
+    )
+
+    # Type d'exercice
+    type_exercice = models.CharField(
+        max_length=15,
+        choices=TYPES_EXERCICE,
+        default='REPETITIONS',
+        help_text="Type d'exercice : répétitions ou durée",
+        verbose_name="Type d'exercice"
     )
 
     # Catégorisation
@@ -185,6 +199,12 @@ class Machine(SoftDeletableModel):
         blank=True,
         null=True,
         verbose_name="Image principale"
+    )
+    image_gif = models.ImageField(
+        upload_to='machines/gifs/',
+        blank=True,
+        null=True,
+        verbose_name="GIF démonstratif"
     )
     video_demonstration = models.URLField(
         blank=True,
