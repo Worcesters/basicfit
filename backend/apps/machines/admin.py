@@ -77,7 +77,7 @@ class MachineAdmin(admin.ModelAdmin):
             'fields': ('niveau_difficulte', 'popularite', 'est_disponible', 'necessite_supervision')
         }),
         ('Médias', {
-            'fields': ('image_principale', 'video_demonstration'),
+            'fields': ('image_principale', 'image_gif', 'video_demonstration'),
             'classes': ('collapse',)
         }),
         ('Informations techniques', {
