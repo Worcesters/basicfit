@@ -97,7 +97,8 @@ data class ExerciseRecord(
     val name: String,
     val sets: Int,
     val reps: Int,
-    val weight: Double
+    val weight: Double,
+    val instructions: String = ""
 )
 
 // Data classes pour l'entraînement avancé

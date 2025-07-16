@@ -15,8 +15,8 @@ class MachineSerializer(serializers.ModelSerializer):
         model = Machine
         fields = [
             'id', 'nom', 'nom_anglais', 'description', 'instructions',
-            'categorie', 'niveau_difficulte', 'est_disponible',
-            'image_principale', 'image_gif', 'video_demonstration',
+            'instructions_utilisation', 'categorie', 'niveau_difficulte',
+            'est_disponible', 'image_principale', 'image_gif', 'video_demonstration',
             'tags', 'popularite', 'necessite_supervision'
         ]
 

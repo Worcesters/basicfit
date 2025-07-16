@@ -123,6 +123,11 @@ class Machine(SoftDeletableModel):
         help_text="Instructions d'utilisation détaillées",
         verbose_name="Instructions d'utilisation"
     )
+    instructions_utilisation = models.TextField(
+        blank=True,
+        help_text="Comment utiliser cette machine (pour import CSV)",
+        verbose_name="Instructions d'utilisation (import)"
+    )
 
     # Type d'exercice
     type_exercice = models.CharField(

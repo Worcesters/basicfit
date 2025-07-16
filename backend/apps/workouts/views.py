@@ -181,11 +181,18 @@ def sauvegarder_seance_simple(request):
                     'description': 'Catégorie auto générée',
                 })
 
+                # Déterminer le type d'exercice basé sur le nom ou les instructions
+                type_exercice = 'REPETITIONS'  # Par défaut
+                if any(keyword in exercice_data['nom'].lower() for keyword in ['plank', 'gainage', 'cardio', 'course', 'velo', 'rameur']):
+                    type_exercice = 'DUREE'
+
                 machine = Machine.objects.create(
                     nom=exercice_data['nom'],
                     description='Créée automatiquement depuis import CSV',
-                    instructions='',
+                    instructions=exercice_data.get('instructions', ''),
+                    instructions_utilisation=exercice_data.get('instructions', ''),
                     categorie=categorie_defaut,
+                    type_exercice=type_exercice,
                     increment_poids=2.5,
                     poids_minimum=0.0,
                     poids_maximum=200.0

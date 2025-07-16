@@ -269,15 +269,13 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
         lines.drop(1).forEach { line ->
             val parts = line.split(';', ',').map { it.trim() }
 
-            if (parts.size != 4 && parts.size != 5) return@forEach // format inconnu
+            if (parts.size < 4) return@forEach // format invalide
 
             val machineName = parts[0]
             val dateStr = parts[1]
             val repetitionStr = parts[2]
             val serieStr = parts[3]
-            val utilisationStr = if (parts.size == 5) parts[4] else "0"
-
-            val utilisation = utilisationStr.toDoubleOrNull() ?: 0.0
+            val instructionsStr = if (parts.size >= 5) parts[4] else ""
 
             // Repetitions : "10-12" -> moyenne, sinon valeur directe
             val repetition = if (repetitionStr.contains('-')) {
@@ -302,7 +300,8 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
                     name = machineName,
                     sets = serie,
                     reps = repetition,
-                    weight = utilisation
+                    weight = 0.0,
+                    instructions = instructionsStr
                 )
                 entriesByDate.getOrPut(date) { mutableListOf() }.add(record)
             }
