@@ -168,7 +168,11 @@ fun CalendarScreen(
         selectedWorkout?.let { workout ->
             WorkoutDetailCard(
                 workoutEntry = workout,
-                onBack = { selectedWorkout = null }
+                onBack = { selectedWorkout = null },
+                onStartWorkout = { workoutEntry ->
+                    selectedWorkout = null
+                    onGoToWorkout()
+                }
             )
         }
     }
