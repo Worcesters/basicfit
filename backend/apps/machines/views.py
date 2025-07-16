@@ -88,6 +88,8 @@ def machines_list(request):
                 'instructions': machine.instructions,
                 'niveau_difficulte': machine.get_niveau_difficulte_display(),
                 'niveau_code': machine.niveau_difficulte,
+                'type_exercice': machine.get_type_exercice_display(),
+                'type_exercice_code': machine.type_exercice,
                 'poids_minimum': float(machine.poids_minimum),
                 'poids_maximum': float(machine.poids_maximum),
                 'increment_poids': float(machine.increment_poids),
@@ -95,7 +97,8 @@ def machines_list(request):
                 'necessite_supervision': machine.necessite_supervision,
                 'groupes_musculaires_primaires': groupes_primaires,
                 'fabricant': machine.fabricant or '',
-                'modele': machine.modele or ''
+                'modele': machine.modele or '',
+                'image_gif': machine.image_gif.url if machine.image_gif else None
             })
         return Response({'results': data, 'count': len(data)})
     except Exception as e:
@@ -145,6 +148,8 @@ def machine_detail(request, pk):
             'description': machine.description,
             'instructions': machine.instructions,
             'niveau_difficulte': machine.get_niveau_difficulte_display(),
+            'type_exercice': machine.get_type_exercice_display(),
+            'type_exercice_code': machine.type_exercice,
             'poids_minimum': float(machine.poids_minimum),
             'poids_maximum': float(machine.poids_maximum),
             'increment_poids': float(machine.increment_poids),
@@ -155,7 +160,8 @@ def machine_detail(request, pk):
             'variantes': variantes_data,
             'fabricant': machine.fabricant or '',
             'modele': machine.modele or '',
-            'tags': machine.tags_liste if hasattr(machine, 'tags_liste') else []
+            'tags': machine.tags_liste if hasattr(machine, 'tags_liste') else [],
+            'image_gif': machine.image_gif.url if machine.image_gif else None
         }
         return Response(data)
     except Machine.DoesNotExist:

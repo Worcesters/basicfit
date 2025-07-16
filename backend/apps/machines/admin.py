@@ -51,40 +51,51 @@ class MachineCategorieInline(admin.TabularInline):
 class MachineAdmin(admin.ModelAdmin):
     list_display = [
         'nom', 'categorie', 'niveau_difficulte', 'popularite',
-        'est_disponible', 'poids_minimum', 'poids_maximum', 'created_at'
+        'est_disponible', 'necessite_supervision'
     ]
     list_filter = [
         'categorie', 'niveau_difficulte', 'est_disponible',
         'necessite_supervision', 'created_at'
     ]
     list_editable = ['est_disponible', 'popularite']
-    search_fields = ['nom', 'nom_anglais', 'description', 'tags']
-    filter_horizontal = ['groupes_musculaires_primaires', 'groupes_musculaires_secondaires']
+    search_fields = [
+        'nom', 'nom_anglais', 'description', 'instructions',
+        'tags', 'fabricant', 'modele'
+    ]
     ordering = ['categorie', 'ordre_affichage', 'nom']
-    inlines = [VarianteMachineInline, MachineCategorieInline]
+    filter_horizontal = [
+        'groupes_musculaires_primaires', 'groupes_musculaires_secondaires'
+    ]
 
     fieldsets = (
         ('Informations générales', {
-            'fields': ('nom', 'nom_anglais', 'description', 'instructions')
+            'fields': (
+                'nom', 'nom_anglais', 'description', 'instructions',
+                'categorie', 'type_exercice'
+            )
         }),
-        ('Catégorisation', {
-            'fields': ('categorie', 'groupes_musculaires_primaires', 'groupes_musculaires_secondaires')
+        ('Groupes musculaires', {
+            'fields': (
+                'groupes_musculaires_primaires', 'groupes_musculaires_secondaires'
+            )
         }),
         ('Caractéristiques techniques', {
-            'fields': ('increment_poids', 'poids_minimum', 'poids_maximum')
+            'fields': (
+                'increment_poids', 'poids_minimum', 'poids_maximum'
+            )
         }),
         ('Métadonnées', {
-            'fields': ('niveau_difficulte', 'popularite', 'est_disponible', 'necessite_supervision')
+            'fields': (
+                'niveau_difficulte', 'popularite', 'est_disponible',
+                'necessite_supervision', 'ordre_affichage', 'tags'
+            )
         }),
         ('Médias', {
             'fields': ('image_principale', 'image_gif', 'video_demonstration'),
+            'classes': ('collapse',)
         }),
         ('Informations techniques', {
             'fields': ('fabricant', 'modele', 'numero_serie'),
-            'classes': ('collapse',)
-        }),
-        ('Affichage et tags', {
-            'fields': ('ordre_affichage', 'tags'),
             'classes': ('collapse',)
         }),
         ('Statistiques', {

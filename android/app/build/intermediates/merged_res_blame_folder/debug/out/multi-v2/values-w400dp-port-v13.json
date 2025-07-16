@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.basicfit.app-mergeDebugResources-64:/values-w400dp-port-v13/values-w400dp-port-v13.xml",
+            "outputFile": "com.basicfit.app-mergeDebugResources-65:/values-w400dp-port-v13/values-w400dp-port-v13.xml",
             "map": [
                 {
                     "source": "C:\\Users\\jerem\\.gradle\\caches\\transforms-3\\aed92ccee87be3ca7e23303752a82dd5\\transformed\\material-1.11.0\\res\\values-w400dp-port-v13\\values-w400dp-port-v13.xml",

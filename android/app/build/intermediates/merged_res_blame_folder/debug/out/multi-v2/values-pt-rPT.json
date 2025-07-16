@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.basicfit.app-mergeDebugResources-64:/values-pt-rPT/values-pt-rPT.xml",
+            "outputFile": "com.basicfit.app-mergeDebugResources-65:/values-pt-rPT/values-pt-rPT.xml",
             "map": [
                 {
                     "source": "C:\\Users\\jerem\\.gradle\\caches\\transforms-3\\f770da494e4e4244760a60379c043f2e\\transformed\\jetified-foundation-release\\res\\values-pt-rPT\\values-pt-rPT.xml",

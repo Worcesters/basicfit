@@ -18,7 +18,7 @@ data class Machine(
     val estDisponible: Boolean = true,
     val necessite_supervision: Boolean = false,
     val tags: List<String> = emptyList(),
-    val imageGif: String? = null
+    val imageGif: String? = null // <-- Ajout du champ pour le GIF
 )
 
 enum class CategorieMachine(val displayName: String, val couleur: String, val icone: String) {

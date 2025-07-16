@@ -123,12 +123,6 @@ class Machine(SoftDeletableModel):
         help_text="Instructions d'utilisation détaillées",
         verbose_name="Instructions d'utilisation"
     )
-    instructions_utilisation = models.TextField(
-        blank=True,
-        null=True,
-        help_text="Comment utiliser cette machine (pour import CSV)",
-        verbose_name="Instructions d'utilisation (import)"
-    )
 
     # Type d'exercice
     type_exercice = models.CharField(
@@ -206,11 +200,12 @@ class Machine(SoftDeletableModel):
         null=True,
         verbose_name="Image principale"
     )
-    image_gif = models.ImageField(
+    image_gif = models.FileField(
         upload_to='machines/gifs/',
         blank=True,
         null=True,
-        verbose_name="GIF démonstratif"
+        help_text="Animation GIF de démonstration de l'exercice",
+        verbose_name="Animation GIF"
     )
     video_demonstration = models.URLField(
         blank=True,

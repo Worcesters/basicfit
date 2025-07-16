@@ -51,9 +51,6 @@ fun CalendarScreen(
     // Ajout pour le bouton de vidage du calendrier
     var showClearDialog by remember { mutableStateOf(false) }
 
-    // State pour afficher les détails d'une séance
-    var selectedWorkout by remember { mutableStateOf<WorkoutEntry?>(null) }
-
     // State: mois actuellement affiché
     val currentMonth = remember { YearMonth.now() }
     val calendarState = rememberCalendarState(currentMonth)
@@ -130,9 +127,7 @@ fun CalendarScreen(
                                     }
                                     draggedEntry = null
                                 },
-                                onEntryClick = { entry ->
-                                    selectedWorkout = entry
-                                }
+                                onEntryClick = onEntryClick
                             )
                         }
                     )
@@ -161,18 +156,6 @@ fun CalendarScreen(
                 },
                 title = { Text("Confirmer la suppression") },
                 text = { Text("Voulez-vous vraiment vider le calendrier des séances non terminées ?") }
-            )
-        }
-
-        // Affichage des détails d'une séance
-        selectedWorkout?.let { workout ->
-            WorkoutDetailCard(
-                workoutEntry = workout,
-                onBack = { selectedWorkout = null },
-                onStartWorkout = { workoutEntry ->
-                    selectedWorkout = null
-                    onGoToWorkout()
-                }
             )
         }
     }
@@ -248,6 +231,11 @@ private fun DayCell(
                         .background(dotColor)
                         .padding(1.dp)
                         .clickable { onEntryClick(entriesToday.first()) }
+                        .pointerInput(Unit) {
+                            detectDragGestures(onDragStart = { onDragStart(entriesToday.first()) }) { change, _ ->
+                                change.consume()
+                            }
+                        }
                 )
             }
 
@@ -268,13 +256,15 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
         lines.drop(1).forEach { line ->
             val parts = line.split(';', ',').map { it.trim() }
 
-            if (parts.size < 4) return@forEach // format invalide
+            if (parts.size != 4 && parts.size != 5) return@forEach // format inconnu
 
             val machineName = parts[0]
             val dateStr = parts[1]
             val repetitionStr = parts[2]
             val serieStr = parts[3]
-            val instructionsStr = if (parts.size >= 5) parts[4] else ""
+            val utilisationStr = if (parts.size == 5) parts[4] else "0"
+
+            val utilisation = utilisationStr.toDoubleOrNull() ?: 0.0
 
             // Repetitions : "10-12" -> moyenne, sinon valeur directe
             val repetition = if (repetitionStr.contains('-')) {
@@ -299,8 +289,7 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
                     name = machineName,
                     sets = serie,
                     reps = repetition,
-                    weight = 0.0,
-                    instructions = instructionsStr
+                    weight = utilisation
                 )
                 entriesByDate.getOrPut(date) { mutableListOf() }.add(record)
             }

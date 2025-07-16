@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.basicfit.app-mergeDebugResources-64:/values-fr-rCA/values-fr-rCA.xml",
+            "outputFile": "com.basicfit.app-mergeDebugResources-65:/values-fr-rCA/values-fr-rCA.xml",
             "map": [
                 {
                     "source": "C:\\Users\\jerem\\.gradle\\caches\\transforms-3\\9630eb939409b219d0370a9c74d58ee0\\transformed\\jetified-ui-release\\res\\values-fr-rCA\\values-fr-rCA.xml",

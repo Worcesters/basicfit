@@ -63,6 +63,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import com.basicfit.app.R
+import coil.compose.AsyncImage
 
 // Palette couleur globale
 val Mint = Color(0xFF00C9A7)
@@ -97,8 +98,7 @@ data class ExerciseRecord(
     val name: String,
     val sets: Int,
     val reps: Int,
-    val weight: Double,
-    val instructions: String = ""
+    val weight: Double
 )
 
 // Data classes pour l'entraînement avancé
@@ -1904,6 +1904,18 @@ fun MachineCard(machine: Machine) {
                 )
             }
 
+            // Affichage du GIF si présent
+            if (expanded && machine.imageGif != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                AsyncImage(
+                    model = machine.imageGif,
+                    contentDescription = "Démonstration GIF",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                )
+            }
+
             // Contenu développable
             if (expanded) {
                 Spacer(modifier = Modifier.height(12.dp))
@@ -1944,13 +1956,23 @@ fun MachineCard(machine: Machine) {
                             color = Accent
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        // Debug: afficher la valeur des instructions
                         android.util.Log.d("MachineDebug", "Affichage instructions pour ${machine.nom}: '${machine.instructions}'")
                         Text(
                             text = machine.instructions,
                             fontSize = 12.sp,
                             color = Color(0xFF666666)
                         )
+                        // Affichage du GIF juste en dessous des instructions
+                        if (machine.imageGif != null) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            AsyncImage(
+                                model = machine.imageGif,
+                                contentDescription = "Démonstration GIF",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -3041,7 +3063,7 @@ fun CurrentExerciseCard(
                 }
 
                 Text(
-                    text = "Série ${exerciseSession.sets.size + 1}/${exerciseSession.targetSets}",
+                    text = "", // Ajoute un texte vide ou le texte souhaité
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = Accent
@@ -3050,38 +3072,15 @@ fun CurrentExerciseCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Image GIF de démonstration (si disponible)
-            exerciseSession.machine.imageGif?.let { gifUrl ->
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F0F0)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = "🎬 Démonstration",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Accent
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Ici on pourrait utiliser une bibliothèque comme Coil pour charger le GIF
-                        // Pour l'instant, on affiche un placeholder
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(120.dp)
-                                .background(Color(0xFFE0E0E0)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "GIF de démonstration",
-                                fontSize = 12.sp,
-                                color = Color.Gray
-                            )
-                        }
-                    }
-                }
+            // Affichage du GIF de la machine (si présent)
+            if (exerciseSession.machine.imageGif != null) {
+                AsyncImage(
+                    model = exerciseSession.machine.imageGif,
+                    contentDescription = "Démonstration GIF",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                )
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
@@ -3104,10 +3103,9 @@ fun CurrentExerciseCard(
                         color = Color(0xFF666666)
                     )
                     if (recommendation.notes.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = recommendation.notes,
-                            fontSize = 11.sp,
+                            fontSize = 12.sp,
                             color = Color(0xFF666666)
                         )
                     }
@@ -3115,38 +3113,6 @@ fun CurrentExerciseCard(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-
-            // Historique des séries terminées
-            if (exerciseSession.sets.isNotEmpty()) {
-                Text(
-                    text = "Séries terminées:",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF666666)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                exerciseSession.sets.forEachIndexed { index, set ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Série ${index + 1}:",
-                            fontSize = 12.sp,
-                            color = Color.Gray
-                        )
-                        Text(
-                            text = "${set.weight.toInt()}kg × ${set.reps} reps",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF4CAF50)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-            }
 
             // Saisie de la série actuelle
             Row(
@@ -3212,73 +3178,36 @@ fun UpcomingExerciseCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA))
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Text(
+                text = exerciseSession.machine.categorie.icone,
+                fontSize = 24.sp,
+                modifier = Modifier.padding(end = 12.dp)
+            )
+
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = exerciseSession.machine.categorie.icone,
-                    fontSize = 24.sp,
-                    modifier = Modifier.padding(end = 12.dp)
+                    text = exerciseSession.machine.nom,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF666666)
                 )
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = exerciseSession.machine.nom,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF666666)
-                    )
-                    Text(
-                        text = "${exerciseSession.targetSets} séries × ${exerciseSession.targetReps} reps",
-                        fontSize = 12.sp,
-                        color = Color.Gray
-                    )
-                }
-
-                Icon(
-                    imageVector = Icons.Default.AccessTime,
-                    contentDescription = "À venir",
-                    tint = Color.Gray,
-                    modifier = Modifier.size(20.dp)
+                Text(
+                    text = "${exerciseSession.targetSets} séries × ${exerciseSession.targetReps} reps",
+                    fontSize = 12.sp,
+                    color = Color.Gray
                 )
             }
 
-            // Image GIF de démonstration (si disponible)
-            exerciseSession.machine.imageGif?.let { gifUrl ->
-                Spacer(modifier = Modifier.height(12.dp))
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F0F0)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(8.dp)) {
-                        Text(
-                            text = "🎬 Démonstration",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Accent
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(80.dp)
-                                .background(Color(0xFFE0E0E0)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "GIF de démonstration",
-                                fontSize = 10.sp,
-                                color = Color.Gray
-                            )
-                        }
-                    }
-                }
-            }
+            Icon(
+                imageVector = Icons.Default.AccessTime,
+                contentDescription = "À venir",
+                tint = Color.Gray,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
@@ -3597,5 +3526,3 @@ fun analyzeProgression(performances: List<ExerciseRecord>): Boolean {
         else -> false
     }
 }
-
-

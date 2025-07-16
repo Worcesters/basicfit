@@ -9,16 +9,11 @@ from apps.core.models import ModeEntrainement
 
 class MachineSerializer(serializers.ModelSerializer):
     """Serializer pour les machines"""
-    image_gif = serializers.ImageField(read_only=True)
+    categorie = serializers.CharField(source='categorie.nom')
 
     class Meta:
         model = Machine
-        fields = [
-            'id', 'nom', 'nom_anglais', 'description', 'instructions',
-            'instructions_utilisation', 'categorie', 'niveau_difficulte',
-            'est_disponible', 'image_principale', 'image_gif', 'video_demonstration',
-            'tags', 'popularite', 'necessite_supervision'
-        ]
+        fields = ['id', 'nom', 'description', 'instructions', 'categorie']
 
 
 class VarianteMachineSerializer(serializers.ModelSerializer):
