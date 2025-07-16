@@ -248,11 +248,6 @@ private fun DayCell(
                         .background(dotColor)
                         .padding(1.dp)
                         .clickable { onEntryClick(entriesToday.first()) }
-                        .pointerInput(Unit) {
-                            detectDragGestures(onDragStart = { onDragStart(entriesToday.first()) }) { change, _ ->
-                                change.consume()
-                            }
-                        }
                 )
             }
 
