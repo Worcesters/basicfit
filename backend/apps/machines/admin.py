@@ -78,7 +78,6 @@ class MachineAdmin(admin.ModelAdmin):
         }),
         ('Médias', {
             'fields': ('image_principale', 'image_gif', 'video_demonstration'),
-            'classes': ('collapse',)
         }),
         ('Informations techniques', {
             'fields': ('fabricant', 'modele', 'numero_serie'),
