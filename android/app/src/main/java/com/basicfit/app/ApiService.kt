@@ -143,12 +143,10 @@ interface BasicFitApi {
     @GET("workouts/machines/")
     suspend fun getMachines(): List<MachineDto>
 
-    // Nouveaux endpoints pour la progression
-    @POST("workouts/sauvegarder/")
-    suspend fun saveCompleteWorkout(@Body request: CompleteWorkoutRequest): ApiResponse<Any>
 
-    @GET("workouts/recommendation/{machine_id}/")
-    suspend fun getRecommendation(@Path("machine_id") machineId: Int): ApiResponse<RecommendationResponse>
+
+    @GET("workouts/recommendation/{machine_name}/")
+    suspend fun getRecommendation(@Path("machine_name") machineName: String): ApiResponse<RecommendationResponse>
 
     @GET("users/android/ping/")
     suspend fun ping(): retrofit2.Response<Void>
@@ -573,23 +571,21 @@ class SyncManager(private val context: Context) {
             }
 
             val exerciseRequests = exercises.map {
-                CompleteExerciseRequest(
+                ExerciseRequest(
                     nom = it.name,
                     series = it.sets,
-                    reps = it.reps,
+                    repetitions = it.reps,
                     poids = it.weight
                 )
             }
 
-            val request = CompleteWorkoutRequest(
+            val request = WorkoutRequest(
                 nom = nom,
                 duree = dureeMinutes,
-                note_ressenti = 7, // Valeur par défaut
-                commentaire = null,
                 exercices = exerciseRequests
             )
 
-            val response = apiService.getApi().saveCompleteWorkout(request)
+            val response = apiService.getApi().saveWorkout(request)
             Result.success(response.success)
         } catch (e: Exception) {
             Result.failure(e)

@@ -309,17 +309,17 @@ def seances_list(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_recommendation(request, machine_id):
+def get_recommendation(request, machine_name):
     """Endpoint pour obtenir la recommandation de poids basée sur ProgressionMachine"""
     try:
 
         user = request.user
 
-        # Récupérer la machine
+        # Récupérer la machine par nom
         try:
-            machine = Machine.objects.get(id=machine_id)
+            machine = Machine.objects.get(nom__iexact=machine_name)
         except Machine.DoesNotExist:
-            return Response({'error': 'Machine non trouvée'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'error': f'Machine "{machine_name}" non trouvée'}, status=status.HTTP_404_NOT_FOUND)
 
         # Récupérer l'objectif de l'utilisateur (depuis le profil)
         objectif = getattr(user, 'objectif', 'Prise de masse')  # Valeur par défaut

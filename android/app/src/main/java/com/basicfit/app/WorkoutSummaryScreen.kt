@@ -571,7 +571,43 @@ fun NextRecommendationsCard(
             val hasReco = workoutSummary.exercicesCompleted.isNotEmpty()
             if (hasReco) {
                 workoutSummary.exercicesCompleted.forEach { exercise ->
-                    val machine = Machine(
+                    // Récupérer la vraie machine depuis l'API ou la liste locale
+                    val context = LocalContext.current
+                    var machinesList by remember { mutableStateOf<List<Machine>>(emptyList()) }
+
+                    // Charger les machines depuis l'API
+                    LaunchedEffect(Unit) {
+                        try {
+                            val api = ApiService.getInstance().apply { initialize(context) }.getApi()
+                            val fetched = api.getMachines()
+                            if (fetched.isNotEmpty()) {
+                                val remoteMachines = fetched.mapNotNull { dto ->
+                                    try {
+                                        Machine(
+                                            id = dto.id,
+                                            nom = dto.nom,
+                                            description = dto.description ?: "",
+                                            instructions = dto.instructions ?: "",
+                                            categorie = CategorieMachine.values().find { it.name.equals(dto.categorie ?: "", true) }
+                                                ?: CategorieMachine.MUSCULATION,
+                                            groupeMusculairePrimaire = dto.groupe_musculaire_primaires?.firstOrNull()?.get("nom") ?: "",
+                                            incrementPoids = 2.5,
+                                            poidsMinimum = 0.0,
+                                            poidsMaximum = 200.0,
+                                            imageGif = dto.image_gif
+                                        )
+                                    } catch (_: Exception) { null }
+                                }
+                                machinesList = remoteMachines
+                            }
+                        } catch (e: Exception) {
+                            // En cas d'erreur, utiliser la liste locale
+                            machinesList = MachineData.machines
+                        }
+                    }
+
+                    // Chercher la vraie machine par nom
+                    val machine = machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) } ?: Machine(
                         id = 0,
                         nom = exercise.name,
                         description = "",
@@ -582,6 +618,7 @@ fun NextRecommendationsCard(
                         poidsMinimum = 0.0,
                         poidsMaximum = 200.0
                     )
+
                     val reco = calculateWorkoutRecommendations(
                         profileData = profileData,
                         workoutHistory = workoutHistory,
@@ -599,6 +636,19 @@ fun NextRecommendationsCard(
                     val reps = reco.reps
                     val sets = reco.sets
                     val rest = reco.restTime
+
+                    // Affichage du GIF si présent
+                    if (!machine.imageGif.isNullOrBlank()) {
+                        AnimatedGifImage(
+                            imageUrl = machine.imageGif,
+                            contentDescription = "Démonstration GIF",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                                .padding(vertical = 4.dp)
+                        )
+                    }
+
                     Text(
                         text = "• ${exercise.name} : $poids × $reps reps ($sets séries, repos $rest s)",
                         fontSize = 14.sp,
@@ -707,5 +757,7 @@ fun generateWorkoutRecommendations(
 
     return recommendations
 }
+
+
 
 

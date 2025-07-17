@@ -68,6 +68,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.decode.GifDecoder
 import coil.ImageLoader
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 
@@ -550,22 +551,20 @@ fun MainScreen() {
                         val apiService = ApiService.getInstance()
                         apiService.initialize(context)
 
-                        val completeWorkoutRequest = CompleteWorkoutRequest(
+                        val workoutRequest = WorkoutRequest(
                             nom = currentWorkoutName,
                             duree = duration,
-                            note_ressenti = 7, // Valeur par défaut
-                            commentaire = "Séance terminée via l'app Android",
                             exercices = exercisesCompleted.map { exercise ->
-                                CompleteExerciseRequest(
+                                ExerciseRequest(
                                     nom = exercise.name,
                                     series = exercise.sets,
-                                    reps = exercise.reps,
+                                    repetitions = exercise.reps,
                                     poids = exercise.weight
                                 )
                             }
                         )
 
-                        val response = apiService.getApi().saveCompleteWorkout(completeWorkoutRequest)
+                        val response = apiService.getApi().saveWorkout(workoutRequest)
                         android.util.Log.d("WorkoutAPI", "Séance envoyée au serveur: ${response.success}")
                     } catch (e: Exception) {
                         android.util.Log.e("WorkoutAPI", "Erreur lors de l'envoi au serveur: ${e.message}")
@@ -3098,6 +3097,15 @@ fun CurrentExerciseCard(
                 )
             }
 
+            // Ajout du compteur de série
+            Text(
+                text = "Série ${exerciseSession.sets.size + 1} / ${exerciseSession.targetSets}",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF4CAF50),
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+
             Spacer(modifier = Modifier.height(16.dp))
 
             // Affichage du GIF de la machine (si présent)
@@ -3231,36 +3239,52 @@ fun UpcomingExerciseCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA))
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(16.dp)
         ) {
-            Text(
-                text = exerciseSession.machine.categorie.icone,
-                fontSize = 24.sp,
-                modifier = Modifier.padding(end = 12.dp)
-            )
-
-            Column(modifier = Modifier.weight(1f)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = exerciseSession.machine.nom,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF666666)
+                    text = exerciseSession.machine.categorie.icone,
+                    fontSize = 24.sp,
+                    modifier = Modifier.padding(end = 12.dp)
                 )
-                Text(
-                    text = "${exerciseSession.targetSets} séries × ${exerciseSession.targetReps} reps",
-                    fontSize = 12.sp,
-                    color = Color.Gray
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = exerciseSession.machine.nom,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF666666)
+                    )
+                    Text(
+                        text = "${exerciseSession.targetSets} séries × ${exerciseSession.targetReps} reps",
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                }
+
+                Icon(
+                    imageVector = Icons.Default.AccessTime,
+                    contentDescription = "À venir",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
-            Icon(
-                imageVector = Icons.Default.AccessTime,
-                contentDescription = "À venir",
-                tint = Color.Gray,
-                modifier = Modifier.size(20.dp)
-            )
+            // Affichage du GIF de la machine (si présent)
+            if (!exerciseSession.machine.imageGif.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                AnimatedGifImage(
+                    imageUrl = exerciseSession.machine.imageGif,
+                    contentDescription = "Démonstration GIF",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(150.dp)
+                )
+            }
         }
     }
 }
@@ -3645,15 +3669,23 @@ fun AnimatedGifImage(
             .build()
     }
 
-    AsyncImage(
-        model = ImageRequest.Builder(context)
-            .data(imageUrl)
-            .build(),
-        contentDescription = contentDescription,
-        imageLoader = imageLoader,
-        modifier = modifier,
-        error = painterResource(id = R.drawable.ic_app_logo) // Placeholder en cas d'erreur
-    )
+    // Container avec fond blanc
+    Box(
+        modifier = modifier
+            .background(Color.White)
+            .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp))
+    ) {
+        AsyncImage(
+            model = ImageRequest.Builder(context)
+                .data(imageUrl)
+                .build(),
+            contentDescription = contentDescription,
+            imageLoader = imageLoader,
+            modifier = Modifier.fillMaxSize(),
+            error = painterResource(id = R.drawable.ic_app_logo), // Placeholder en cas d'erreur
+            contentScale = ContentScale.Fit
+        )
+    }
 }
 
 // Fonction pour récupérer la recommandation depuis l'API Django
@@ -3662,7 +3694,16 @@ suspend fun getRecommendationFromAPI(machineId: Int, context: Context): Exercise
         val apiService = ApiService.getInstance()
         apiService.initialize(context)
 
-        val response = apiService.getApi().getRecommendation(machineId)
+        // Récupérer les machines depuis l'API pour avoir les vrais IDs
+        val machinesFromApi = apiService.getApi().getMachines()
+        val machine = machinesFromApi.find { it.id == machineId }
+
+        if (machine == null) {
+            android.util.Log.e("RecommendationAPI", "Machine avec ID $machineId non trouvée dans l'API")
+            return null
+        }
+
+        val response = apiService.getApi().getRecommendation(machine.nom)
 
         if (response.success && response.data != null) {
             val recommendation = response.data as RecommendationResponse
