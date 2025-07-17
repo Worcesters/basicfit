@@ -1685,10 +1685,11 @@ fun MachinesScreen(
                             instructions = dto.instructions ?: "",
                             categorie = CategorieMachine.values().find { it.name.equals(dto.categorie ?: "", true) }
                                 ?: CategorieMachine.MUSCULATION,
-                            groupeMusculairePrimaire = "",
+                            groupeMusculairePrimaire = dto.groupe_musculaire_primaires?.firstOrNull()?.get("nom") ?: "",
                             incrementPoids = 2.5,
                             poidsMinimum = 0.0,
-                            poidsMaximum = 200.0
+                            poidsMaximum = 200.0,
+                            imageGif = dto.image_gif // Ajout du mapping du GIF
                         )
                     } catch (_: Exception) { null }
                 }
@@ -1905,7 +1906,7 @@ fun MachineCard(machine: Machine) {
             }
 
             // Affichage du GIF si présent
-            if (expanded && machine.imageGif != null) {
+            if (expanded && !machine.imageGif.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 AsyncImage(
                     model = machine.imageGif,
@@ -1963,7 +1964,7 @@ fun MachineCard(machine: Machine) {
                             color = Color(0xFF666666)
                         )
                         // Affichage du GIF juste en dessous des instructions
-                        if (machine.imageGif != null) {
+                        if (!machine.imageGif.isNullOrBlank()) {
                             Spacer(modifier = Modifier.height(12.dp))
                             AsyncImage(
                                 model = machine.imageGif,
@@ -2241,10 +2242,11 @@ fun ManualWorkoutSelection(
                         instructions = dto.instructions ?: "",
                         categorie = CategorieMachine.values().find { it.name.equals(dto.categorie ?: "", true) }
                             ?: CategorieMachine.MUSCULATION,
-                        groupeMusculairePrimaire = "",
+                        groupeMusculairePrimaire = dto.groupe_musculaire_primaires?.firstOrNull()?.get("nom") ?: "",
                         incrementPoids = 2.5,
                         poidsMinimum = 0.0,
-                        poidsMaximum = 200.0
+                        poidsMaximum = 200.0,
+                        imageGif = dto.image_gif
                     )
                 }
                 machinesCatalog = remote
@@ -3029,10 +3031,10 @@ fun CurrentExerciseCard(
     }
 
     // Afficher un message si pas de poids recommandé
-    val weightDisplay = if (exerciseSession.recommendedWeight > 0) {
-        "${exerciseSession.recommendedWeight.toInt()} kg"
-    } else {
-        "Poids à déterminer"
+    val weightDisplay = when {
+        exerciseSession.recommendedWeight > 0 -> "${exerciseSession.recommendedWeight.toInt()} kg"
+        exerciseSession.recommendedWeight == 0.0 -> "Poids à déterminer"
+        else -> "Poids à déterminer"
     }
 
     Card(
@@ -3073,7 +3075,7 @@ fun CurrentExerciseCard(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Affichage du GIF de la machine (si présent)
-            if (exerciseSession.machine.imageGif != null) {
+            if (!exerciseSession.machine.imageGif.isNullOrBlank()) {
                 AsyncImage(
                     model = exerciseSession.machine.imageGif,
                     contentDescription = "Démonstration GIF",
@@ -3102,6 +3104,19 @@ fun CurrentExerciseCard(
                         fontSize = 12.sp,
                         color = Color(0xFF666666)
                     )
+
+                    // Afficher une suggestion si pas d'historique
+                    if (exerciseSession.recommendedWeight == 0.0) {
+                        val suggestedWeight = calculateSuggestedStartingWeight(exerciseSession.machine, "Prise de masse")
+                        if (suggestedWeight > 0) {
+                            Text(
+                                text = "💡 Suggestion de départ: ${suggestedWeight.toInt()}kg",
+                                fontSize = 11.sp,
+                                color = Color(0xFF4CAF50),
+                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                            )
+                        }
+                    }
                     if (recommendation.notes.isNotEmpty()) {
                         Text(
                             text = recommendation.notes,
@@ -3126,6 +3141,18 @@ fun CurrentExerciseCard(
                         if (weightPattern.matches(input)) weight = input
                     },
                     label = { Text("Poids (kg)") },
+                                        placeholder = {
+                        Text(
+                            when {
+                                exerciseSession.recommendedWeight > 0 ->
+                                    "Recommandé: ${exerciseSession.recommendedWeight.toInt()}kg"
+                                else -> {
+                                    val suggested = calculateSuggestedStartingWeight(exerciseSession.machine, "Prise de masse")
+                                    if (suggested > 0) "Suggestion: ${suggested.toInt()}kg" else "À déterminer"
+                                }
+                            }
+                        )
+                    },
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true
@@ -3431,29 +3458,18 @@ fun calculateSmartWeightRecommendation(
                 .map { Pair(workout.date, it) }
         }
 
-    if (exerciseHistory.isEmpty()) {
-        // Première fois - poids de départ selon le groupe musculaire et l'objectif
-        val baseWeight = when (machine.groupeMusculairePrimaire) {
-            "Pectoraux" -> 30.0
-            "Dos" -> 25.0
-            "Jambes" -> 40.0
-            "Épaules" -> 15.0
-            "Bras" -> 10.0
-            else -> 20.0
-        }
-        // Pour les machines assistées, on commence plus haut (plus facile)
-        val startWeight = if (isAssist) baseWeight * 2 else baseWeight
-        return when (objectif) {
-            "Force" -> startWeight * 0.8
-            "Prise de masse" -> startWeight
-            "Endurance" -> startWeight * 0.7
-            "Sèche" -> startWeight * 0.9
-            else -> startWeight
-        }
+        if (exerciseHistory.isEmpty()) {
+        // Première fois - pas d'historique, retourner 0 pour indiquer "à déterminer"
+        return 0.0
     }
 
-    // Prendre les 3 dernières occurrences (les plus récentes)
+        // Prendre les 3 dernières occurrences (les plus récentes)
     val lastPerformances = exerciseHistory.takeLast(3).map { it.second }
+    if (lastPerformances.isEmpty()) {
+        // Pas d'historique pour cette machine
+        return 0.0
+    }
+
     val lastPerformance = lastPerformances.last()
 
     // Calculer le 1RM basé sur la dernière performance
@@ -3501,7 +3517,11 @@ fun calculateSmartWeightRecommendation(
     }
 
     // S'assurer que le poids est dans les limites de la machine
-    return targetWeight.coerceIn(machine.poidsMinimum, machine.poidsMaximum)
+    return if (targetWeight <= 0) {
+        0.0 // Pour le cardio ou les exercices sans poids
+    } else {
+        targetWeight.coerceIn(machine.poidsMinimum, machine.poidsMaximum)
+    }
 }
 
 // Fonction pour analyser la progression des performances
@@ -3524,5 +3544,35 @@ fun analyzeProgression(performances: List<ExerciseRecord>): Boolean {
         lastVolume == previousVolume && lastPerformance.reps >= previousPerformance.reps -> true
         lastPerformance.weight > previousPerformance.weight -> true
         else -> false
+    }
+}
+
+// Fonction pour calculer un poids de départ suggéré (quand pas d'historique)
+fun calculateSuggestedStartingWeight(machine: Machine, objectif: String): Double {
+    // Détection machine assistée
+    val isAssist = machine.nom.contains("assist", ignoreCase = true) ||
+        machine.tags.any { it.contains("assisté", ignoreCase = true) }
+
+    // Poids de base selon le groupe musculaire
+    val baseWeight = when {
+        machine.groupeMusculairePrimaire.contains("Pectoraux", ignoreCase = true) -> 30.0
+        machine.groupeMusculairePrimaire.contains("Dos", ignoreCase = true) -> 25.0
+        machine.groupeMusculairePrimaire.contains("Jambes", ignoreCase = true) ||
+        machine.groupeMusculairePrimaire.contains("Cuisses", ignoreCase = true) -> 40.0
+        machine.groupeMusculairePrimaire.contains("Épaules", ignoreCase = true) -> 15.0
+        machine.groupeMusculairePrimaire.contains("Bras", ignoreCase = true) -> 10.0
+        machine.nom.contains("cardio", ignoreCase = true) -> 0.0
+        else -> 20.0
+    }
+
+    // Pour les machines assistées, on commence plus haut (plus facile)
+    val startWeight = if (isAssist) baseWeight * 2 else baseWeight
+
+    return when (objectif) {
+        "Force" -> startWeight * 0.8
+        "Prise de masse" -> startWeight
+        "Endurance" -> startWeight * 0.7
+        "Sèche" -> startWeight * 0.9
+        else -> startWeight
     }
 }

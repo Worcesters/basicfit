@@ -77,7 +77,9 @@ data class MachineDto(
     val nom: String,
     val description: String? = null,
     val instructions: String? = null,
-    val categorie: String? = null
+    val categorie: String? = null,
+    val image_gif: String? = null, // Ajout du champ pour les GIFs
+    val groupe_musculaire_primaires: List<Map<String, String>>? = null // Ajout pour les groupes musculaires
 )
 
 // ==============================================

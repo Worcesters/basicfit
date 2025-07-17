@@ -98,7 +98,7 @@ def machines_list(request):
                 'groupes_musculaires_primaires': groupes_primaires,
                 'fabricant': machine.fabricant or '',
                 'modele': machine.modele or '',
-                'image_gif': machine.image_gif.url if machine.image_gif else None
+                'image_gif': request.build_absolute_uri(machine.image_gif.url) if machine.image_gif else None
             })
         return Response({'results': data, 'count': len(data)})
     except Exception as e:
@@ -161,7 +161,7 @@ def machine_detail(request, pk):
             'fabricant': machine.fabricant or '',
             'modele': machine.modele or '',
             'tags': machine.tags_liste if hasattr(machine, 'tags_liste') else [],
-            'image_gif': machine.image_gif.url if machine.image_gif else None
+            'image_gif': request.build_absolute_uri(machine.image_gif.url) if machine.image_gif else None
         }
         return Response(data)
     except Machine.DoesNotExist:

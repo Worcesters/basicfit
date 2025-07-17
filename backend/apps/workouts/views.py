@@ -126,7 +126,7 @@ class MachineViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet pour les machines (lecture seule)"""
     queryset = Machine.objects.all()
     serializer_class = MachineSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     @action(detail=False, methods=['get'])
     def groupes_musculaires(self, request):

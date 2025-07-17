@@ -10,10 +10,34 @@ from apps.core.models import ModeEntrainement
 class MachineSerializer(serializers.ModelSerializer):
     """Serializer pour les machines"""
     categorie = serializers.CharField(source='categorie.nom')
+    image_gif = serializers.SerializerMethodField()
+    groupe_musculaire_primaires = serializers.SerializerMethodField()
 
     class Meta:
         model = Machine
-        fields = ['id', 'nom', 'description', 'instructions', 'categorie']
+        fields = [
+            'id', 'nom', 'description', 'instructions', 'categorie',
+            'image_gif', 'groupe_musculaire_primaires'
+        ]
+
+    def get_image_gif(self, obj):
+        """Retourne l'URL absolue du GIF si présent"""
+        if obj.image_gif:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image_gif.url)
+        return None
+
+    def get_groupe_musculaire_primaires(self, obj):
+        """Retourne les groupes musculaires primaires"""
+        groupes = []
+        for groupe in obj.groupes_musculaires_primaires.all():
+            groupes.append({
+                'nom': groupe.nom,
+                'couleur': groupe.couleur,
+                'icone': groupe.icone
+            })
+        return groupes
 
 
 class VarianteMachineSerializer(serializers.ModelSerializer):
