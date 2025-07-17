@@ -176,14 +176,28 @@ private fun DayCell(
     val exercisesToday = remember(entriesToday) { entriesToday.flatMap { it.exercises } }
 
     val isToday = date == LocalDate.now()
-    val dayBackground = if (isToday) Color(0xFFFFF3E0) else Color.White // fond pêche clair pour aujourd'hui
+    val isPast = date.isBefore(LocalDate.now())
+
+    // Déterminer la couleur de fond selon le statut
+    val backgroundColor = when {
+        hasCompleted -> Color(0xFF4CAF50) // Vert pour terminé
+        entriesToday.isNotEmpty() && isPast -> Color(0xFFFF5722) // Rouge pour en retard
+        entriesToday.isNotEmpty() && !isPast -> Color(0xFFFF9800) // Orange pour à venir
+        isToday -> Color(0xFFFFF3E0) // Fond pêche clair pour aujourd'hui
+        else -> Color.White // Blanc par défaut
+    }
 
     Box(
         modifier = Modifier
             .aspectRatio(1f)
             .padding(2.dp)
-            .background(dayBackground, RoundedCornerShape(4.dp))
+            .background(backgroundColor, RoundedCornerShape(4.dp))
             .then(if (isToday) Modifier.border(2.dp, Accent, RoundedCornerShape(4.dp)) else Modifier)
+            .then(
+                if (entriesToday.isNotEmpty()) {
+                    Modifier.clickable { onEntryClick(entriesToday.first()) }
+                } else Modifier
+            )
             .pointerInput(entriesToday) {
                 detectDragGestures(onDragEnd = {
                     onDropOnDate(date)
@@ -198,49 +212,48 @@ private fun DayCell(
         Text(
             text = date.dayOfMonth.toString(),
             fontSize = 10.sp,
-            modifier = Modifier.padding(2.dp)
+            modifier = Modifier.padding(2.dp),
+            color = if (backgroundColor == Color.White) Color.Black else Color.White
         )
 
-        // Indicateur de complétion
-        if (hasCompleted) {
-            Icon(
-                imageVector = Icons.Default.CheckCircle,
-                contentDescription = "Terminé",
-                tint = SoftBlue,
+        // Indicateur de statut dans le coin supérieur droit
+        if (entriesToday.isNotEmpty()) {
+            val statusColor = when {
+                hasCompleted -> Color(0xFF2E7D32) // Vert foncé
+                isPast -> Color(0xFFD32F2F) // Rouge foncé
+                else -> Color(0xFFE65100) // Orange foncé
+            }
+
+            Box(
                 modifier = Modifier
-                    .size(12.dp)
+                    .size(8.dp)
                     .align(Alignment.TopEnd)
                     .padding(2.dp)
+                    .background(statusColor, CircleShape)
             )
         }
 
-        Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-            val firstEx = exercisesToday.firstOrNull()
-            if (firstEx != null) {
-                val dotColor = when {
-                    firstEx.name.contains("cardio", true) -> SoftBlue
-                    firstEx.name.contains("dos", true) || firstEx.name.contains("row", true) -> Color(0xFF4285F4)
-                    firstEx.name.contains("leg", true) || firstEx.name.contains("squat", true) -> Color(0xFF66BB6A)
-                    else -> Accent
-                }
-
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .clip(CircleShape)
-                        .background(dotColor)
-                        .padding(1.dp)
-                        .clickable { onEntryClick(entriesToday.first()) }
-                        .pointerInput(Unit) {
-                            detectDragGestures(onDragStart = { onDragStart(entriesToday.first()) }) { change, _ ->
-                                change.consume()
-                            }
-                        }
+        // Afficher le nombre d'exercices au centre
+        if (exercisesToday.isNotEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = exercisesToday.size.toString(),
+                    fontSize = 12.sp,
+                    color = if (backgroundColor == Color.White) Color.Black else Color.White,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                 )
-            }
 
-            if (exercisesToday.size > 1) {
-                 Text("+${exercisesToday.size - 1}", fontSize = 8.sp)
+                if (exercisesToday.size > 1) {
+                    Text(
+                        text = "exercices",
+                        fontSize = 6.sp,
+                        color = if (backgroundColor == Color.White) Color.Black else Color.White
+                    )
+                }
             }
         }
     }

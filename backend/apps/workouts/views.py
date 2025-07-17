@@ -309,6 +309,138 @@ def seances_list(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def get_recommendation_by_id(request, machine_id):
+    """Endpoint pour obtenir la recommandation de poids basée sur ProgressionMachine avec ID"""
+    try:
+        user = request.user
+
+        # Récupérer la machine par ID
+        try:
+            machine = Machine.objects.get(id=machine_id)
+        except Machine.DoesNotExist:
+            return Response({'error': f'Machine avec ID {machine_id} non trouvée'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Récupérer l'objectif de l'utilisateur (depuis le profil)
+        objectif = getattr(user, 'objectif', 'Prise de masse')  # Valeur par défaut
+
+        # Récupérer la progression pour cette machine
+        try:
+            progression = ProgressionMachine.objects.get(
+                utilisateur=user,
+                machine=machine
+            )
+
+            # Calculer la recommandation basée sur la progression
+            poids_recommande = progression.poids_actuel
+            series_recommandees = progression.series_actuelles
+            reps_recommandees = progression.repetitions_actuelles
+
+            # Ajuster selon l'objectif
+            if objectif == "Force":
+                reps_recommandees = 4
+                repos_recommande = 180
+            elif objectif == "Prise de masse":
+                reps_recommandees = 10
+                repos_recommande = 90
+            elif objectif == "Endurance":
+                reps_recommandees = 18
+                repos_recommande = 60
+            elif objectif == "Sèche":
+                reps_recommandees = 12
+                repos_recommande = 75
+            else:
+                repos_recommande = 90
+
+            # Vérifier si on peut progresser
+            peut_progresser = progression.evaluer_progression(None)
+
+            recommendation = {
+                'machine_id': machine.id,
+                'machine_nom': machine.nom,
+                'poids_recommande': poids_recommande,
+                'series_recommandees': series_recommandees,
+                'reps_recommandees': reps_recommandees,
+                'repos_recommande': repos_recommande,
+                'objectif': objectif,
+                'peut_progresser': peut_progresser,
+                'dernier_1rm': progression.dernier_1rm,
+                'nombre_seances': progression.nombre_seances_machine,
+                'progression_totale': progression.progression_poids_total,
+                'taux_reussite': progression.taux_reussite,
+                'derniere_progression': progression.derniere_progression.isoformat() if progression.derniere_progression else None,
+                'source': 'progression_machine'
+            }
+
+        except ProgressionMachine.DoesNotExist:
+            # Pas de progression trouvée, calculer une suggestion de départ
+            from apps.machines.models import GroupeMusculaire
+
+            # Détecter le groupe musculaire principal
+            groupes_primaires = machine.groupes_musculaires_primaires.all()
+            groupe_principal = groupes_primaires.first() if groupes_primaires.exists() else None
+
+            # Poids de base selon le groupe musculaire
+            if groupe_principal:
+                if 'pectoraux' in groupe_principal.nom.lower():
+                    poids_base = 30.0
+                elif 'dos' in groupe_principal.nom.lower():
+                    poids_base = 25.0
+                elif 'jambes' in groupe_principal.nom.lower() or 'cuisses' in groupe_principal.nom.lower():
+                    poids_base = 40.0
+                elif 'epaules' in groupe_principal.nom.lower():
+                    poids_base = 15.0
+                elif 'bras' in groupe_principal.nom.lower():
+                    poids_base = 10.0
+                else:
+                    poids_base = 20.0
+            else:
+                poids_base = 20.0
+
+            # Ajuster selon l'objectif
+            if objectif == "Force":
+                poids_base *= 0.8
+                reps_recommandees = 4
+                repos_recommande = 180
+            elif objectif == "Prise de masse":
+                reps_recommandees = 10
+                repos_recommande = 90
+            elif objectif == "Endurance":
+                poids_base *= 0.7
+                reps_recommandees = 18
+                repos_recommande = 60
+            elif objectif == "Sèche":
+                poids_base *= 0.9
+                reps_recommandees = 12
+                repos_recommande = 75
+            else:
+                reps_recommandees = 10
+                repos_recommande = 90
+
+            recommendation = {
+                'machine_id': machine.id,
+                'machine_nom': machine.nom,
+                'poids_recommande': poids_base,
+                'series_recommandees': 3,
+                'reps_recommandees': reps_recommandees,
+                'repos_recommande': repos_recommande,
+                'objectif': objectif,
+                'peut_progresser': False,
+                'dernier_1rm': None,
+                'nombre_seances': 0,
+                'progression_totale': 0.0,
+                'taux_reussite': 0.0,
+                'derniere_progression': None,
+                'source': 'suggestion_depart'
+            }
+
+        return Response(recommendation, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_recommendation(request, machine_name):
     """Endpoint pour obtenir la recommandation de poids basée sur ProgressionMachine"""
     try:

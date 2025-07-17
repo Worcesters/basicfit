@@ -10,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -436,6 +437,7 @@ fun MainScreen() {
     var lastSyncTime by remember { mutableStateOf("") }
     var connectionStatus by remember { mutableStateOf("Vérification...") }
     var isOnline by remember { mutableStateOf(false) }
+    var selectedCalendarEntry by remember { mutableStateOf<WorkoutEntry?>(null) }
 
     // Restaurer l'état d'entraînement en cours si nécessaire
     LaunchedEffect(Unit) {
@@ -523,6 +525,22 @@ fun MainScreen() {
             onContinue = {
                 showWorkoutSummary = false
                 lastWorkoutSummary = null
+            }
+        )
+    } else if (selectedCalendarEntry != null) {
+        // Écran de détails d'une séance du calendrier
+        CalendarEntryDetailScreen(
+            entry = selectedCalendarEntry!!,
+            workoutHistory = workoutHistory,
+            profileData = profileData,
+            onBack = {
+                selectedCalendarEntry = null
+            },
+            onStartWorkout = { machines, workoutName ->
+                selectedCalendarEntry = null
+                currentWorkoutMachines = machines
+                currentWorkoutName = workoutName
+                workoutInProgress = true
             }
         )
     } else if (workoutInProgress) {
@@ -670,6 +688,10 @@ fun MainScreen() {
                 isLoggedIn = false
                 profileData = ProfileData("", "", "", 70.0, 170, "Homme", "Modéré", "Maintenir")
                 workoutHistory = emptyList()
+            },
+            selectedCalendarEntry = selectedCalendarEntry,
+            onCalendarEntrySelect = { entry ->
+                selectedCalendarEntry = entry
             }
         )
     }
@@ -1143,7 +1165,9 @@ fun AppMainInterface(
     onShowStatistics: () -> Unit,
     onCsvImported: (List<WorkoutEntry>) -> Unit,
     onWorkoutHistoryChange: (List<WorkoutEntry>) -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    selectedCalendarEntry: WorkoutEntry?,
+    onCalendarEntrySelect: (WorkoutEntry?) -> Unit
 ) {
     val navItems = listOf(
         NavigationItem("Profil", Icons.Default.Person),
@@ -1199,24 +1223,9 @@ fun AppMainInterface(
                     workoutHistory = workoutHistory,
                     onWorkoutHistoryChange = onWorkoutHistoryChange,
                     onCsvImported = onCsvImported,
-                    onEntryClick = { entry ->
-                        val machines = entry.exercises.map { record ->
-                            MachineData.machines.find { it.nom.equals(record.name, ignoreCase = true) } ?: Machine(
-                                id = 0,
-                                nom = record.name,
-                                description = "Import CSV",
-                                instructions = "",
-                                categorie = CategorieMachine.values().find { it.name.equals(record.name, ignoreCase = true) }
-                                    ?: CategorieMachine.MUSCULATION,
-                                groupeMusculairePrimaire = "",
-                                incrementPoids = 2.5,
-                                poidsMinimum = 0.0,
-                                poidsMaximum = 200.0
-                            )
-                        }
-                        val workoutName = "Import ${entry.date}"
-                        onStartWorkout(machines, workoutName)
-                    },
+                                    onEntryClick = { entry ->
+                    onCalendarEntrySelect(entry)
+                },
                     onGoToWorkout = { onTabChange(2) }
                 )
             }
@@ -3694,16 +3703,15 @@ suspend fun getRecommendationFromAPI(machineId: Int, context: Context): Exercise
         val apiService = ApiService.getInstance()
         apiService.initialize(context)
 
-        // Récupérer les machines depuis l'API pour avoir les vrais IDs
-        val machinesFromApi = apiService.getApi().getMachines()
-        val machine = machinesFromApi.find { it.id == machineId }
-
+        // Récupérer le nom de la machine depuis les données locales
+        val machine = MachineData.machines.find { it.id == machineId }
         if (machine == null) {
-            android.util.Log.e("RecommendationAPI", "Machine avec ID $machineId non trouvée dans l'API")
+            android.util.Log.e("RecommendationAPI", "Machine avec ID $machineId non trouvée")
             return null
         }
 
-        val response = apiService.getApi().getRecommendation(machine.nom)
+        // Utiliser le nom de la machine au lieu de l'ID
+        val response = apiService.getApi().getRecommendationByName(machine.nom)
 
         if (response.success && response.data != null) {
             val recommendation = response.data as RecommendationResponse
@@ -3721,5 +3729,254 @@ suspend fun getRecommendationFromAPI(machineId: Int, context: Context): Exercise
     } catch (e: Exception) {
         android.util.Log.e("RecommendationAPI", "Erreur lors de la récupération de la recommandation: ${e.message}")
         null
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CalendarEntryDetailScreen(
+    entry: WorkoutEntry,
+    workoutHistory: List<WorkoutEntry>,
+    profileData: ProfileData,
+    onBack: () -> Unit,
+    onStartWorkout: (List<Machine>, String) -> Unit
+) {
+    val context = LocalContext.current
+    var machinesList by remember { mutableStateOf<List<Machine>>(emptyList()) }
+
+    // Charger les machines depuis l'API
+    LaunchedEffect(Unit) {
+        try {
+            val api = ApiService.getInstance().apply { initialize(context) }.getApi()
+            val fetched = api.getMachines()
+            if (fetched.isNotEmpty()) {
+                val remoteMachines = fetched.mapNotNull { dto ->
+                    try {
+                        Machine(
+                            id = dto.id,
+                            nom = dto.nom,
+                            description = dto.description ?: "",
+                            instructions = dto.instructions ?: "",
+                            categorie = CategorieMachine.values().find { it.name.equals(dto.categorie ?: "", true) }
+                                ?: CategorieMachine.MUSCULATION,
+                            groupeMusculairePrimaire = dto.groupe_musculaire_primaires?.firstOrNull()?.get("nom") ?: "",
+                            incrementPoids = 2.5,
+                            poidsMinimum = 0.0,
+                            poidsMaximum = 200.0,
+                            imageGif = dto.image_gif
+                        )
+                    } catch (_: Exception) { null }
+                }
+                machinesList = remoteMachines
+            }
+        } catch (e: Exception) {
+            machinesList = MachineData.machines
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF5F5F5))
+    ) {
+        // Header
+        TopAppBar(
+            title = {
+                Text(
+                    text = "Détails de la séance",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            },
+            navigationIcon = {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Retour",
+                        tint = Color.White
+                    )
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Accent
+            )
+        )
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Informations générales
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = "📅 ${entry.date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Accent
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Mode: ${entry.mode}",
+                            fontSize = 14.sp,
+                            color = Color(0xFF666666)
+                        )
+
+                        // Statut de l'entraînement
+                        val today = LocalDate.now()
+                        val isPastDate = entry.date.isBefore(today)
+                        val isCompleted = entry.duration > 0
+
+                        val statusText = when {
+                            isCompleted -> "✅ Terminé"
+                            isPastDate -> "⏰ En retard"
+                            else -> "📅 Prévu pour aujourd'hui"
+                        }
+
+                        val statusColor = when {
+                            isCompleted -> Color(0xFF4CAF50) // Vert
+                            isPastDate -> Color(0xFFFF9800) // Orange
+                            else -> Color(0xFF2196F3) // Bleu
+                        }
+
+                        Text(
+                            text = statusText,
+                            fontSize = 14.sp,
+                            color = statusColor,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        if (entry.duration > 0) {
+                            Text(
+                                text = "Durée: ${entry.duration} minutes",
+                                fontSize = 14.sp,
+                                color = Color(0xFF666666)
+                            )
+                        }
+                        Text(
+                            text = "Exercices: ${entry.exercises.size}",
+                            fontSize = 14.sp,
+                            color = Color(0xFF666666)
+                        )
+                    }
+                }
+            }
+
+            // Liste des exercices avec GIFs
+            items(entry.exercises) { exercise ->
+                val machine = machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) } ?: Machine(
+                    id = 0,
+                    nom = exercise.name,
+                    description = "",
+                    instructions = "",
+                    categorie = CategorieMachine.MUSCULATION,
+                    groupeMusculairePrimaire = "",
+                    incrementPoids = 2.5,
+                    poidsMinimum = 0.0,
+                    poidsMaximum = 200.0
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = machine.nom,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Accent
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Affichage du GIF si présent
+                        if (!machine.imageGif.isNullOrBlank()) {
+                            AnimatedGifImage(
+                                imageUrl = machine.imageGif,
+                                contentDescription = "Démonstration GIF",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(150.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
+                        Text(
+                            text = "${exercise.sets} séries × ${exercise.reps} reps × ${exercise.weight}kg",
+                            fontSize = 14.sp,
+                            color = Color(0xFF666666)
+                        )
+
+                        if (!machine.instructions.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Instructions: ${machine.instructions}",
+                                fontSize = 12.sp,
+                                color = Color(0xFF888888),
+                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Bouton selon le statut de l'entraînement
+            item {
+                val today = LocalDate.now()
+                val isPastDate = entry.date.isBefore(today)
+                val isCompleted = entry.duration > 0
+
+                val buttonText = when {
+                    isCompleted -> "🔄 Relancer cet entraînement"
+                    isPastDate -> "🔄 Reprendre cet entraînement"
+                    else -> "▶️ Commencer l'entraînement"
+                }
+
+                val buttonColor = when {
+                    isCompleted -> Accent
+                    isPastDate -> Color(0xFF9C27B0) // Violet pour les entraînements passés
+                    else -> Color(0xFF4CAF50) // Vert pour commencer
+                }
+
+                Button(
+                    onClick = {
+                        val machines = entry.exercises.map { exercise ->
+                            machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) } ?: Machine(
+                                id = 0,
+                                nom = exercise.name,
+                                description = "",
+                                instructions = "",
+                                categorie = CategorieMachine.MUSCULATION,
+                                groupeMusculairePrimaire = "",
+                                incrementPoids = 2.5,
+                                poidsMinimum = 0.0,
+                                poidsMaximum = 200.0
+                            )
+                        }
+                        val workoutName = when {
+                            isCompleted -> "Reprise ${entry.date}"
+                            isPastDate -> "Rattrapage ${entry.date}"
+                            else -> "Entraînement ${entry.date}"
+                        }
+                        onStartWorkout(machines, workoutName)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = buttonColor)
+                ) {
+                    Text(buttonText, color = Color.White)
+                }
+            }
+        }
     }
 }

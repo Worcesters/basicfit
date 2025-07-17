@@ -902,3 +902,22 @@ Unauthorized: /api/workouts/recommendation/Face Pull/
 Unauthorized: /api/workouts/recommendation/Face Pull/
 "GET /api/workouts/recommendation/Face%20Pull/ HTTP/1.1" 401 188
 "GET /api/machines/ HTTP/1.1" 200 22476
+C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\urls.py changed, reloading.
+Watching for file changes with StatReloader
+C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\views.py changed, reloading.
+Watching for file changes with StatReloader
+Watching for file changes with StatReloader
+Unauthorized: /api/workouts/recommendation/1/
+"GET /api/workouts/recommendation/1/ HTTP/1.1" 401 188
+Unauthorized: /api/workouts/recommendation/1/
+"GET /api/workouts/recommendation/1/ HTTP/1.1" 401 58
+Unauthorized: /api/workouts/recommendation/Face Pull/
+"GET /api/workouts/recommendation/Face%20Pull/ HTTP/1.1" 401 58
+"GET /api/workouts/machines/ HTTP/1.1" 200 11970
+Unauthorized: /api/users/android/login/
+"POST /api/users/android/login/ HTTP/1.1" 401 53
+"POST /api/users/android/login/ HTTP/1.1" 200 350
+"GET /api/workouts/recommendation/Face%20Pull/ HTTP/1.1" 200 328
+"GET /api/workouts/recommendation/Chest%20Press/ HTTP/1.1" 200 329
+Unauthorized: /api/workouts/recommendation/Face Pull/
+"GET /api/workouts/recommendation/Face%20Pull/ HTTP/1.1" 401 58

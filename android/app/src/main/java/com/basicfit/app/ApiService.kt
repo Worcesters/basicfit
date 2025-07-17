@@ -145,8 +145,11 @@ interface BasicFitApi {
 
 
 
+    @GET("workouts/recommendation/{machine_id}/")
+    suspend fun getRecommendation(@Path("machine_id") machineId: Int): ApiResponse<RecommendationResponse>
+
     @GET("workouts/recommendation/{machine_name}/")
-    suspend fun getRecommendation(@Path("machine_name") machineName: String): ApiResponse<RecommendationResponse>
+    suspend fun getRecommendationByName(@Path("machine_name") machineName: String): ApiResponse<RecommendationResponse>
 
     @GET("users/android/ping/")
     suspend fun ping(): retrofit2.Response<Void>

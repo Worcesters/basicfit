@@ -1,31 +1,29 @@
-#!/usr/bin/env python3
-"""
-Script pour créer un utilisateur de test
-"""
-
+#!/usr/bin/env python
 import os
-import sys
 import django
 
 # Configuration Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'basicfit_project.settings.development')
 django.setup()
 
-from django.contrib.auth.models import User
+from apps.users.models import User
 
 def create_test_user():
-    """Crée un utilisateur de test"""
-    username = "testuser"
+    """Créer un utilisateur de test"""
+    username = "test@example.com"
     email = "test@example.com"
     password = "testpass123"
 
-    try:
-        # Vérifier si l'utilisateur existe déjà
-        if User.objects.filter(username=username).exists():
-            print(f"✅ L'utilisateur '{username}' existe déjà")
-            return True
-
-        # Créer l'utilisateur
+    # Vérifier si l'utilisateur existe déjà
+    if User.objects.filter(username=username).exists():
+        print(f"✅ L'utilisateur {username} existe déjà")
+        user = User.objects.get(username=username)
+        # Mettre à jour le mot de passe
+        user.set_password(password)
+        user.save()
+        print("✅ Mot de passe mis à jour")
+    else:
+        # Créer un nouvel utilisateur
         user = User.objects.create_user(
             username=username,
             email=email,
@@ -33,15 +31,14 @@ def create_test_user():
             first_name="Test",
             last_name="User"
         )
+        print(f"✅ Utilisateur {username} créé avec succès")
 
-        print(f"✅ Utilisateur '{username}' créé avec succès")
-        print(f"   Email: {email}")
-        print(f"   Mot de passe: {password}")
-        return True
-
-    except Exception as e:
-        print(f"❌ Erreur lors de la création de l'utilisateur: {e}")
-        return False
+    return user
 
 if __name__ == "__main__":
-    create_test_user()
+    print("🔧 Création de l'utilisateur de test...")
+    user = create_test_user()
+    print(f"   ID: {user.id}")
+    print(f"   Email: {user.email}")
+    print(f"   Nom: {user.first_name} {user.last_name}")
+    print("✅ Terminé!")
