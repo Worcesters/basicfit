@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Script pour corriger manuellement la base de données SQLite
+Script pour corriger manuellement la base de données PostgreSQL
 """
 import os
 import sys
@@ -16,76 +16,41 @@ django.setup()
 from django.db import connection
 
 def fix_database():
-    """Corrige la taille du champ image_gif pour SQLite"""
-    print("🔧 Correction de la base de données SQLite...")
+    """Corrige la taille du champ image_gif pour PostgreSQL"""
+    print("🔧 Correction de la base de données PostgreSQL...")
 
     with connection.cursor() as cursor:
         try:
             # Vérifier la structure actuelle
-            cursor.execute("PRAGMA table_info(machines_machine);")
-            columns = cursor.fetchall()
+            cursor.execute("""
+                SELECT column_name, data_type, character_maximum_length
+                FROM information_schema.columns
+                WHERE table_name = 'machines_machine' AND column_name = 'image_gif';
+            """)
+            result = cursor.fetchone()
 
-            # Chercher le champ image_gif
-            image_gif_column = None
-            for column in columns:
-                if column[1] == 'image_gif':
-                    image_gif_column = column
-                    break
+            if result:
+                column_name, data_type, max_length = result
+                print(f"📊 Structure actuelle: {result}")
 
-            if image_gif_column:
-                print(f"📊 Champ image_gif trouvé: {image_gif_column}")
+                if max_length and max_length < 500:
+                    # Modifier la taille du champ
+                    print("🔧 Modification de la taille du champ...")
+                    cursor.execute("""
+                        ALTER TABLE machines_machine ALTER COLUMN image_gif TYPE VARCHAR(500);
+                    """)
+                    print("✅ Champ image_gif modifié vers VARCHAR(500)")
 
-                # SQLite ne peut pas modifier la taille d'une colonne directement
-                # Nous devons recréer la table
-                print("🔧 Recréation de la table avec la bonne structure...")
-
-                # Créer une table temporaire avec la bonne structure
-                cursor.execute("""
-                    CREATE TABLE machines_machine_temp (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        nom VARCHAR(100) NOT NULL,
-                        nom_anglais VARCHAR(100) NOT NULL,
-                        description TEXT NOT NULL,
-                        instructions TEXT NOT NULL,
-                        type_exercice VARCHAR(15) NOT NULL,
-                        categorie_id INTEGER NOT NULL,
-                        increment_poids REAL NOT NULL,
-                        poids_minimum REAL NOT NULL,
-                        poids_maximum REAL NOT NULL,
-                        niveau_difficulte VARCHAR(15) NOT NULL,
-                        popularite INTEGER NOT NULL,
-                        est_disponible BOOLEAN NOT NULL,
-                        necessite_supervision BOOLEAN NOT NULL,
-                        image_principale VARCHAR(100),
-                        image_gif VARCHAR(500),
-                        video_demonstration VARCHAR(200),
-                        fabricant VARCHAR(50) NOT NULL,
-                        modele VARCHAR(50) NOT NULL,
-                        numero_serie VARCHAR(50) NOT NULL,
-                        ordre_affichage INTEGER NOT NULL,
-                        tags VARCHAR(200) NOT NULL,
-                        nombre_utilisations INTEGER NOT NULL,
-                        note_moyenne REAL NOT NULL,
-                        created_at DATETIME NOT NULL,
-                        updated_at DATETIME NOT NULL,
-                        deleted_at DATETIME,
-                        is_deleted BOOLEAN NOT NULL
-                    );
-                """)
-
-                # Copier les données
-                cursor.execute("""
-                    INSERT INTO machines_machine_temp
-                    SELECT * FROM machines_machine;
-                """)
-
-                # Supprimer l'ancienne table
-                cursor.execute("DROP TABLE machines_machine;")
-
-                # Renommer la nouvelle table
-                cursor.execute("ALTER TABLE machines_machine_temp RENAME TO machines_machine;")
-
-                print("✅ Table recréée avec image_gif VARCHAR(500)")
+                    # Vérifier la modification
+                    cursor.execute("""
+                        SELECT column_name, data_type, character_maximum_length
+                        FROM information_schema.columns
+                        WHERE table_name = 'machines_machine' AND column_name = 'image_gif';
+                    """)
+                    result = cursor.fetchone()
+                    print(f"📊 Nouvelle structure: {result}")
+                else:
+                    print("✅ Le champ est déjà correct (taille >= 500)")
 
             else:
                 print("❌ Champ image_gif non trouvé")
