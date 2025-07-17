@@ -3889,6 +3889,9 @@ fun CalendarEntryDetailScreen(
     onStartWorkout: (List<Machine>, String) -> Unit,
     onWorkoutHistoryChange: (List<WorkoutEntry>) -> Unit
 ) {
+    val context = LocalContext.current
+    var machinesList by remember { mutableStateOf<List<Machine>>(emptyList()) }
+
     // Variables d'état pour le dialogue de remplacement
     var showExerciseReplacementDialog by remember { mutableStateOf(false) }
     var currentExerciseToReplace by remember { mutableStateOf<ExerciseRecord?>(null) }
@@ -3917,8 +3920,6 @@ fun CalendarEntryDetailScreen(
         showExerciseReplacementDialog = false
         currentExerciseToReplace = null
     }
-    val context = LocalContext.current
-    var machinesList by remember { mutableStateOf<List<Machine>>(emptyList()) }
 
     // Charger les machines depuis l'API
     LaunchedEffect(Unit) {
