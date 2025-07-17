@@ -290,8 +290,18 @@ def sauvegarder_seance_simple(request):
         # Calculer les métriques
         seance.calculer_metriques()
 
-        serializer = SeanceEntrainementSerializer(seance)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        try:
+            serializer = SeanceEntrainementSerializer(seance)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except Exception as serialization_error:
+            # Si la sérialisation échoue, retourner une réponse simple mais valide
+            return Response({
+                'id': seance.id,
+                'nom': seance.nom,
+                'statut': seance.statut,
+                'message': 'Séance sauvegardée avec succès',
+                'warning': f'Erreur de sérialisation: {str(serialization_error)}'
+            }, status=status.HTTP_201_CREATED)
 
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
