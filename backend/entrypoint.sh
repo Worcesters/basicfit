@@ -12,6 +12,18 @@ python fix_database_manual.py
 echo "🔧 Vérification de la correction"
 python check_field_size.py
 
+echo "🔧 Correction forcée si nécessaire"
+python manage.py shell << END
+from django.db import connection
+with connection.cursor() as cursor:
+    try:
+        # Forcer la modification de la taille du champ
+        cursor.execute("ALTER TABLE machines_machine ALTER COLUMN image_gif TYPE VARCHAR(500);")
+        print("✅ Correction forcée appliquée")
+    except Exception as e:
+        print(f"⚠️ Erreur correction forcée: {e}")
+END
+
 echo "👤 Création du superuser si nécessaire"
 python manage.py shell << END
 from django.contrib.auth import get_user_model
