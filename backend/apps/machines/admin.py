@@ -122,7 +122,7 @@ class MachineAdmin(admin.ModelAdmin):
         }),
         ('Caractéristiques techniques', {
             'fields': (
-                'increment_poids', 'poids_minimum', 'poids_maximum'
+                'increment_poids', 'poids_minimum', 'poids_maximum', 'tempo'
             )
         }),
         ('Métadonnées', {
