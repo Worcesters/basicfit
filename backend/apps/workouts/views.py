@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from django.utils import timezone
 from datetime import timedelta, datetime
 from django.utils.dateparse import parse_datetime
+import logging
 
 from .models import SeanceEntrainement, ExerciceSeance, SeriExercice, ProgressionMachine
 from .serializers import (
@@ -202,6 +203,8 @@ def sauvegarder_seance_simple(request):
 
             # Ajouter les séries
             for serie_num in range(exercice_data.get('series', 3)):
+                # Log du contenu reçu pour debug
+                print(f"[DEBUG] Création série pour exercice: {exercice_data}")
                 SeriExercice.objects.create(
                     exercice=exercice,
                     numero_serie=serie_num + 1,
@@ -214,14 +217,20 @@ def sauvegarder_seance_simple(request):
 
             # --- MISE À JOUR DE LA PROGRESSION ---
             from .models import ProgressionMachine, ModeEntrainement
-            mode = None
-            if 'mode_entrainement_id' in data:
-                try:
-                    mode = ModeEntrainement.objects.get(id=data['mode_entrainement_id'])
-                except:
-                    mode = None
+
+            # S'assurer qu'il y a au moins un mode d'entraînement
+            mode = ModeEntrainement.objects.first()
             if not mode:
-                mode = ModeEntrainement.objects.first()
+                # Créer un mode par défaut si aucun n'existe
+                mode = ModeEntrainement.objects.create(
+                    nom="Prise de masse",
+                    description="Mode par défaut",
+                    series_recommandees=3,
+                    repetitions_min=8,
+                    repetitions_max=12,
+                    repos_entre_series=90
+                )
+
             progression, created = ProgressionMachine.objects.get_or_create(
                 utilisateur=user,
                 machine=machine,
