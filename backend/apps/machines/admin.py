@@ -70,11 +70,14 @@ class MachineAdminForm(forms.ModelForm):
         gif_file = self.cleaned_data.get('gif_file')
         if gif_file:
             try:
+                print(f"📤 Tentative d'upload vers Cloudinary: {gif_file.name}")
                 # Upload sur Cloudinary
                 cloudinary_service = CloudinaryService()
                 cloudinary_url = cloudinary_service.upload_image(gif_file)
                 instance.image_gif = cloudinary_url
+                print(f"✅ Upload réussi: {cloudinary_url}")
             except Exception as e:
+                print(f"❌ Erreur upload Cloudinary: {e}")
                 # En cas d'erreur, on garde l'ancienne URL
                 pass
 

@@ -1,0 +1,1 @@
+# Commands Django pour l'app machines
