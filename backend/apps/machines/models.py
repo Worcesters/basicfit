@@ -201,10 +201,11 @@ class Machine(SoftDeletableModel):
         verbose_name="Image principale"
     )
     image_gif = models.URLField(
+        max_length=500,
         blank=True,
         null=True,
-        help_text="URL de l'animation GIF sur Imgur",
-        verbose_name="Animation GIF (URL Imgur)"
+        help_text="URL de l'animation GIF sur Cloudinary",
+        verbose_name="Animation GIF (URL Cloudinary)"
     )
     video_demonstration = models.URLField(
         blank=True,
