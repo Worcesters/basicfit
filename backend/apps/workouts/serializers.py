@@ -21,11 +21,15 @@ class MachineSerializer(serializers.ModelSerializer):
         ]
 
     def get_image_gif(self, obj):
-        """Retourne l'URL absolue du GIF si présent"""
+        """Retourne l'URL du GIF si présent"""
         if obj.image_gif:
+            # Si c'est déjà une URL complète (Cloudinary), on la retourne directement
+            if obj.image_gif.startswith('http'):
+                return obj.image_gif
+            # Sinon, on construit l'URL absolue (pour les anciens fichiers locaux)
             request = self.context.get('request')
             if request:
-                return request.build_absolute_uri(obj.image_gif.url)
+                return request.build_absolute_uri(obj.image_gif)
         return None
 
     def get_groupe_musculaire_primaires(self, obj):
