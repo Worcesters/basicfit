@@ -3458,12 +3458,12 @@ fun calculateSmartWeightRecommendation(
                 .map { Pair(workout.date, it) }
         }
 
-        if (exerciseHistory.isEmpty()) {
+    if (exerciseHistory.isEmpty()) {
         // Première fois - pas d'historique, retourner 0 pour indiquer "à déterminer"
         return 0.0
     }
 
-        // Prendre les 3 dernières occurrences (les plus récentes)
+    // Prendre les 3 dernières occurrences (les plus récentes)
     val lastPerformances = exerciseHistory.takeLast(3).map { it.second }
     if (lastPerformances.isEmpty()) {
         // Pas d'historique pour cette machine
@@ -3489,18 +3489,21 @@ fun calculateSmartWeightRecommendation(
     }
     var targetWeight = baseWeight * objectiveFactor
 
-    // Inverser la logique pour les machines assistées
+    // LOGIQUE SPÉCIALE POUR LES MACHINES ASSISTÉES
     if (isAssist) {
+        // Pour les machines assistées : PLUS de poids = PLUS facile
+        // Donc on inverse la logique de progression
         targetWeight = if (isProgressing) {
-            targetWeight * 0.92 // Progression = moins d'assistance
+            targetWeight * 1.15 // Progression = PLUS d'assistance (plus de poids)
         } else {
-            targetWeight * 1.08 // Stagnation = plus d'assistance
+            targetWeight * 0.85 // Stagnation = MOINS d'assistance (moins de poids)
         }
     } else {
+        // Pour les machines normales : PLUS de poids = PLUS difficile
         targetWeight = if (isProgressing) {
-            targetWeight * 1.08
+            targetWeight * 1.08 // Progression = plus de poids
         } else {
-            targetWeight * 0.92
+            targetWeight * 0.92 // Stagnation = moins de poids
         }
     }
 
@@ -3509,8 +3512,8 @@ fun calculateSmartWeightRecommendation(
         it.first.isAfter(java.time.LocalDate.now().minusDays(7))
     }
     targetWeight = when {
-        isAssist && recentSessions >= 3 -> targetWeight * 0.95 // Plus tu t'entraînes, moins d'assistance
-        isAssist && recentSessions == 0 -> targetWeight * 1.1 // Pas d'entraînement récent = plus d'assistance
+        isAssist && recentSessions >= 3 -> targetWeight * 1.1 // Plus tu t'entraînes, PLUS d'assistance
+        isAssist && recentSessions == 0 -> targetWeight * 0.9 // Pas d'entraînement récent = MOINS d'assistance
         !isAssist && recentSessions >= 3 -> targetWeight * 1.05
         !isAssist && recentSessions == 0 -> targetWeight * 0.9
         else -> targetWeight
@@ -3565,8 +3568,13 @@ fun calculateSuggestedStartingWeight(machine: Machine, objectif: String): Double
         else -> 20.0
     }
 
-    // Pour les machines assistées, on commence plus haut (plus facile)
-    val startWeight = if (isAssist) baseWeight * 2 else baseWeight
+    // LOGIQUE SPÉCIALE POUR LES MACHINES ASSISTÉES
+    val startWeight = if (isAssist) {
+        // Pour les machines assistées : on commence avec PLUS de poids (plus facile)
+        baseWeight * 2.5 // Plus d'assistance au début
+    } else {
+        baseWeight
+    }
 
     return when (objectif) {
         "Force" -> startWeight * 0.8

@@ -2,7 +2,10 @@
 Configuration de l'admin Django pour les machines BasicFit
 """
 from django.contrib import admin
+from django import forms
+from django.core.files.uploadedfile import UploadedFile
 from .models import GroupeMusculaire, CategorieMachine, Machine, VarianteMachine, MachineCategorie
+from .services import CloudinaryService
 
 
 @admin.register(GroupeMusculaire)
@@ -47,8 +50,43 @@ class MachineCategorieInline(admin.TabularInline):
     fields = ['categorie', 'is_primary', 'ordre']
 
 
+class MachineAdminForm(forms.ModelForm):
+    """Formulaire personnalisé pour uploader les GIFs sur Cloudinary"""
+
+    gif_file = forms.FileField(
+        label="Uploader un GIF",
+        help_text="Sélectionnez un fichier GIF à uploader sur Cloudinary",
+        required=False
+    )
+
+    class Meta:
+        model = Machine
+        fields = '__all__'
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+
+        # Si un nouveau fichier GIF est uploadé
+        gif_file = self.cleaned_data.get('gif_file')
+        if gif_file:
+            try:
+                # Upload sur Cloudinary
+                cloudinary_service = CloudinaryService()
+                cloudinary_url = cloudinary_service.upload_image(gif_file)
+                instance.image_gif = cloudinary_url
+            except Exception as e:
+                # En cas d'erreur, on garde l'ancienne URL
+                pass
+
+        if commit:
+            instance.save()
+        return instance
+
+
 @admin.register(Machine)
 class MachineAdmin(admin.ModelAdmin):
+    form = MachineAdminForm
+
     list_display = [
         'nom', 'categorie', 'niveau_difficulte', 'popularite',
         'est_disponible', 'necessite_supervision'
@@ -91,7 +129,7 @@ class MachineAdmin(admin.ModelAdmin):
             )
         }),
         ('Médias', {
-            'fields': ('image_principale', 'image_gif', 'video_demonstration'),
+            'fields': ('gif_file', 'image_gif', 'image_principale', 'video_demonstration'),
             'classes': ('collapse',)
         }),
         ('Informations techniques', {

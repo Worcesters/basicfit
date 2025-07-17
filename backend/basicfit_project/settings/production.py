@@ -75,4 +75,9 @@ USE_TZ = True
 # Default field
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# --- Configuration Cloudinary pour les médias (GIFs) ---
+CLOUDINARY_CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME', 'VOTRE_CLOUD_NAME')
+CLOUDINARY_API_KEY = os.environ.get('CLOUDINARY_API_KEY', 'VOTRE_API_KEY')
+CLOUDINARY_API_SECRET = os.environ.get('CLOUDINARY_API_SECRET', 'VOTRE_API_SECRET')
+
 print("Configuration PRODUCTION Django BASIQUE chargée ")

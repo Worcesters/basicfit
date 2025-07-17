@@ -19,7 +19,8 @@ def test_workouts_machines():
 
         if response.status_code == 200:
             data = response.json()
-            machines = data.get('results', data)
+            # L'API retourne directement une liste, pas un objet avec 'results'
+            machines = data if isinstance(data, list) else data.get('results', [])
             print(f"✅ API accessible - {len(machines)} machines récupérées")
 
             # Chercher les machines avec des GIFs

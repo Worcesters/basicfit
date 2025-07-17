@@ -200,12 +200,11 @@ class Machine(SoftDeletableModel):
         null=True,
         verbose_name="Image principale"
     )
-    image_gif = models.FileField(
-        upload_to='machines/gifs/',
+    image_gif = models.URLField(
         blank=True,
         null=True,
-        help_text="Animation GIF de démonstration de l'exercice",
-        verbose_name="Animation GIF"
+        help_text="URL de l'animation GIF sur Imgur",
+        verbose_name="Animation GIF (URL Imgur)"
     )
     video_demonstration = models.URLField(
         blank=True,

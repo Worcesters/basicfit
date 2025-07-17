@@ -131,15 +131,6 @@ fun WorkoutSummaryScreen(
                 )
             }
 
-            // Prochaine recommandation personnalisée
-            item {
-                NextRecommendationsCard(
-                    workoutSummary = workoutSummary,
-                    workoutHistory = workoutHistory,
-                    profileData = profileData
-                )
-            }
-
             // Bouton continuer
             item {
                 Spacer(modifier = Modifier.height(16.dp))
@@ -171,6 +162,15 @@ fun WorkoutSummaryScreen(
                         )
                     }
                 }
+            }
+
+            // Prochaine recommandation personnalisée (AVANT le bouton)
+            item {
+                NextRecommendationsCard(
+                    workoutSummary = workoutSummary,
+                    workoutHistory = workoutHistory,
+                    profileData = profileData
+                )
             }
         }
     }
@@ -568,37 +568,41 @@ fun NextRecommendationsCard(
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
-            workoutSummary.exercicesCompleted.forEach { exercise ->
-                // On cherche la machine correspondante dans l'historique (par nom)
-                val lastMachine = workoutHistory
-                    .flatMap { it.exercises }
-                    .findLast { it.name.equals(exercise.name, ignoreCase = true) }
-                // On essaye de retrouver la Machine complète (si structure disponible)
-                // Ici, on simule avec un objet minimal
-                val machine = Machine(
-                    id = 0,
-                    nom = exercise.name,
-                    description = "",
-                    instructions = "",
-                    categorie = CategorieMachine.MUSCULATION,
-                    groupeMusculairePrimaire = "",
-                    incrementPoids = 2.5,
-                    poidsMinimum = 0.0,
-                    poidsMaximum = 200.0
-                )
-                val reco = calculateWorkoutRecommendations(
-                    profileData = profileData,
-                    workoutHistory = workoutHistory,
-                    machine = machine
-                )
-                val poids = if (reco.weight > 0) "${reco.weight.toInt()}kg" else "À déterminer"
-                val reps = reco.reps
-                val sets = reco.sets
-                val rest = reco.restTime
+            val hasReco = workoutSummary.exercicesCompleted.isNotEmpty()
+            if (hasReco) {
+                workoutSummary.exercicesCompleted.forEach { exercise ->
+                    val machine = Machine(
+                        id = 0,
+                        nom = exercise.name,
+                        description = "",
+                        instructions = "",
+                        categorie = CategorieMachine.MUSCULATION,
+                        groupeMusculairePrimaire = "",
+                        incrementPoids = 2.5,
+                        poidsMinimum = 0.0,
+                        poidsMaximum = 200.0
+                    )
+                    val reco = calculateWorkoutRecommendations(
+                        profileData = profileData,
+                        workoutHistory = workoutHistory,
+                        machine = machine
+                    )
+                    val poids = if (reco.weight > 0) "${reco.weight.toInt()}kg" else "À déterminer"
+                    val reps = reco.reps
+                    val sets = reco.sets
+                    val rest = reco.restTime
+                    Text(
+                        text = "• ${exercise.name} : $poids × $reps reps ($sets séries, repos $rest s)",
+                        fontSize = 14.sp,
+                        color = Color(0xFF2E2E2E),
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    )
+                }
+            } else {
                 Text(
-                    text = "• ${exercise.name} : $poids × $reps reps ($sets séries, repos $rest s)",
+                    text = "Aucune recommandation disponible pour la prochaine séance.",
                     fontSize = 14.sp,
-                    color = Color(0xFF2E2E2E),
+                    color = Color.Gray,
                     modifier = Modifier.padding(vertical = 2.dp)
                 )
             }
