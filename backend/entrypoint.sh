@@ -4,9 +4,7 @@ echo "📦 Collecte des fichiers statiques"
 python manage.py collectstatic --noinput
 
 echo "⚙️ Application des migrations"
-python manage.py migrate --noinput --run-syncdb
-echo "🔧 Vérification des migrations machines"
-python manage.py migrate machines --noinput
+python manage.py migrate --noinput
 
 echo "🔧 Correction de la base de données PostgreSQL"
 python fix_database_manual.py

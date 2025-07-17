@@ -1,4 +1,4 @@
-# Generated manually to fix image_gif field length
+# Generated manually to add image_gif field
 
 from django.db import migrations, models
 
@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
+        migrations.AddField(
             model_name='machine',
             name='image_gif',
             field=models.URLField(
