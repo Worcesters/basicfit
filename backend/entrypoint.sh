@@ -8,6 +8,12 @@ python manage.py migrate --noinput --run-syncdb
 echo "🔧 Vérification des migrations machines"
 python manage.py migrate machines --noinput
 
+echo "🔧 Correction de la base de données PostgreSQL"
+python manage.py dbshell << END
+-- Vérifier et corriger la taille du champ image_gif
+ALTER TABLE machines_machine ALTER COLUMN image_gif TYPE VARCHAR(500);
+END
+
 echo "👤 Création du superuser si nécessaire"
 python manage.py shell << END
 from django.contrib.auth import get_user_model
