@@ -13,7 +13,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-basic-key-123456789')
 DEBUG = True  # True pour voir les erreurs détaillées
 ALLOWED_HOSTS = ['*']
 
-# Applications DJANGO DE BASE SEULEMENT
+# Applications DJANGO COMPLÈTES
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -21,11 +21,18 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
+    'corsheaders',
+    'apps.core',
+    'apps.users',
+    'apps.machines',
+    'apps.workouts',
 ]
 
-# Middleware minimal Django
+# Middleware complet Django
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -33,6 +40,10 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Configuration CORS
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = 'basicfit_project.urls'
 WSGI_APPLICATION = 'basicfit_project.wsgi.application'
@@ -80,4 +91,4 @@ CLOUDINARY_CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME', 'VOTRE_CLOUD_NAM
 CLOUDINARY_API_KEY = os.environ.get('CLOUDINARY_API_KEY', 'VOTRE_API_KEY')
 CLOUDINARY_API_SECRET = os.environ.get('CLOUDINARY_API_SECRET', 'VOTRE_API_SECRET')
 
-print("Configuration PRODUCTION Django BASIQUE chargée ")
+print("Configuration PRODUCTION Django COMPLÈTE chargée ")
