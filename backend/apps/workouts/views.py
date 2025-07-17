@@ -168,19 +168,37 @@ def sauvegarder_seance_simple(request):
 
         # Ajouter les exercices
         for idx, exercice_data in enumerate(data.get('exercices', [])):
-            # Récupérer la machine par nom
-            try:
-                machine = Machine.objects.get(nom__icontains=exercice_data['nom'])
-            except Machine.MultipleObjectsReturned:
-                machine = Machine.objects.filter(nom__icontains=exercice_data['nom']).first()
-            except Machine.DoesNotExist:
+            # Récupérer la machine par nom (recherche flexible)
+            machine = None
+            nom_exercice = exercice_data['nom']
+
+            # Essayer différentes stratégies de recherche
+            search_strategies = [
+                lambda: Machine.objects.get(nom__iexact=nom_exercice),
+                lambda: Machine.objects.get(nom__icontains=nom_exercice),
+                lambda: Machine.objects.filter(nom__icontains=nom_exercice).first(),
+                lambda: Machine.objects.get(nom__icontains=nom_exercice.replace('é', 'e').replace('è', 'e')),
+                lambda: Machine.objects.get(nom__icontains=nom_exercice.replace('e', 'é')),
+                lambda: Machine.objects.get(nom__icontains=nom_exercice.replace('e', 'è')),
+            ]
+
+            for strategy in search_strategies:
+                try:
+                    machine = strategy()
+                    if machine:
+                        break
+                except (Machine.DoesNotExist, Machine.MultipleObjectsReturned):
+                    continue
+
+            if not machine:
+                # Créer la machine si elle n'existe pas
                 from apps.machines.models import CategorieMachine
                 categorie_defaut, _ = CategorieMachine.objects.get_or_create(nom='MUSCULATION', defaults={
                     'description': 'Catégorie auto générée',
                 })
                 machine = Machine.objects.create(
-                    nom=exercice_data['nom'],
-                    description='Créée automatiquement depuis import CSV',
+                    nom=nom_exercice,
+                    description='Créée automatiquement depuis l\'app Android',
                     instructions='',
                     categorie=categorie_defaut,
                     increment_poids=2.5,
@@ -463,11 +481,32 @@ def get_recommendation(request, machine_name):
 
         user = request.user
 
-        # Récupérer la machine par nom
+        # Récupérer la machine par nom (recherche flexible)
         try:
+            # Essayer d'abord une correspondance exacte
             machine = Machine.objects.get(nom__iexact=machine_name)
         except Machine.DoesNotExist:
-            return Response({'error': f'Machine "{machine_name}" non trouvée'}, status=status.HTTP_404_NOT_FOUND)
+            try:
+                # Essayer une recherche partielle
+                machine = Machine.objects.get(nom__icontains=machine_name)
+            except Machine.DoesNotExist:
+                try:
+                    # Essayer avec des variations courantes
+                    variations = [
+                        machine_name.replace('é', 'e').replace('è', 'e'),
+                        machine_name.replace('e', 'é'),
+                        machine_name.replace('e', 'è'),
+                    ]
+                    for variation in variations:
+                        try:
+                            machine = Machine.objects.get(nom__icontains=variation)
+                            break
+                        except Machine.DoesNotExist:
+                            continue
+                    else:
+                        return Response({'error': f'Machine "{machine_name}" non trouvée'}, status=status.HTTP_404_NOT_FOUND)
+                except:
+                    return Response({'error': f'Machine "{machine_name}" non trouvée'}, status=status.HTTP_404_NOT_FOUND)
 
         # Récupérer l'objectif de l'utilisateur (depuis le profil)
         objectif = getattr(user, 'objectif', 'Prise de masse')  # Valeur par défaut
