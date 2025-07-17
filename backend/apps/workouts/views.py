@@ -309,12 +309,9 @@ def seances_list(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_recommendation(request):
+def get_recommendation(request, machine_id):
     """Endpoint pour obtenir la recommandation de poids basée sur ProgressionMachine"""
     try:
-        machine_id = request.query_params.get('machine_id')
-        if not machine_id:
-            return Response({'error': 'machine_id est requis'}, status=status.HTTP_400_BAD_REQUEST)
 
         user = request.user
 

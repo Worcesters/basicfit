@@ -3102,8 +3102,8 @@ fun CurrentExerciseCard(
 
             // Affichage du GIF de la machine (si présent)
             if (!exerciseSession.machine.imageGif.isNullOrBlank()) {
-                AsyncImage(
-                    model = exerciseSession.machine.imageGif,
+                AnimatedGifImage(
+                    imageUrl = exerciseSession.machine.imageGif,
                     contentDescription = "Démonstration GIF",
                     modifier = Modifier
                         .fillMaxWidth()
