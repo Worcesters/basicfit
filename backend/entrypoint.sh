@@ -4,7 +4,9 @@ echo "📦 Collecte des fichiers statiques"
 python manage.py collectstatic --noinput
 
 echo "⚙️ Application des migrations"
-python manage.py migrate --noinput
+python manage.py migrate --noinput --run-syncdb
+echo "🔧 Vérification des migrations machines"
+python manage.py migrate machines --noinput
 
 echo "👤 Création du superuser si nécessaire"
 python manage.py shell << END
