@@ -5,6 +5,7 @@ INJECTED from C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\
 INJECTED from C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\AndroidManifest.xml:2:1-36:12
 INJECTED from C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\AndroidManifest.xml:2:1-36:12
 MERGED from [com.google.android.material:material:1.11.0] C:\Users\jerem\.gradle\caches\transforms-3\aed92ccee87be3ca7e23303752a82dd5\transformed\material-1.11.0\AndroidManifest.xml:17:1-24:12
+MERGED from [io.coil-kt:coil-gif:2.4.0] C:\Users\jerem\.gradle\caches\transforms-3\f7b6a0250d8f8a9b23abb3c7a64730d3\transformed\jetified-coil-gif-2.4.0\AndroidManifest.xml:2:1-7:12
 MERGED from [io.coil-kt:coil-compose:2.4.0] C:\Users\jerem\.gradle\caches\transforms-3\b82c18478a4f508b202c749bbe126066\transformed\jetified-coil-compose-2.4.0\AndroidManifest.xml:2:1-7:12
 MERGED from [io.coil-kt:coil-compose-base:2.4.0] C:\Users\jerem\.gradle\caches\transforms-3\49410d459d4258b65cd404f27ca156ff\transformed\jetified-coil-compose-base-2.4.0\AndroidManifest.xml:2:1-7:12
 MERGED from [io.coil-kt:coil:2.4.0] C:\Users\jerem\.gradle\caches\transforms-3\8b34f77e60052efc15145779001aa8e0\transformed\jetified-coil-2.4.0\AndroidManifest.xml:2:1-7:12
@@ -88,10 +89,10 @@ MERGED from [androidx.arch.core:core-runtime:2.2.0] C:\Users\jerem\.gradle\cache
 MERGED from [androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\jerem\.gradle\caches\transforms-3\c713c5152d650ffb0e8301e82b8942dd\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:17:1-55:12
 MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\jerem\.gradle\caches\transforms-3\4198f38d08fc87c8c9b6ac79574364c1\transformed\jetified-startup-runtime-1.1.1\AndroidManifest.xml:17:1-33:12
 MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\jerem\.gradle\caches\transforms-3\209de5f6407302f6d0a76bbfdf3df4e4\transformed\jetified-tracing-1.0.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.exifinterface:exifinterface:1.3.6] C:\Users\jerem\.gradle\caches\transforms-3\c4499ca8794031572540c3c0335fae6a\transformed\exifinterface-1.3.6\AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.documentfile:documentfile:1.0.0] C:\Users\jerem\.gradle\caches\transforms-3\74003db3bacd2c8df613537c0217cbce\transformed\documentfile-1.0.0\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.localbroadcastmanager:localbroadcastmanager:1.0.0] C:\Users\jerem\.gradle\caches\transforms-3\fcb7cc76ae11000ba6990989d29ea937\transformed\localbroadcastmanager-1.0.0\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.print:print:1.0.0] C:\Users\jerem\.gradle\caches\transforms-3\7092fb1d9b39110365f0da5a6d812a64\transformed\print-1.0.0\AndroidManifest.xml:17:1-22:12
-MERGED from [androidx.exifinterface:exifinterface:1.3.6] C:\Users\jerem\.gradle\caches\transforms-3\c4499ca8794031572540c3c0335fae6a\transformed\exifinterface-1.3.6\AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.multidex:multidex:2.0.1] C:\Users\jerem\.gradle\caches\transforms-3\7b35a95afb3dba1a166f19e3a9b1578b\transformed\multidex-2.0.1\AndroidManifest.xml:17:1-22:12
 	package
 		INJECTED from C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\AndroidManifest.xml
@@ -194,6 +195,8 @@ INJECTED from C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\
 INJECTED from C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\AndroidManifest.xml
 MERGED from [com.google.android.material:material:1.11.0] C:\Users\jerem\.gradle\caches\transforms-3\aed92ccee87be3ca7e23303752a82dd5\transformed\material-1.11.0\AndroidManifest.xml:20:5-44
 MERGED from [com.google.android.material:material:1.11.0] C:\Users\jerem\.gradle\caches\transforms-3\aed92ccee87be3ca7e23303752a82dd5\transformed\material-1.11.0\AndroidManifest.xml:20:5-44
+MERGED from [io.coil-kt:coil-gif:2.4.0] C:\Users\jerem\.gradle\caches\transforms-3\f7b6a0250d8f8a9b23abb3c7a64730d3\transformed\jetified-coil-gif-2.4.0\AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt:coil-gif:2.4.0] C:\Users\jerem\.gradle\caches\transforms-3\f7b6a0250d8f8a9b23abb3c7a64730d3\transformed\jetified-coil-gif-2.4.0\AndroidManifest.xml:5:5-44
 MERGED from [io.coil-kt:coil-compose:2.4.0] C:\Users\jerem\.gradle\caches\transforms-3\b82c18478a4f508b202c749bbe126066\transformed\jetified-coil-compose-2.4.0\AndroidManifest.xml:5:5-44
 MERGED from [io.coil-kt:coil-compose:2.4.0] C:\Users\jerem\.gradle\caches\transforms-3\b82c18478a4f508b202c749bbe126066\transformed\jetified-coil-compose-2.4.0\AndroidManifest.xml:5:5-44
 MERGED from [io.coil-kt:coil-compose-base:2.4.0] C:\Users\jerem\.gradle\caches\transforms-3\49410d459d4258b65cd404f27ca156ff\transformed\jetified-coil-compose-base-2.4.0\AndroidManifest.xml:5:5-44
@@ -360,14 +363,14 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\jerem\.gradle\cach
 MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\jerem\.gradle\caches\transforms-3\4198f38d08fc87c8c9b6ac79574364c1\transformed\jetified-startup-runtime-1.1.1\AndroidManifest.xml:21:5-23:41
 MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\jerem\.gradle\caches\transforms-3\209de5f6407302f6d0a76bbfdf3df4e4\transformed\jetified-tracing-1.0.0\AndroidManifest.xml:20:5-22:41
 MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\jerem\.gradle\caches\transforms-3\209de5f6407302f6d0a76bbfdf3df4e4\transformed\jetified-tracing-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.exifinterface:exifinterface:1.3.6] C:\Users\jerem\.gradle\caches\transforms-3\c4499ca8794031572540c3c0335fae6a\transformed\exifinterface-1.3.6\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.exifinterface:exifinterface:1.3.6] C:\Users\jerem\.gradle\caches\transforms-3\c4499ca8794031572540c3c0335fae6a\transformed\exifinterface-1.3.6\AndroidManifest.xml:20:5-22:41
 MERGED from [androidx.documentfile:documentfile:1.0.0] C:\Users\jerem\.gradle\caches\transforms-3\74003db3bacd2c8df613537c0217cbce\transformed\documentfile-1.0.0\AndroidManifest.xml:20:5-44
 MERGED from [androidx.documentfile:documentfile:1.0.0] C:\Users\jerem\.gradle\caches\transforms-3\74003db3bacd2c8df613537c0217cbce\transformed\documentfile-1.0.0\AndroidManifest.xml:20:5-44
 MERGED from [androidx.localbroadcastmanager:localbroadcastmanager:1.0.0] C:\Users\jerem\.gradle\caches\transforms-3\fcb7cc76ae11000ba6990989d29ea937\transformed\localbroadcastmanager-1.0.0\AndroidManifest.xml:20:5-44
 MERGED from [androidx.localbroadcastmanager:localbroadcastmanager:1.0.0] C:\Users\jerem\.gradle\caches\transforms-3\fcb7cc76ae11000ba6990989d29ea937\transformed\localbroadcastmanager-1.0.0\AndroidManifest.xml:20:5-44
 MERGED from [androidx.print:print:1.0.0] C:\Users\jerem\.gradle\caches\transforms-3\7092fb1d9b39110365f0da5a6d812a64\transformed\print-1.0.0\AndroidManifest.xml:20:5-44
 MERGED from [androidx.print:print:1.0.0] C:\Users\jerem\.gradle\caches\transforms-3\7092fb1d9b39110365f0da5a6d812a64\transformed\print-1.0.0\AndroidManifest.xml:20:5-44
-MERGED from [androidx.exifinterface:exifinterface:1.3.6] C:\Users\jerem\.gradle\caches\transforms-3\c4499ca8794031572540c3c0335fae6a\transformed\exifinterface-1.3.6\AndroidManifest.xml:20:5-22:41
-MERGED from [androidx.exifinterface:exifinterface:1.3.6] C:\Users\jerem\.gradle\caches\transforms-3\c4499ca8794031572540c3c0335fae6a\transformed\exifinterface-1.3.6\AndroidManifest.xml:20:5-22:41
 MERGED from [androidx.multidex:multidex:2.0.1] C:\Users\jerem\.gradle\caches\transforms-3\7b35a95afb3dba1a166f19e3a9b1578b\transformed\multidex-2.0.1\AndroidManifest.xml:20:5-43
 MERGED from [androidx.multidex:multidex:2.0.1] C:\Users\jerem\.gradle\caches\transforms-3\7b35a95afb3dba1a166f19e3a9b1578b\transformed\multidex-2.0.1\AndroidManifest.xml:20:5-43
 	android:targetSdkVersion

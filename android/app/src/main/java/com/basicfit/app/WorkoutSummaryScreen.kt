@@ -585,9 +585,17 @@ fun NextRecommendationsCard(
                     val reco = calculateWorkoutRecommendations(
                         profileData = profileData,
                         workoutHistory = workoutHistory,
-                        machine = machine
+                        machine = machine,
+                        context = LocalContext.current
                     )
-                    val poids = if (reco.weight > 0) "${reco.weight.toInt()}kg" else "À déterminer"
+                    val poids = when {
+                        reco.weight > 0 -> "${reco.weight.toInt()}kg"
+                        else -> {
+                            // Calculer une suggestion de poids de départ
+                            val suggestedWeight = calculateSuggestedStartingWeight(machine, profileData.objectif)
+                            if (suggestedWeight > 0) "${suggestedWeight.toInt()}kg (suggestion)" else "À déterminer"
+                        }
+                    }
                     val reps = reco.reps
                     val sets = reco.sets
                     val rest = reco.restTime
@@ -699,3 +707,5 @@ fun generateWorkoutRecommendations(
 
     return recommendations
 }
+
+

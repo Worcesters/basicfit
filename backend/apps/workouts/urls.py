@@ -16,6 +16,7 @@ urlpatterns = [
 
     # Endpoints spéciaux
     path('sauvegarder/', views.sauvegarder_seance_simple, name='sauvegarder-seance'),
+    path('recommendation/', views.get_recommendation, name='get-recommendation'),
 
     # Compatibilité/démo
     path('info/', views.workouts_info, name='workouts-info'),

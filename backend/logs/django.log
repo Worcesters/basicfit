@@ -852,3 +852,9 @@ Watching for file changes with StatReloader
 "GET /static/admin/img/sorting-icons.3a097b59f104.svg HTTP/1.1" 200 366
 Not Found: /favicon.ico
 "GET /favicon.ico HTTP/1.1" 404 179
+Watching for file changes with StatReloader
+"GET /api/machines/ HTTP/1.1" 200 22374
+Forbidden (CSRF cookie not set.): /api/users/register/
+"POST /api/users/register/ HTTP/1.1" 403 1539
+Forbidden (CSRF cookie not set.): /api/users/login/
+"POST /api/users/login/ HTTP/1.1" 403 1539

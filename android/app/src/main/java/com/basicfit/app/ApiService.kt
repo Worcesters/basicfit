@@ -82,6 +82,39 @@ data class MachineDto(
     val groupe_musculaire_primaires: List<Map<String, String>>? = null // Ajout pour les groupes musculaires
 )
 
+// Nouvelles classes pour la progression
+data class CompleteWorkoutRequest(
+    val nom: String,
+    val duree: Int,
+    val note_ressenti: Int,
+    val commentaire: String? = null,
+    val exercices: List<CompleteExerciseRequest>
+)
+
+data class CompleteExerciseRequest(
+    val nom: String,
+    val series: Int,
+    val reps: Int,
+    val poids: Double
+)
+
+data class RecommendationResponse(
+    val machine_id: Int,
+    val machine_nom: String,
+    val poids_recommande: Double,
+    val series_recommandees: Int,
+    val reps_recommandees: Int,
+    val repos_recommande: Int,
+    val objectif: String,
+    val peut_progresser: Boolean,
+    val dernier_1rm: Double?,
+    val nombre_seances: Int,
+    val progression_totale: Double,
+    val taux_reussite: Double,
+    val derniere_progression: String?,
+    val source: String
+)
+
 // ==============================================
 // INTERFACE API RETROFIT
 // ==============================================
@@ -109,6 +142,13 @@ interface BasicFitApi {
     // Retourne directement la liste sans wrapper JSON
     @GET("workouts/machines/")
     suspend fun getMachines(): List<MachineDto>
+
+    // Nouveaux endpoints pour la progression
+    @POST("workouts/sauvegarder/")
+    suspend fun saveCompleteWorkout(@Body request: CompleteWorkoutRequest): ApiResponse<Any>
+
+    @GET("workouts/recommendation/")
+    suspend fun getRecommendation(@Query("machine_id") machineId: Int): ApiResponse<RecommendationResponse>
 
     @GET("users/android/ping/")
     suspend fun ping(): retrofit2.Response<Void>

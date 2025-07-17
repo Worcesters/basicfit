@@ -45,6 +45,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -64,6 +65,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import com.basicfit.app.R
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import coil.decode.GifDecoder
+import coil.ImageLoader
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 
 // Palette couleur globale
 val Mint = Color(0xFF00C9A7)
@@ -537,6 +543,35 @@ fun MainScreen() {
                 )
                 workoutHistory = workoutHistory + newEntry
                 dataManager.saveWorkoutHistory(workoutHistory)
+
+                // Envoyer à l'API Django pour mettre à jour ProgressionMachine
+                GlobalScope.launch {
+                    try {
+                        val apiService = ApiService.getInstance()
+                        apiService.initialize(context)
+
+                        val completeWorkoutRequest = CompleteWorkoutRequest(
+                            nom = currentWorkoutName,
+                            duree = duration,
+                            note_ressenti = 7, // Valeur par défaut
+                            commentaire = "Séance terminée via l'app Android",
+                            exercices = exercisesCompleted.map { exercise ->
+                                CompleteExerciseRequest(
+                                    nom = exercise.name,
+                                    series = exercise.sets,
+                                    reps = exercise.reps,
+                                    poids = exercise.weight
+                                )
+                            }
+                        )
+
+                        val response = apiService.getApi().saveCompleteWorkout(completeWorkoutRequest)
+                        android.util.Log.d("WorkoutAPI", "Séance envoyée au serveur: ${response.success}")
+                    } catch (e: Exception) {
+                        android.util.Log.e("WorkoutAPI", "Erreur lors de l'envoi au serveur: ${e.message}")
+                        // L'entraînement reste sauvegardé localement même si l'envoi échoue
+                    }
+                }
 
                 // Nettoyer l'état d'entraînement sauvegardé
                 dataManager.clearCurrentWorkout()
@@ -1908,8 +1943,8 @@ fun MachineCard(machine: Machine) {
             // Affichage du GIF si présent
             if (expanded && !machine.imageGif.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(12.dp))
-                AsyncImage(
-                    model = machine.imageGif,
+                AnimatedGifImage(
+                    imageUrl = machine.imageGif,
                     contentDescription = "Démonstration GIF",
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1963,17 +1998,7 @@ fun MachineCard(machine: Machine) {
                             fontSize = 12.sp,
                             color = Color(0xFF666666)
                         )
-                        // Affichage du GIF juste en dessous des instructions
-                        if (!machine.imageGif.isNullOrBlank()) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            AsyncImage(
-                                model = machine.imageGif,
-                                contentDescription = "Démonstration GIF",
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(200.dp)
-                            )
-                        }
+
                     }
                 }
             }
@@ -2542,7 +2567,8 @@ fun WorkoutInProgressScreen(
                     val recommendation = calculateWorkoutRecommendations(
                         profileData.copy(objectif = goalObjective),
                         workoutHistory,
-                        machine
+                        machine,
+                        context
                     )
                     ExerciseSession(
                         machine = machine,
@@ -3243,8 +3269,22 @@ fun UpcomingExerciseCard(
 fun calculateWorkoutRecommendations(
     profileData: ProfileData,
     workoutHistory: List<WorkoutEntry>,
-    machine: Machine
+    machine: Machine,
+    context: Context? = null
 ): ExerciseRecommendation {
+    // Essayer d'abord de récupérer la recommandation depuis l'API
+    if (context != null) {
+        try {
+            val apiRecommendation = runBlocking { getRecommendationFromAPI(machine.id, context) }
+            if (apiRecommendation != null) {
+                return apiRecommendation
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("RecommendationAPI", "Impossible de récupérer depuis l'API, utilisation du calcul local: ${e.message}")
+        }
+    }
+
+    // Fallback vers le calcul local
     val age = calculateAge(profileData.dateNaissance)
     val objectif = profileData.objectif // "Force", "Prise de masse", "Endurance", "Sèche"
 
@@ -3460,6 +3500,9 @@ fun calculateSmartWeightRecommendation(
 
     if (exerciseHistory.isEmpty()) {
         // Première fois - pas d'historique, retourner 0 pour indiquer "à déterminer"
+        android.util.Log.d("RecoDebug", "Aucun historique trouvé pour la machine: ${machine.nom}")
+        android.util.Log.d("RecoDebug", "Historique total disponible: ${workoutHistory.size} séances")
+        android.util.Log.d("RecoDebug", "Exercices disponibles: ${workoutHistory.flatMap { it.exercises }.map { it.name }}")
         return 0.0
     }
 
@@ -3582,5 +3625,60 @@ fun calculateSuggestedStartingWeight(machine: Machine, objectif: String): Double
         "Endurance" -> startWeight * 0.7
         "Sèche" -> startWeight * 0.9
         else -> startWeight
+    }
+}
+
+@Composable
+fun AnimatedGifImage(
+    imageUrl: String,
+    contentDescription: String?,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+
+    // Créer un ImageLoader avec support GIF
+    val imageLoader = remember {
+        ImageLoader.Builder(context)
+            .components {
+                add(GifDecoder.Factory())
+            }
+            .build()
+    }
+
+    AsyncImage(
+        model = ImageRequest.Builder(context)
+            .data(imageUrl)
+            .build(),
+        contentDescription = contentDescription,
+        imageLoader = imageLoader,
+        modifier = modifier,
+        error = painterResource(id = R.drawable.ic_app_logo) // Placeholder en cas d'erreur
+    )
+}
+
+// Fonction pour récupérer la recommandation depuis l'API Django
+suspend fun getRecommendationFromAPI(machineId: Int, context: Context): ExerciseRecommendation? {
+    return try {
+        val apiService = ApiService.getInstance()
+        apiService.initialize(context)
+
+        val response = apiService.getApi().getRecommendation(machineId)
+
+        if (response.success && response.data != null) {
+            val recommendation = response.data as RecommendationResponse
+
+            ExerciseRecommendation(
+                sets = recommendation.series_recommandees,
+                reps = recommendation.reps_recommandees,
+                weight = recommendation.poids_recommande,
+                restTime = recommendation.repos_recommande,
+                notes = "Recommandation basée sur votre progression (${recommendation.source})"
+            )
+        } else {
+            null
+        }
+    } catch (e: Exception) {
+        android.util.Log.e("RecommendationAPI", "Erreur lors de la récupération de la recommandation: ${e.message}")
+        null
     }
 }
