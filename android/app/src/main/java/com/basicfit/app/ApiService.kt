@@ -63,7 +63,8 @@ data class ExerciseRequest(
     val nom: String,
     val series: Int,
     @SerializedName("reps") val repetitions: Int,
-    val poids: Double
+    val poids: Double,
+    val type_exercice: String = "REPETITIONS" // "REPETITIONS" ou "DUREE"
 )
 
 data class ApiResponse<T>(
@@ -574,11 +575,18 @@ class SyncManager(private val context: Context) {
             }
 
             val exerciseRequests = exercises.map {
+                // Déterminer le type d'exercice basé sur le nom de la machine
+                val isCardio = it.name.contains("Tapis", ignoreCase = true) ||
+                    it.name.contains("Vélo", ignoreCase = true) ||
+                    it.name.contains("Rameur", ignoreCase = true) ||
+                    it.name.contains("Elliptique", ignoreCase = true)
+
                 ExerciseRequest(
                     nom = it.name,
                     series = it.sets,
                     repetitions = it.reps,
-                    poids = it.weight
+                    poids = it.weight,
+                    type_exercice = if (isCardio) "DUREE" else "REPETITIONS"
                 )
             }
 

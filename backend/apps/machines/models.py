@@ -241,6 +241,14 @@ class Machine(SoftDeletableModel):
         verbose_name="Tags"
     )
 
+    # Tempo d'exécution recommandé
+    tempo = models.CharField(
+        max_length=20,
+        blank=True,
+        help_text="Tempo recommandé (ex: 3-1-2 pour 3s descente, 1s pause, 2s montée)",
+        verbose_name="Tempo recommandé"
+    )
+
     # Statistiques
     nombre_utilisations = models.PositiveIntegerField(
         default=0,

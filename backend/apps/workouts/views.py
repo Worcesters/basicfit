@@ -206,32 +206,70 @@ def sauvegarder_seance_simple(request):
                     poids_maximum=200.0
                 )
 
-            exercice = ExerciceSeance.objects.create(
-                seance=seance,
-                machine=machine,
-                ordre_dans_seance=idx + 1,
-                series_prevues=exercice_data.get('series', 3),
-                repetitions_prevues=exercice_data.get('reps', 10),
-                poids_prevu=exercice_data.get('poids', 20),
-                nombre_series=exercice_data.get('series', 3),
-                repetitions_realisees=exercice_data.get('reps', 10),
-                poids_utilise=exercice_data.get('poids', 20),
-                statut='TERMINE'
+            # Vérifier si c'est une machine cardio (basé sur la catégorie ou le type d'exercice envoyé)
+            is_cardio = (
+                machine.categorie.nom == 'CARDIO' if machine.categorie else False or
+                exercice_data.get('type_exercice') == 'DUREE'
             )
 
-            # Ajouter les séries
-            for serie_num in range(exercice_data.get('series', 3)):
-                # Log du contenu reçu pour debug
-                print(f"[DEBUG] Création série pour exercice: {exercice_data}")
+            if is_cardio:
+                # Pour les exercices cardio, les reps représentent la durée en minutes
+                duree_minutes = exercice_data.get('reps', 20)  # Durée en minutes
+                exercice = ExerciceSeance.objects.create(
+                    seance=seance,
+                    machine=machine,
+                    ordre_dans_seance=idx + 1,
+                    series_prevues=1,  # Une seule série pour cardio
+                    repetitions_prevues=duree_minutes,
+                    duree_prevue=duree_minutes * 60,  # Convertir en secondes
+                    poids_prevu=0.0,  # Pas de poids pour cardio
+                    nombre_series=1,
+                    repetitions_realisees=duree_minutes,
+                    duree_realisee=duree_minutes * 60,
+                    poids_utilise=0.0,
+                    statut='TERMINE'
+                )
+
+                # Créer une seule série pour cardio
                 SeriExercice.objects.create(
                     exercice=exercice,
-                    numero_serie=serie_num + 1,
-                    repetitions_prevues=exercice_data.get('reps', 10),
-                    poids_prevu=exercice_data.get('poids', 20),
-                    repetitions_realisees=exercice_data.get('reps', 10),
-                    poids_utilise=exercice_data.get('poids', 20),
+                    numero_serie=1,
+                    repetitions_prevues=duree_minutes,
+                    duree_prevue=duree_minutes * 60,
+                    poids_prevu=0.0,
+                    repetitions_realisees=duree_minutes,
+                    duree_realisee=duree_minutes * 60,
+                    poids_utilise=0.0,
                     statut='REUSSIE'
                 )
+            else:
+                # Pour les exercices de musculation
+                exercice = ExerciceSeance.objects.create(
+                    seance=seance,
+                    machine=machine,
+                    ordre_dans_seance=idx + 1,
+                    series_prevues=exercice_data.get('series', 3),
+                    repetitions_prevues=exercice_data.get('reps', 10),
+                    poids_prevu=exercice_data.get('poids', 20),
+                    nombre_series=exercice_data.get('series', 3),
+                    repetitions_realisees=exercice_data.get('reps', 10),
+                    poids_utilise=exercice_data.get('poids', 20),
+                    statut='TERMINE'
+                )
+
+                # Ajouter les séries pour musculation
+                for serie_num in range(exercice_data.get('series', 3)):
+                    # Log du contenu reçu pour debug
+                    print(f"[DEBUG] Création série pour exercice: {exercice_data}")
+                    SeriExercice.objects.create(
+                        exercice=exercice,
+                        numero_serie=serie_num + 1,
+                        repetitions_prevues=exercice_data.get('reps', 10),
+                        poids_prevu=exercice_data.get('poids', 20),
+                        repetitions_realisees=exercice_data.get('reps', 10),
+                        poids_utilise=exercice_data.get('poids', 20),
+                        statut='REUSSIE'
+                    )
 
             # --- MISE À JOUR DE LA PROGRESSION ---
             from .models import ProgressionMachine, ModeEntrainement
@@ -265,7 +303,7 @@ def sauvegarder_seance_simple(request):
                     series_actuelles=exercice.nombre_series,
                     repetitions_actuelles=exercice.repetitions_realisees,
                     derniere_seance=seance,
-                    dernier_1rm=exercice.calculer_1rm_brzycki(),
+                    dernier_1rm=exercice.calculer_1rm_brzycki() if not is_cardio else None,
                     nombre_seances_machine=1,
                     progression_poids_total=exercice.poids_utilise or exercice.poids_prevu or 0.0,
                     taux_reussite=100.0,
@@ -276,13 +314,18 @@ def sauvegarder_seance_simple(request):
                 created = True
             if not created:
                 # Mise à jour des champs
-                progression.poids_actuel = exercice.poids_utilise or exercice.poids_prevu or progression.poids_actuel
+                if not is_cardio:
+                    # Pour musculation, mettre à jour le poids et 1RM
+                    progression.poids_actuel = exercice.poids_utilise or exercice.poids_prevu or progression.poids_actuel
+                    progression.dernier_1rm = exercice.calculer_1rm_brzycki()
+                    progression.progression_poids_total += exercice.poids_utilise or exercice.poids_prevu or 0.0
+                else:
+                    # Pour cardio, mettre à jour la durée
+                    progression.repetitions_actuelles = exercice.repetitions_realisees
+
                 progression.series_actuelles = exercice.nombre_series
-                progression.repetitions_actuelles = exercice.repetitions_realisees
                 progression.derniere_seance = seance
-                progression.dernier_1rm = exercice.calculer_1rm_brzycki()
                 progression.nombre_seances_machine += 1
-                progression.progression_poids_total += exercice.poids_utilise or exercice.poids_prevu or 0.0
                 progression.taux_reussite = 100.0
                 progression.derniere_progression = timezone.now()
                 progression.save()

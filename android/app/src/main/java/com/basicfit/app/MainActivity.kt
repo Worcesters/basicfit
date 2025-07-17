@@ -541,6 +541,10 @@ fun MainScreen() {
                 currentWorkoutMachines = machines
                 currentWorkoutName = workoutName
                 workoutInProgress = true
+            },
+            onWorkoutHistoryChange = { newWorkoutHistory ->
+                workoutHistory = newWorkoutHistory
+                dataManager.saveWorkoutHistory(workoutHistory)
             }
         )
     } else if (workoutInProgress) {
@@ -573,11 +577,18 @@ fun MainScreen() {
                             nom = currentWorkoutName,
                             duree = duration,
                             exercices = exercisesCompleted.map { exercise ->
+                                // Déterminer le type d'exercice basé sur le nom de la machine
+                                val isCardio = exercise.name.contains("Tapis", ignoreCase = true) ||
+                                    exercise.name.contains("Vélo", ignoreCase = true) ||
+                                    exercise.name.contains("Rameur", ignoreCase = true) ||
+                                    exercise.name.contains("Elliptique", ignoreCase = true)
+
                                 ExerciseRequest(
                                     nom = exercise.name,
                                     series = exercise.sets,
                                     repetitions = exercise.reps,
-                                    poids = exercise.weight
+                                    poids = exercise.weight,
+                                    type_exercice = if (isCardio) "DUREE" else "REPETITIONS"
                                 )
                             }
                         )
@@ -3041,6 +3052,7 @@ fun CurrentExerciseCard(
 ) {
     var weight by remember { mutableStateOf("") }
     var reps by remember { mutableStateOf("") }
+    var duration by remember { mutableStateOf("") }
 
     // Préremplissage selon la progression des séries
     LaunchedEffect(exerciseSession.sets.size) {
@@ -3063,6 +3075,9 @@ fun CurrentExerciseCard(
             notes = generateExerciseNotes("Prise de masse", 25, exerciseSession.machine)
         )
     }
+
+    // Vérifier si c'est une machine cardio
+    val isCardioMachine = exerciseSession.machine.categorie == CategorieMachine.CARDIO
 
     // Afficher un message si pas de poids recommandé
     val weightDisplay = when {
@@ -3142,24 +3157,42 @@ fun CurrentExerciseCard(
                         color = Accent
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Poids: $weightDisplay • Reps: ${recommendation.reps} • Repos: ${recommendation.restTime}s",
-                        fontSize = 12.sp,
-                        color = Color(0xFF666666)
-                    )
 
-                    // Afficher une suggestion si pas d'historique
-                    if (exerciseSession.recommendedWeight == 0.0) {
-                        val suggestedWeight = calculateSuggestedStartingWeight(exerciseSession.machine, "Prise de masse")
-                        if (suggestedWeight > 0) {
-                            Text(
-                                text = "💡 Suggestion de départ: ${suggestedWeight.toInt()}kg",
-                                fontSize = 11.sp,
-                                color = Color(0xFF4CAF50),
-                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                            )
+                    if (isCardioMachine) {
+                        // Recommandations pour cardio
+                        Text(
+                            text = "Durée: ${exerciseSession.targetReps} minutes • Intensité: Modérée",
+                            fontSize = 12.sp,
+                            color = Color(0xFF666666)
+                        )
+                        Text(
+                            text = "💡 Maintenez un rythme régulier et respirez profondément",
+                            fontSize = 11.sp,
+                            color = Color(0xFF4CAF50),
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                        )
+                    } else {
+                        // Recommandations pour musculation
+                        Text(
+                            text = "Poids: $weightDisplay • Reps: ${recommendation.reps} • Repos: ${recommendation.restTime}s",
+                            fontSize = 12.sp,
+                            color = Color(0xFF666666)
+                        )
+
+                        // Afficher une suggestion si pas d'historique
+                        if (exerciseSession.recommendedWeight == 0.0) {
+                            val suggestedWeight = calculateSuggestedStartingWeight(exerciseSession.machine, "Prise de masse")
+                            if (suggestedWeight > 0) {
+                                Text(
+                                    text = "💡 Suggestion de départ: ${suggestedWeight.toInt()}kg",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF4CAF50),
+                                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                )
+                            }
                         }
                     }
+
                     if (recommendation.notes.isNotEmpty()) {
                         Text(
                             text = recommendation.notes,
@@ -3172,69 +3205,93 @@ fun CurrentExerciseCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Saisie de la série actuelle
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                val weightPattern = remember { Regex("^\\d{0,3}(\\.\\d?)?") }
-                OutlinedTextField(
-                    value = weight,
-                    onValueChange = { input ->
-                        if (weightPattern.matches(input)) weight = input
+            if (isCardioMachine) {
+                // Interface pour cardio - juste un bouton "Terminer"
+                Button(
+                    onClick = {
+                        // Pour cardio, on envoie 0 poids et la durée en reps
+                        onSetCompleted(0.0, exerciseSession.targetReps)
                     },
-                    label = { Text("Poids (kg)") },
-                                        placeholder = {
-                        Text(
-                            when {
-                                exerciseSession.recommendedWeight > 0 ->
-                                    "Recommandé: ${exerciseSession.recommendedWeight.toInt()}kg"
-                                else -> {
-                                    val suggested = calculateSuggestedStartingWeight(exerciseSession.machine, "Prise de masse")
-                                    if (suggested > 0) "Suggestion: ${suggested.toInt()}kg" else "À déterminer"
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF4CAF50)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = "✅ TERMINER L'EXERCICE CARDIO",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            } else {
+                // Interface pour musculation - champs poids et reps
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    val weightPattern = remember { Regex("^\\d{0,3}(\\.\\d?)?") }
+                    OutlinedTextField(
+                        value = weight,
+                        onValueChange = { input ->
+                            if (weightPattern.matches(input)) weight = input
+                        },
+                        label = { Text("Poids (kg)") },
+                        placeholder = {
+                            Text(
+                                when {
+                                    exerciseSession.recommendedWeight > 0 ->
+                                        "Recommandé: ${exerciseSession.recommendedWeight.toInt()}kg"
+                                    else -> {
+                                        val suggested = calculateSuggestedStartingWeight(exerciseSession.machine, "Prise de masse")
+                                        if (suggested > 0) "Suggestion: ${suggested.toInt()}kg" else "À déterminer"
+                                    }
                                 }
-                            }
-                        )
+                            )
+                        },
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true
+                    )
+
+                    OutlinedTextField(
+                        value = reps,
+                        onValueChange = { reps = it },
+                        label = { Text("Reps") },
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Bouton valider série
+                Button(
+                    onClick = {
+                        val weightValue = weight.toDoubleOrNull() ?: 0.0
+                        val repsValue = reps.toIntOrNull() ?: 0
+                        if (weightValue > 0 && repsValue > 0) {
+                            onSetCompleted(weightValue, repsValue)
+                        }
                     },
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true
-                )
-
-                OutlinedTextField(
-                    value = reps,
-                    onValueChange = { reps = it },
-                    label = { Text("Reps") },
-                    modifier = Modifier.weight(1f),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Bouton valider série
-            Button(
-                onClick = {
-                    val weightValue = weight.toDoubleOrNull() ?: 0.0
-                    val repsValue = reps.toIntOrNull() ?: 0
-                    if (weightValue > 0 && repsValue > 0) {
-                        onSetCompleted(weightValue, repsValue)
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Accent
-                )
-            ) {
-                Text(
-                    text = "✅ VALIDER LA SÉRIE",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Accent
+                    )
+                ) {
+                    Text(
+                        text = "✅ VALIDER LA SÉRIE",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
             }
         }
     }
@@ -3244,6 +3301,8 @@ fun CurrentExerciseCard(
 fun UpcomingExerciseCard(
     exerciseSession: ExerciseSession
 ) {
+    val isCardioMachine = exerciseSession.machine.categorie == CategorieMachine.CARDIO
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA))
@@ -3269,7 +3328,11 @@ fun UpcomingExerciseCard(
                         color = Color(0xFF666666)
                     )
                     Text(
-                        text = "${exerciseSession.targetSets} séries × ${exerciseSession.targetReps} reps",
+                        text = if (isCardioMachine) {
+                            "${exerciseSession.targetReps} minutes"
+                        } else {
+                            "${exerciseSession.targetSets} séries × ${exerciseSession.targetReps} reps"
+                        },
                         fontSize = 12.sp,
                         color = Color.Gray
                     )
@@ -3305,6 +3368,38 @@ fun calculateWorkoutRecommendations(
     machine: Machine,
     context: Context? = null
 ): ExerciseRecommendation {
+    // Vérifier si c'est une machine cardio
+    val isCardioMachine = machine.categorie == CategorieMachine.CARDIO
+
+    if (isCardioMachine) {
+        // Recommandations spéciales pour cardio
+        val age = calculateAge(profileData.dateNaissance)
+        val objectif = profileData.objectif
+
+        // Pour cardio, les "reps" représentent la durée en minutes
+        val targetDuration = when (objectif) {
+            "Force" -> 15 // Court et intense
+            "Prise de masse" -> 20 // Modéré
+            "Endurance" -> 30 // Long
+            "Sèche" -> 25 // Modéré-long
+            else -> 20
+        }
+
+        // Pour cardio, on utilise 1 série de durée
+        val sets = 1
+        val rest = 0 // Pas de repos entre séries pour cardio
+
+        val notes = generateCardioNotes(objectif, age, machine)
+
+        return ExerciseRecommendation(
+            sets = sets,
+            reps = targetDuration, // Durée en minutes
+            weight = 0.0, // Pas de poids pour cardio
+            restTime = rest,
+            notes = notes
+        )
+    }
+
     // Essayer d'abord de récupérer la recommandation depuis l'API
     if (context != null) {
         try {
@@ -3317,7 +3412,7 @@ fun calculateWorkoutRecommendations(
         }
     }
 
-    // Fallback vers le calcul local
+    // Fallback vers le calcul local pour musculation
     val age = calculateAge(profileData.dateNaissance)
     val objectif = profileData.objectif // "Force", "Prise de masse", "Endurance", "Sèche"
 
@@ -3378,7 +3473,9 @@ fun calculateWorkoutRecommendations(
     }
 
     // 6) Tempo indicatif
-    val tempo = when (objectif) {
+    val tempo = if (!machine.tempo.isNullOrBlank()) {
+        machine.tempo
+    } else when (objectif) {
         "Force" -> "2-0-1"
         "Prise de masse" -> "3-1-2"
         "Endurance" -> "2-0-2"
@@ -3437,6 +3534,56 @@ fun generateExerciseNotes(objectif: String, age: Int, machine: Machine): String 
 
     if (machine.necessite_supervision) {
         baseNotes.add("⚠️ Supervision recommandée")
+    }
+
+    return baseNotes.joinToString(" • ")
+}
+
+fun generateCardioNotes(objectif: String, age: Int, machine: Machine): String {
+    val baseNotes = mutableListOf<String>()
+
+    when (objectif) {
+        "Force" -> {
+            baseNotes.add("Intensité élevée, intervalles courts")
+            baseNotes.add("Maintenez un rythme soutenu")
+            baseNotes.add("Respiration contrôlée")
+        }
+        "Prise de masse" -> {
+            baseNotes.add("Rythme modéré et régulier")
+            baseNotes.add("Hydratation importante")
+            baseNotes.add("Échauffement progressif")
+        }
+        "Endurance" -> {
+            baseNotes.add("Rythme confortable et soutenu")
+            baseNotes.add("Concentration sur la respiration")
+            baseNotes.add("Hydratation régulière")
+        }
+        "Sèche" -> {
+            baseNotes.add("Intensité modérée à élevée")
+            baseNotes.add("Brûlage de calories optimal")
+            baseNotes.add("Respiration profonde")
+        }
+    }
+
+    if (age > 50) {
+        baseNotes.add("Échauffement progressif recommandé")
+        baseNotes.add("Écoutez votre corps")
+    }
+
+    // Notes spécifiques selon le type de machine cardio
+    when {
+        machine.nom.contains("Tapis", ignoreCase = true) -> {
+            baseNotes.add("Posez le pied du talon vers la pointe")
+            baseNotes.add("Balancez naturellement les bras")
+        }
+        machine.nom.contains("Vélo", ignoreCase = true) -> {
+            baseNotes.add("Gardez le dos droit")
+            baseNotes.add("Utilisez les poignées pour varier")
+        }
+        machine.nom.contains("Rameur", ignoreCase = true) -> {
+            baseNotes.add("Technique : jambes → dos → bras")
+            baseNotes.add("Retour contrôlé")
+        }
     }
 
     return baseNotes.joinToString(" • ")
@@ -3739,8 +3886,37 @@ fun CalendarEntryDetailScreen(
     workoutHistory: List<WorkoutEntry>,
     profileData: ProfileData,
     onBack: () -> Unit,
-    onStartWorkout: (List<Machine>, String) -> Unit
+    onStartWorkout: (List<Machine>, String) -> Unit,
+    onWorkoutHistoryChange: (List<WorkoutEntry>) -> Unit
 ) {
+    // Variables d'état pour le dialogue de remplacement
+    var showExerciseReplacementDialog by remember { mutableStateOf(false) }
+    var currentExerciseToReplace by remember { mutableStateOf<ExerciseRecord?>(null) }
+    var alternativeExercises by remember { mutableStateOf<List<Machine>>(emptyList()) }
+
+    // Fonction pour trouver les exercices alternatifs
+    fun findAlternativeExercises(currentExercise: ExerciseRecord): List<Machine> {
+        val currentMachine = machinesList.find { it.nom.equals(currentExercise.name, ignoreCase = true) }
+        if (currentMachine == null) return emptyList()
+
+        return machinesList.filter { alternative ->
+            alternative.id != currentMachine.id && (
+                alternative.groupeMusculairePrimaire == currentMachine.groupeMusculairePrimaire ||
+                alternative.tags.any { tag -> currentMachine.tags.contains(tag) } ||
+                alternative.categorie == currentMachine.categorie
+            )
+        }.take(10) // Limiter à 10 alternatives
+    }
+
+    // Fonction pour remplacer un exercice
+    fun replaceExercise(oldExercise: ExerciseRecord, newMachine: Machine) {
+        val newExercise = oldExercise.copy(name = newMachine.nom)
+        val updatedExercises = entry.exercises.map { if (it == oldExercise) newExercise else it }
+        val updatedHistory = workoutHistory.map { if (it == entry) it.copy(exercises = updatedExercises) else it }
+        onWorkoutHistoryChange(updatedHistory)
+        showExerciseReplacementDialog = false
+        currentExerciseToReplace = null
+    }
     val context = LocalContext.current
     var machinesList by remember { mutableStateOf<List<Machine>>(emptyList()) }
 
@@ -3892,12 +4068,36 @@ fun CalendarEntryDetailScreen(
                     Column(
                         modifier = Modifier.padding(16.dp)
                     ) {
-                        Text(
-                            text = machine.nom,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Accent
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = machine.nom,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Accent,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            // Icône de remplacement
+                            IconButton(
+                                onClick = {
+                                    // TODO: Ouvrir le dialogue de remplacement
+                                    showExerciseReplacementDialog = true
+                                    currentExerciseToReplace = exercise
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.SwapHoriz,
+                                    contentDescription = "Remplacer cet exercice",
+                                    tint = Accent,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+
                         Spacer(modifier = Modifier.height(8.dp))
 
                         // Affichage du GIF si présent
