@@ -954,3 +954,9 @@ Bad Request: /api/workouts/sauvegarder/
 Unauthorized: /api/workouts/sauvegarder/
 "POST /api/workouts/sauvegarder/ HTTP/1.1" 401 58
 Watching for file changes with StatReloader
+C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\views.py changed, reloading.
+C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\views.py changed, reloading.
+C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\views.py changed, reloading.
+Watching for file changes with StatReloader
+Watching for file changes with StatReloader
+Watching for file changes with StatReloader

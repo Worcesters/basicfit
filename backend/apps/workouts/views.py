@@ -231,24 +231,31 @@ def sauvegarder_seance_simple(request):
                     repos_entre_series=90
                 )
 
-            progression, created = ProgressionMachine.objects.get_or_create(
-                utilisateur=user,
-                machine=machine,
-                mode_entrainement=mode,
-                defaults={
-                    'poids_actuel': exercice.poids_utilise or exercice.poids_prevu or 0.0,
-                    'series_actuelles': exercice.nombre_series,
-                    'repetitions_actuelles': exercice.repetitions_realisees,
-                    'derniere_seance': seance,
-                    'dernier_1rm': exercice.calculer_1rm_brzycki(),
-                    'nombre_seances_machine': 1,
-                    'progression_poids_total': exercice.poids_utilise or exercice.poids_prevu or 0.0,
-                    'taux_reussite': 100.0,
-                    'increment_automatique': True,
-                    'seuil_progression': 90.0,
-                    'derniere_progression': timezone.now(),
-                }
-            )
+            # Récupérer ou créer la progression avec le mode d'entraînement
+            try:
+                progression = ProgressionMachine.objects.get(
+                    utilisateur=user,
+                    machine=machine
+                )
+                created = False
+            except ProgressionMachine.DoesNotExist:
+                progression = ProgressionMachine.objects.create(
+                    utilisateur=user,
+                    machine=machine,
+                    mode_entrainement=mode,
+                    poids_actuel=exercice.poids_utilise or exercice.poids_prevu or 0.0,
+                    series_actuelles=exercice.nombre_series,
+                    repetitions_actuelles=exercice.repetitions_realisees,
+                    derniere_seance=seance,
+                    dernier_1rm=exercice.calculer_1rm_brzycki(),
+                    nombre_seances_machine=1,
+                    progression_poids_total=exercice.poids_utilise or exercice.poids_prevu or 0.0,
+                    taux_reussite=100.0,
+                    increment_automatique=True,
+                    seuil_progression=90.0,
+                    derniere_progression=timezone.now(),
+                )
+                created = True
             if not created:
                 # Mise à jour des champs
                 progression.poids_actuel = exercice.poids_utilise or exercice.poids_prevu or progression.poids_actuel
