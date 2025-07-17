@@ -30,23 +30,35 @@ def fix_database():
             result = cursor.fetchone()
             print(f"📊 Structure actuelle: {result}")
 
-            # Modifier la taille du champ
-            cursor.execute("""
-                ALTER TABLE machines_machine ALTER COLUMN image_gif TYPE VARCHAR(500);
-            """)
-            print("✅ Champ image_gif modifié vers VARCHAR(500)")
+            if result and result[2] < 500:
+                # Modifier la taille du champ
+                print("🔧 Modification de la taille du champ...")
+                cursor.execute("""
+                    ALTER TABLE machines_machine ALTER COLUMN image_gif TYPE VARCHAR(500);
+                """)
+                print("✅ Champ image_gif modifié vers VARCHAR(500)")
 
-            # Vérifier la modification
-            cursor.execute("""
-                SELECT column_name, data_type, character_maximum_length
-                FROM information_schema.columns
-                WHERE table_name = 'machines_machine' AND column_name = 'image_gif';
-            """)
-            result = cursor.fetchone()
-            print(f"📊 Nouvelle structure: {result}")
+                # Vérifier la modification
+                cursor.execute("""
+                    SELECT column_name, data_type, character_maximum_length
+                    FROM information_schema.columns
+                    WHERE table_name = 'machines_machine' AND column_name = 'image_gif';
+                """)
+                result = cursor.fetchone()
+                print(f"📊 Nouvelle structure: {result}")
+            else:
+                print("✅ Le champ est déjà correct (taille >= 500)")
 
         except Exception as e:
             print(f"❌ Erreur: {e}")
+            print("🔧 Tentative de correction alternative...")
+            try:
+                cursor.execute("""
+                    ALTER TABLE machines_machine ALTER COLUMN image_gif TYPE VARCHAR(500);
+                """)
+                print("✅ Correction alternative réussie")
+            except Exception as e2:
+                print(f"❌ Erreur alternative: {e2}")
 
 if __name__ == '__main__':
     fix_database()

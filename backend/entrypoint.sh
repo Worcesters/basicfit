@@ -11,6 +11,9 @@ python manage.py migrate machines --noinput
 echo "🔧 Correction de la base de données PostgreSQL"
 python fix_database_manual.py
 
+echo "🔧 Vérification de la correction"
+python check_field_size.py
+
 echo "👤 Création du superuser si nécessaire"
 python manage.py shell << END
 from django.contrib.auth import get_user_model
