@@ -1,0 +1,162 @@
+[
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable-port-xxhdpi_splash.png.flat",
+        "source": "com.basicfit.app-main-67:/drawable-port-xxhdpi/splash.png"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "com.basicfit.app-main-67:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable-land-xxxhdpi_splash.png.flat",
+        "source": "com.basicfit.app-main-67:/drawable-land-xxxhdpi/splash.png"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/xml_file_paths.xml.flat",
+        "source": "com.basicfit.app-main-67:/xml/file_paths.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable_ic_lock.xml.flat",
+        "source": "com.basicfit.app-main-67:/drawable/ic_lock.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/mipmap-xxxhdpi_ic_launcher_round.xml.flat",
+        "source": "com.basicfit.app-main-67:/mipmap-xxxhdpi/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/mipmap-xxhdpi_ic_launcher_round.xml.flat",
+        "source": "com.basicfit.app-main-67:/mipmap-xxhdpi/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable_ic_exit.xml.flat",
+        "source": "com.basicfit.app-main-67:/drawable/ic_exit.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "com.basicfit.app-main-67:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable_ic_launcher_background.xml.flat",
+        "source": "com.basicfit.app-main-67:/drawable/ic_launcher_background.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable-land-xxhdpi_splash.png.flat",
+        "source": "com.basicfit.app-main-67:/drawable-land-xxhdpi/splash.png"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable-port-mdpi_splash.png.flat",
+        "source": "com.basicfit.app-main-67:/drawable-port-mdpi/splash.png"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable-land-hdpi_splash.png.flat",
+        "source": "com.basicfit.app-main-67:/drawable-land-hdpi/splash.png"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/mipmap-xhdpi_ic_launcher_round.xml.flat",
+        "source": "com.basicfit.app-main-67:/mipmap-xhdpi/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable_ic_logo_fg.xml.flat",
+        "source": "com.basicfit.app-main-67:/drawable/ic_logo_fg.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable-port-xhdpi_splash.png.flat",
+        "source": "com.basicfit.app-main-67:/drawable-port-xhdpi/splash.png"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable_ic_login.xml.flat",
+        "source": "com.basicfit.app-main-67:/drawable/ic_login.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable_ic_person_add.xml.flat",
+        "source": "com.basicfit.app-main-67:/drawable/ic_person_add.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/mipmap-hdpi_ic_launcher_round.xml.flat",
+        "source": "com.basicfit.app-main-67:/mipmap-hdpi/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/mipmap-hdpi_ic_launcher.xml.flat",
+        "source": "com.basicfit.app-main-67:/mipmap-hdpi/ic_launcher.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable_ic_wifi.xml.flat",
+        "source": "com.basicfit.app-main-67:/drawable/ic_wifi.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "com.basicfit.app-main-67:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable_ic_email.xml.flat",
+        "source": "com.basicfit.app-main-67:/drawable/ic_email.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable-port-xxxhdpi_splash.png.flat",
+        "source": "com.basicfit.app-main-67:/drawable-port-xxxhdpi/splash.png"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/mipmap-mdpi_ic_launcher_round.xml.flat",
+        "source": "com.basicfit.app-main-67:/mipmap-mdpi/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/mipmap-xxxhdpi_ic_launcher.xml.flat",
+        "source": "com.basicfit.app-main-67:/mipmap-xxxhdpi/ic_launcher.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable_ic_logout.xml.flat",
+        "source": "com.basicfit.app-main-67:/drawable/ic_logout.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable-land-xhdpi_splash.png.flat",
+        "source": "com.basicfit.app-main-67:/drawable-land-xhdpi/splash.png"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/layout_activity_main.xml.flat",
+        "source": "com.basicfit.app-main-67:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/mipmap-xxhdpi_ic_launcher.xml.flat",
+        "source": "com.basicfit.app-main-67:/mipmap-xxhdpi/ic_launcher.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable-land-mdpi_splash.png.flat",
+        "source": "com.basicfit.app-main-67:/drawable-land-mdpi/splash.png"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable-port-hdpi_splash.png.flat",
+        "source": "com.basicfit.app-main-67:/drawable-port-hdpi/splash.png"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/xml_backup_rules.xml.flat",
+        "source": "com.basicfit.app-main-67:/xml/backup_rules.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable_ic_app_logo.xml.flat",
+        "source": "com.basicfit.app-main-67:/drawable/ic_app_logo.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable_splash.png.flat",
+        "source": "com.basicfit.app-main-67:/drawable/splash.png"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/mipmap-mdpi_ic_launcher.xml.flat",
+        "source": "com.basicfit.app-main-67:/mipmap-mdpi/ic_launcher.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/xml_data_extraction_rules.xml.flat",
+        "source": "com.basicfit.app-main-67:/xml/data_extraction_rules.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/mipmap-xhdpi_ic_launcher.xml.flat",
+        "source": "com.basicfit.app-main-67:/mipmap-xhdpi/ic_launcher.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/xml_config.xml.flat",
+        "source": "com.basicfit.app-main-67:/xml/config.xml"
+    },
+    {
+        "merged": "com.basicfit.app-merged_res-66:/drawable-v24_ic_launcher_foreground.xml.flat",
+        "source": "com.basicfit.app-main-67:/drawable-v24/ic_launcher_foreground.xml"
+    }
+]

@@ -159,6 +159,47 @@ fun CalendarScreen(
             )
         }
     }
+
+    // Synchronisation automatique avec le serveur
+    LaunchedEffect(workoutHistory) {
+        if (workoutHistory.isNotEmpty()) {
+            try {
+                val apiService = ApiService.getInstance()
+                apiService.initialize(context)
+
+                // Synchroniser les séances complétées qui ne sont pas encore envoyées
+                workoutHistory.filter { it.duration > 0 }.forEach { entry ->
+                    try {
+                        val workoutRequest = WorkoutRequest(
+                            nom = entry.mode,
+                            duree = entry.duration,
+                            exercices = entry.exercises.map { exercise ->
+                                val isCardio = exercise.name.contains("Tapis", ignoreCase = true) ||
+                                    exercise.name.contains("Vélo", ignoreCase = true) ||
+                                    exercise.name.contains("Rameur", ignoreCase = true) ||
+                                    exercise.name.contains("Elliptique", ignoreCase = true)
+
+                                ExerciseRequest(
+                                    nom = exercise.name,
+                                    series = exercise.sets,
+                                    repetitions = exercise.reps,
+                                    poids = exercise.weight,
+                                    type_exercice = if (isCardio) "DUREE" else "REPETITIONS"
+                                )
+                            }
+                        )
+
+                        val response = apiService.getApi().saveWorkout(workoutRequest)
+                        android.util.Log.d("CalendarAutoSync", "Séance auto-synchronisée: ${response.success}")
+                    } catch (e: Exception) {
+                        android.util.Log.e("CalendarAutoSync", "Erreur auto-sync: ${e.message}")
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("CalendarAutoSync", "Erreur API auto-sync: ${e.message}")
+            }
+        }
+    }
 }
 
 @Composable
