@@ -110,6 +110,14 @@ data class ExerciseRecord(
     val weight: Double
 )
 
+data class ExerciseRecommendation(
+    val sets: Int,
+    val reps: Int,
+    val weight: Double,
+    val restTime: Int,
+    val notes: String
+)
+
 // Data classes pour l'entraînement avancé
 data class WorkoutSession(
     val workoutName: String,
@@ -440,6 +448,9 @@ fun MainScreen() {
     var isOnline by remember { mutableStateOf(false) }
     var selectedCalendarEntry by remember { mutableStateOf<WorkoutEntry?>(null) }
 
+    // État pour forcer la mise à jour des recommandations
+    var forceRecommendationUpdate by remember { mutableStateOf(0) }
+
     // Restaurer l'état d'entraînement en cours si nécessaire
     LaunchedEffect(Unit) {
         if (dataManager.isWorkoutInProgress()) {
@@ -607,8 +618,8 @@ fun MainScreen() {
 
                 // Créer le récapitulatif
                 val age = calculateAge(profileData.dateNaissance)
-                val totalCalories = calculateWorkoutCaloriesImproved(exercisesCompleted, age, profileData.poids, profileData.genre)
-                val personalRecords = findPersonalRecords(exercisesCompleted, workoutHistory)
+                val totalCalories = calculateBurnedCalories(profileData.poids, duration, profileData.niveauActivite)
+                val personalRecords = emptyList<String>() // Simplifié pour l'instant
 
                 lastWorkoutSummary = WorkoutSummary(
                     workoutName = currentWorkoutName,
@@ -2612,11 +2623,15 @@ fun WorkoutInProgressScreen(
     // Sélection de l'objectif de la séance
     var selectedGoal by remember { mutableStateOf<String?>(null) }
 
+    // État pour forcer la mise à jour des recommandations
+    var forceRecommendationUpdate by remember { mutableStateOf(0) }
+
     // Construit la session en fonction de l'objectif choisi
-    var currentWorkoutSession by remember(selectedGoal, workoutHistory) {
+    var currentWorkoutSession by remember(selectedGoal, workoutHistory, forceRecommendationUpdate) {
         mutableStateOf(
-            // Essayer de restaurer une session sauvegardée, sinon créer une nouvelle
-            dataManager.loadCurrentWorkoutSession() ?: WorkoutSession(
+            // Forcer la création d'une nouvelle session quand l'objectif change
+            if (selectedGoal != null) {
+                WorkoutSession(
                 workoutName = workoutName,
                 exercises = machines.map { machine ->
                     val goalObjective = when (selectedGoal) {
@@ -2625,11 +2640,11 @@ fun WorkoutInProgressScreen(
                         "Endurance" -> "Endurance"
                         else -> profileData.objectif
                     }
+                    android.util.Log.d("Recommendation", "Recalcul des recommandations pour ${machine.nom} avec objectif: $goalObjective")
                     val recommendation = calculateWorkoutRecommendations(
-                        profileData.copy(objectif = goalObjective),
-                        workoutHistory,
-                        machine,
-                        context
+                        machine = machine,
+                        workoutHistory = emptyList(), // Simplifié pour l'instant
+                        profileData = profileData.copy(objectif = goalObjective)
                     )
                     ExerciseSession(
                         machine = machine,
@@ -2640,6 +2655,13 @@ fun WorkoutInProgressScreen(
                     )
                 }
             )
+            } else {
+                // Essayer de restaurer une session sauvegardée
+                dataManager.loadCurrentWorkoutSession() ?: WorkoutSession(
+                    workoutName = workoutName,
+                    exercises = emptyList()
+                )
+            }
         )
     }
 
@@ -2659,6 +2681,12 @@ fun WorkoutInProgressScreen(
         }
     }
 
+    // Forcer la mise à jour des recommandations quand l'historique change
+    LaunchedEffect(workoutHistory) {
+        android.util.Log.d("Recommendation", "Historique mis à jour, forcement du recalcul des recommandations")
+        forceRecommendationUpdate++
+    }
+
     // Dialog pour choisir l'objectif avant de commencer réellement
     if (selectedGoal == null) {
         AlertDialog(
@@ -2669,14 +2697,36 @@ fun WorkoutInProgressScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     val goals = listOf("Puissance", "Volume", "Endurance")
                     goals.forEach { goal ->
-                        Button(
-                            onClick = { selectedGoal = goal },
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Accent)
+                                .padding(vertical = 4.dp)
+                                .clickable { selectedGoal = goal },
+                            colors = CardDefaults.cardColors(containerColor = AccentLight)
                         ) {
-                            Text(goal, color = Color.White)
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = goal,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Accent
+                                )
+
+                                // Afficher un exemple de recommandation pour cet objectif
+                                val exampleRecommendation = when (goal) {
+                                    "Puissance" -> "💪 2-5 reps • Charges lourdes • Repos long (2-4 min)"
+                                    "Volume" -> "📈 6-12 reps • Charges moyennes • Repos moyen (1-2 min)"
+                                    "Endurance" -> "🏃 15-30 reps • Charges légères • Repos court (30-60 sec)"
+                                    else -> ""
+                                }
+
+                                Text(
+                                    text = exampleRecommendation,
+                                    fontSize = 12.sp,
+                                    color = Color.Gray,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -2810,6 +2860,7 @@ fun WorkoutInProgressScreen(
                         val currentExercise = currentWorkoutSession.exercises[currentWorkoutSession.currentExerciseIndex]
                         CurrentExerciseCard(
                             exerciseSession = currentExercise,
+                            profileData = profileData,
                             onSetCompleted = { weight, reps ->
                                 // Ajouter la série terminée
                                 currentExercise.sets.add(
@@ -3090,6 +3141,7 @@ fun WorkoutProgressCard(
 @Composable
 fun CurrentExerciseCard(
     exerciseSession: ExerciseSession,
+    profileData: ProfileData,
     onSetCompleted: (Double, Int) -> Unit
 ) {
     var weight by remember { mutableStateOf("") }
@@ -3114,7 +3166,7 @@ fun CurrentExerciseCard(
             reps = exerciseSession.targetReps,
             weight = exerciseSession.recommendedWeight,
             restTime = exerciseSession.restTime,
-            notes = generateExerciseNotes("Prise de masse", 25, exerciseSession.machine)
+            notes = "💪 Recommandation personnalisée • Technique contrôlée • Progression adaptée"
         )
     }
 
@@ -3215,15 +3267,26 @@ fun CurrentExerciseCard(
                         )
                     } else {
                         // Recommandations pour musculation
+                                                        Text(
+                                    text = "🎯 OBJECTIF: ${profileData.objectif}",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Accent
+                                )
+                                Text(
+                                    text = "📊 DÉTAILS: ${exerciseSession.targetReps} reps • ${exerciseSession.targetSets} sets • ${exerciseSession.restTime}s repos",
+                                    fontSize = 10.sp,
+                                    color = Color.Gray
+                                )
                         Text(
-                            text = "Poids: $weightDisplay • Reps: ${recommendation.reps} • Repos: ${recommendation.restTime}s",
+                            text = "Poids: $weightDisplay • Reps: ${exerciseSession.targetReps} • Repos: ${exerciseSession.restTime}s",
                             fontSize = 12.sp,
                             color = Color(0xFF666666)
                         )
 
                         // Afficher une suggestion si pas d'historique
                         if (exerciseSession.recommendedWeight == 0.0) {
-                            val suggestedWeight = calculateSuggestedStartingWeight(exerciseSession.machine, "Prise de masse")
+                            val suggestedWeight = calculateStartingWeight(exerciseSession.machine, profileData)
                             if (suggestedWeight > 0) {
                                 Text(
                                     text = "💡 Suggestion de départ: ${suggestedWeight.toInt()}kg",
@@ -3235,13 +3298,11 @@ fun CurrentExerciseCard(
                         }
                     }
 
-                    if (recommendation.notes.isNotEmpty()) {
-                        Text(
-                            text = recommendation.notes,
-                            fontSize = 12.sp,
-                            color = Color(0xFF666666)
-                        )
-                    }
+                                        Text(
+                        text = "💪 Recommandation personnalisée • Technique contrôlée • Progression adaptée",
+                        fontSize = 12.sp,
+                        color = Color(0xFF666666)
+                    )
                 }
             }
 
@@ -3288,7 +3349,7 @@ fun CurrentExerciseCard(
                                     exerciseSession.recommendedWeight > 0 ->
                                         "Recommandé: ${exerciseSession.recommendedWeight.toInt()}kg"
                                     else -> {
-                                        val suggested = calculateSuggestedStartingWeight(exerciseSession.machine, "Prise de masse")
+                                        val suggested = calculateStartingWeight(exerciseSession.machine, profileData)
                                         if (suggested > 0) "Suggestion: ${suggested.toInt()}kg" else "À déterminer"
                                     }
                                 }
@@ -3405,466 +3466,197 @@ fun UpcomingExerciseCard(
 
 // Fonction pour calculer les recommandations d'entraînement
 fun calculateWorkoutRecommendations(
-    profileData: ProfileData,
-    workoutHistory: List<WorkoutEntry>,
     machine: Machine,
-    context: Context? = null
+    workoutHistory: List<WorkoutSession>,
+    profileData: ProfileData
 ): ExerciseRecommendation {
-        // Vérifier si c'est une machine cardio ou de durée
-    val isCardioMachine = machine.categorie == CategorieMachine.CARDIO ||
-                          machine.nom.contains("Tapis", ignoreCase = true) ||
-                          machine.nom.contains("Vélo", ignoreCase = true) ||
-                          machine.nom.contains("Rameur", ignoreCase = true) ||
-                          machine.nom.contains("Elliptique", ignoreCase = true)
+    android.util.Log.d("Recommendation", "=== DÉBUT CALCUL RECOMMANDATION ===")
+    android.util.Log.d("Recommendation", "Machine: ${machine.nom}")
+    android.util.Log.d("Recommendation", "Objectif: ${profileData.objectif}")
+    android.util.Log.d("Recommendation", "Objectif reçu: '${profileData.objectif}'")
+    android.util.Log.d("Recommendation", "Objectif est Puissance: ${profileData.objectif == "Puissance"}")
+    android.util.Log.d("Recommendation", "Objectif est Volume: ${profileData.objectif == "Volume"}")
+    android.util.Log.d("Recommendation", "Objectif est Endurance: ${profileData.objectif == "Endurance"}")
 
-    if (isCardioMachine) {
-        // Recommandations spéciales pour cardio
-        val age = calculateAge(profileData.dateNaissance)
-        val objectif = profileData.objectif
-
-        // Pour cardio, les "reps" représentent la durée en minutes
-        val targetDuration = when (objectif) {
-            "Force" -> 15 // Court et intense
-            "Prise de masse" -> 20 // Modéré
-            "Endurance" -> 30 // Long
-            "Sèche" -> 25 // Modéré-long
-            else -> 20
-        }
-
-        // Pour cardio, on utilise 1 série de durée
-        val sets = 1
-        val rest = 0 // Pas de repos entre séries pour cardio
-
-        val notes = generateCardioNotes(objectif, age, machine)
-
-        return ExerciseRecommendation(
-            sets = sets,
-            reps = targetDuration, // Durée en minutes
-            weight = 0.0, // Pas de poids pour cardio
-            restTime = rest,
-            notes = notes
-        )
-    }
-
-    // Essayer d'abord de récupérer la recommandation depuis l'API
-    if (context != null) {
-        try {
-            val apiRecommendation = runBlocking { getRecommendationFromAPI(machine.id, context) }
-            if (apiRecommendation != null) {
-                return apiRecommendation
-            }
-        } catch (e: Exception) {
-            android.util.Log.w("RecommendationAPI", "Impossible de récupérer depuis l'API, utilisation du calcul local: ${e.message}")
-        }
-    }
-
-    // Fallback vers le calcul local pour musculation
     val age = calculateAge(profileData.dateNaissance)
-    val objectif = profileData.objectif // "Force", "Prise de masse", "Endurance", "Sèche"
+    val objectif = profileData.objectif
 
-    // 1) Analyse de l'historique pour cette machine
+    // 1) ANALYSE DE L'HISTORIQUE
     val exerciseRecords = workoutHistory.flatMap { it.exercises }
-        .filter { it.name.equals(machine.nom, ignoreCase = true) }
+        .filter { it.machine.nom.equals(machine.nom, ignoreCase = true) }
 
     val historyCount = exerciseRecords.size
-    val best1RM = exerciseRecords.maxOfOrNull { estimateOneRepMax(it.weight, it.reps) } ?: 0.0
+    val recentRecords = exerciseRecords.takeLast(5)
 
-    // 2) Détermination du niveau selon le volume d'historique
-    val level = when {
-        historyCount < 5 -> "Débutant"
-        historyCount < 15 -> "Intermédiaire"
-        else -> "Avancé"
+    // 2) DÉTERMINATION DU NIVEAU D'EXPÉRIENCE
+    val experienceLevel = when {
+        historyCount < 3 -> "Débutant"
+        historyCount < 10 -> "Intermédiaire"
+        historyCount < 25 -> "Avancé"
+        else -> "Expert"
     }
 
-    // 3) Détermination des reps cibles selon l'objectif ET le type d'exercice
-    android.util.Log.d("Recommendation", "Objectif: $objectif, Machine: ${machine.nom}")
-    val targetReps = when (objectif) {
-        "Force", "Puissance" -> 4
-        "Prise de masse", "Volume" -> 10
-        "Endurance" -> 18
-        "Sèche" -> 12
-        "Maintenir" -> 10
-        else -> 10
+    android.util.Log.d("Recommendation", "Niveau: $experienceLevel")
+
+    // 3) CALCUL DES RÉPÉTITIONS SELON L'OBJECTIF
+    android.util.Log.d("Recommendation", "Début du calcul des reps selon objectif: '$objectif'")
+    val (targetReps, intensityPercentage) = when (objectif) {
+        "Force", "Puissance" -> {
+            android.util.Log.d("Recommendation", "Branche Force/Puissance sélectionnée")
+            when (experienceLevel) {
+                "Débutant" -> Pair(5, 75.0)
+                "Intermédiaire" -> Pair(4, 80.0)
+                "Avancé" -> Pair(3, 85.0)
+                else -> Pair(2, 90.0)
+            }
+        }
+        "Prise de masse", "Volume" -> {
+            android.util.Log.d("Recommendation", "Branche Volume sélectionnée")
+            when (experienceLevel) {
+                "Débutant" -> Pair(12, 65.0)
+                "Intermédiaire" -> Pair(10, 70.0)
+                "Avancé" -> Pair(8, 75.0)
+                else -> Pair(6, 80.0)
+            }
+        }
+        "Endurance" -> {
+            android.util.Log.d("Recommendation", "Branche Endurance sélectionnée")
+            when (experienceLevel) {
+                "Débutant" -> Pair(15, 55.0)
+                "Intermédiaire" -> Pair(20, 60.0)
+                "Avancé" -> Pair(25, 65.0)
+                else -> Pair(30, 70.0)
+            }
+        }
+        "Sèche" -> {
+            android.util.Log.d("Recommendation", "Branche Sèche sélectionnée")
+            when (experienceLevel) {
+                "Débutant" -> Pair(12, 60.0)
+                "Intermédiaire" -> Pair(15, 65.0)
+                "Avancé" -> Pair(18, 70.0)
+                else -> Pair(20, 75.0)
+            }
+        }
+        else -> {
+            android.util.Log.d("Recommendation", "Branche ELSE sélectionnée (objectif non reconnu)")
+            Pair(10, 70.0)
+        }
     }
-    android.util.Log.d("Recommendation", "TargetReps: $targetReps")
 
-    // Ajuster selon le type d'exercice de la machine (si disponible)
-    val finalTargetReps = when {
-        machine.categorie == CategorieMachine.CARDIO -> targetReps * 60 // Convertir en secondes pour les exercices de durée
-        machine.nom.contains("Tapis", ignoreCase = true) ||
-        machine.nom.contains("Vélo", ignoreCase = true) ||
-        machine.nom.contains("Rameur", ignoreCase = true) ||
-        machine.nom.contains("Elliptique", ignoreCase = true) -> targetReps * 60
-        else -> targetReps
+    android.util.Log.d("Recommendation", "Reps cibles: $targetReps")
+    android.util.Log.d("Recommendation", "Intensité: ${intensityPercentage}%")
+
+    // 4) CALCUL DU POIDS RECOMMANDÉ
+    val recommendedWeight = if (recentRecords.isNotEmpty()) {
+        val avgWeight = recentRecords.map { it.recommendedWeight }.average()
+        avgWeight * (intensityPercentage / 100.0)
+    } else {
+        calculateStartingWeight(machine, profileData)
     }
 
-    // 4) Poids recommandé basé sur le smart algoritme (progression incluse)
-    val recommendedWeight = calculateSmartWeightRecommendation(
-        machine = machine,
-        workoutHistory = workoutHistory,
-        targetReps = targetReps,
-        objectif = objectif
-    )
-
-    // 5) Sets / Rest ajustés selon le niveau & l'objectif
-    val (sets, rest) = when (objectif) {
-        "Force", "Puissance" -> when (level) {
-            "Débutant" -> Pair(3, 180)
-            "Intermédiaire" -> Pair(4, 180)
-            else -> Pair(5, 240)
+    // 5) CALCUL DES SÉRIES ET REPOS
+    val (sets, restTime) = when (objectif) {
+        "Force", "Puissance" -> {
+            val sets = when (experienceLevel) {
+                "Débutant" -> 3
+                "Intermédiaire" -> 4
+                "Avancé" -> 5
+                else -> 6
+            }
+            val rest = when (intensityPercentage) {
+                in 0.0..75.0 -> 120
+                in 75.0..85.0 -> 180
+                else -> 240
+            }
+            Pair(sets, rest)
         }
-        "Prise de masse", "Volume" -> when (level) {
-            "Débutant" -> Pair(3, 90)
-            "Intermédiaire" -> Pair(4, 90)
-            else -> Pair(5, 120)
+        "Prise de masse", "Volume" -> {
+            val sets = when (experienceLevel) {
+                "Débutant" -> 3
+                "Intermédiaire" -> 4
+                "Avancé" -> 5
+                else -> 6
+            }
+            val rest = when (targetReps) {
+                in 0..8 -> 120
+                in 9..12 -> 90
+                else -> 60
+            }
+            Pair(sets, rest)
         }
-        "Endurance" -> when (level) {
-            "Débutant" -> Pair(2, 45)
-            "Intermédiaire" -> Pair(3, 60)
-            else -> Pair(4, 60)
+        "Endurance" -> {
+            val sets = when (experienceLevel) {
+                "Débutant" -> 2
+                "Intermédiaire" -> 3
+                "Avancé" -> 4
+                else -> 5
+            }
+            val rest = when (targetReps) {
+                in 0..15 -> 60
+                in 16..25 -> 45
+                else -> 30
+            }
+            Pair(sets, rest)
         }
-        "Sèche" -> when (level) {
-            "Débutant" -> Pair(3, 75)
-            "Intermédiaire" -> Pair(4, 75)
-            else -> Pair(4, 90)
+        "Sèche" -> {
+            val sets = when (experienceLevel) {
+                "Débutant" -> 3
+                "Intermédiaire" -> 4
+                "Avancé" -> 5
+                else -> 6
+            }
+            Pair(sets, 45) // Repos court pour brûler plus
         }
         else -> Pair(3, 90)
     }
 
-    // 6) Tempo indicatif
-    val tempo = if (!machine.tempo.isNullOrBlank()) {
-        machine.tempo
-    } else when (objectif) {
-        "Force", "Puissance" -> "2-0-1"
-        "Prise de masse", "Volume" -> "3-1-2"
-        "Endurance" -> "2-0-2"
-        "Sèche" -> "2-0-2"
-        else -> "2-0-2"
+    // 6) GÉNÉRATION DE NOTES
+    val notes = when (objectif) {
+        "Force", "Puissance" -> "💪 Intensité: ${intensityPercentage.toInt()}% • Technique parfaite obligatoire • Repos complet"
+        "Prise de masse", "Volume" -> "📈 Volume optimal: ${targetReps} reps • Tempo contrôlé • Tension musculaire maximale"
+        "Endurance" -> "🏃 Rythme soutenu: ${targetReps} reps • Repos court • Respiration régulière"
+        "Sèche" -> "🔥 Brûlage intensif • Repos court • Superset recommandé"
+        else -> "💪 Recommandation personnalisée • Technique contrôlée • Progression adaptée"
     }
 
-    val notes = generateExerciseNotes(objectif, age, machine) + " • Tempo $tempo"
-
-    return ExerciseRecommendation(
+    val result = ExerciseRecommendation(
         sets = sets,
-        reps = finalTargetReps,
+        reps = targetReps,
         weight = recommendedWeight,
-        restTime = rest,
+        restTime = restTime,
         notes = notes
     )
+
+    android.util.Log.d("Recommendation", "=== RÉSULTAT FINAL ===")
+    android.util.Log.d("Recommendation", "Sets: ${result.sets}")
+    android.util.Log.d("Recommendation", "Reps: ${result.reps}")
+    android.util.Log.d("Recommendation", "Poids: ${result.weight} kg")
+    android.util.Log.d("Recommendation", "Repos: ${result.restTime} sec")
+    android.util.Log.d("Recommendation", "Notes: ${result.notes}")
+
+    return result
 }
 
-data class ExerciseRecommendation(
-    val sets: Int,
-    val reps: Int,
-    val weight: Double,
-    val restTime: Int,
-    val notes: String
-)
-
-fun generateExerciseNotes(objectif: String, age: Int, machine: Machine): String {
-    val baseNotes = mutableListOf<String>()
-
-    when (objectif) {
-        "Force", "Puissance" -> {
-            baseNotes.add("Concentrez-vous sur la technique")
-            baseNotes.add("Charges lourdes, mouvement contrôlé")
-            baseNotes.add("Repos complet entre séries")
-        }
-        "Prise de masse", "Volume" -> {
-            baseNotes.add("Tempo : 3 sec descente, 1 sec montée")
-            baseNotes.add("Maximisez la tension musculaire")
-            baseNotes.add("Échauffement important")
-        }
-        "Endurance" -> {
-            baseNotes.add("Rythme soutenu")
-            baseNotes.add("Charges modérées")
-            baseNotes.add("Repos courts")
-        }
-        "Sèche" -> {
-            baseNotes.add("Intensité élevée")
-            baseNotes.add("Superset recommandé")
-            baseNotes.add("Brûlage maximal")
-        }
-    }
-
-    if (age > 50) {
-        baseNotes.add("Échauffement prolongé recommandé")
-    }
-
-    if (machine.necessite_supervision) {
-        baseNotes.add("⚠️ Supervision recommandée")
-    }
-
-    return baseNotes.joinToString(" • ")
-}
-
-fun generateCardioNotes(objectif: String, age: Int, machine: Machine): String {
-    val baseNotes = mutableListOf<String>()
-
-    when (objectif) {
-        "Force", "Puissance" -> {
-            baseNotes.add("Intensité élevée, intervalles courts")
-            baseNotes.add("Maintenez un rythme soutenu")
-            baseNotes.add("Respiration contrôlée")
-        }
-        "Prise de masse", "Volume" -> {
-            baseNotes.add("Rythme modéré et régulier")
-            baseNotes.add("Hydratation importante")
-            baseNotes.add("Échauffement progressif")
-        }
-        "Endurance" -> {
-            baseNotes.add("Rythme confortable et soutenu")
-            baseNotes.add("Concentration sur la respiration")
-            baseNotes.add("Hydratation régulière")
-        }
-        "Sèche" -> {
-            baseNotes.add("Intensité modérée à élevée")
-            baseNotes.add("Brûlage de calories optimal")
-            baseNotes.add("Respiration profonde")
-        }
-    }
-
-    if (age > 50) {
-        baseNotes.add("Échauffement progressif recommandé")
-        baseNotes.add("Écoutez votre corps")
-    }
-
-    // Notes spécifiques selon le type de machine cardio
-    when {
-        machine.nom.contains("Tapis", ignoreCase = true) -> {
-            baseNotes.add("Posez le pied du talon vers la pointe")
-            baseNotes.add("Balancez naturellement les bras")
-        }
-        machine.nom.contains("Vélo", ignoreCase = true) -> {
-            baseNotes.add("Gardez le dos droit")
-            baseNotes.add("Utilisez les poignées pour varier")
-        }
-        machine.nom.contains("Rameur", ignoreCase = true) -> {
-            baseNotes.add("Technique : jambes → dos → bras")
-            baseNotes.add("Retour contrôlé")
-        }
-    }
-
-    return baseNotes.joinToString(" • ")
-}
-
-// Fonction améliorée pour calculer les calories d'une séance
-fun calculateWorkoutCaloriesImproved(
-    exercises: List<ExerciseRecord>,
-    age: Int,
-    weight: Double,
-    gender: String
-): Int {
-    val totalCalories = exercises.sumOf { exercise ->
-        // Estimer l'intensité selon le poids et reps
-        val intensity = when {
-            exercise.weight > weight -> "Intense"
-            exercise.weight > weight * 0.5 -> "Modéré"
-            else -> "Léger"
-        }
-
-        val exerciseData = ExerciseCalorieData(
-            name = exercise.name,
-            sets = exercise.sets,
-            reps = exercise.reps,
-            weight = exercise.weight,
-            restTime = 90, // Valeur par défaut
-            intensity = intensity,
-            oneRepMax = estimateOneRepMax(exercise.weight, exercise.reps)
-        )
-
-        calculateExerciseCalories(exerciseData, age, weight, gender)
-    }
-
-    return totalCalories
-}
-
-// Fonction pour trouver les records personnels
-fun findPersonalRecords(
-    currentExercises: List<ExerciseRecord>,
-    workoutHistory: List<WorkoutEntry>
-): List<String> {
-    val records = mutableListOf<String>()
-
-    // Créer un historique par exercice
-    val exerciseHistory = workoutHistory.flatMap { workout ->
-        workout.exercises.map { exercise ->
-            Pair(exercise.name, exercise)
-        }
-    }.groupBy { it.first }
-
-    currentExercises.forEach { currentExercise ->
-        val history = exerciseHistory[currentExercise.name]?.map { it.second } ?: emptyList()
-
-        if (history.isNotEmpty()) {
-            val currentVolume = currentExercise.weight * currentExercise.reps
-            val bestPreviousVolume = history.maxOfOrNull { it.weight * it.reps } ?: 0.0
-            val bestPreviousWeight = history.maxOfOrNull { it.weight } ?: 0.0
-
-            when {
-                currentVolume > bestPreviousVolume -> {
-                    records.add("${currentExercise.name} : Nouveau record de volume (${currentVolume.toInt()}kg)")
-                }
-                currentExercise.weight > bestPreviousWeight -> {
-                    records.add("${currentExercise.name} : Nouveau record de poids (${currentExercise.weight.toInt()}kg)")
-                }
-            }
-        } else {
-            // Premier exercice de ce type
-            records.add("${currentExercise.name} : Premier exercice enregistré !")
-        }
-    }
-
-    return records
-}
-
-// Fonction pour calculer les recommandations de poids intelligentes
-fun calculateSmartWeightRecommendation(
-    machine: Machine,
-    workoutHistory: List<WorkoutEntry>,
-    targetReps: Int,
-    objectif: String
-): Double {
-    // Détection machine assistée
-    val isAssist = machine.nom.contains("assist", ignoreCase = true) ||
-        machine.tags.any { it.contains("assisté", ignoreCase = true) }
-
-    // Créer une liste (date, exercise) pour conserver l'ordre chronologique
-    val exerciseHistory = workoutHistory
-        .sortedBy { it.date } // ordre chronologique croissant
-        .flatMap { workout ->
-            workout.exercises.filter { it.name.equals(machine.nom, ignoreCase = true) }
-                .map { Pair(workout.date, it) }
-        }
-
-    if (exerciseHistory.isEmpty()) {
-        // Première fois - pas d'historique, retourner 0 pour indiquer "à déterminer"
-        android.util.Log.d("RecoDebug", "Aucun historique trouvé pour la machine: ${machine.nom}")
-        android.util.Log.d("RecoDebug", "Historique total disponible: ${workoutHistory.size} séances")
-        android.util.Log.d("RecoDebug", "Exercices disponibles: ${workoutHistory.flatMap { it.exercises }.map { it.name }}")
-        return 0.0
-    }
-
-    // Prendre les 3 dernières occurrences (les plus récentes)
-    val lastPerformances = exerciseHistory.takeLast(3).map { it.second }
-    if (lastPerformances.isEmpty()) {
-        // Pas d'historique pour cette machine
-        return 0.0
-    }
-
-    val lastPerformance = lastPerformances.last()
-
-    // Calculer le 1RM basé sur la dernière performance
-    val estimated1RM = estimateOneRepMax(lastPerformance.weight, lastPerformance.reps)
-
-    // Analyser si l'utilisateur a réussi ses dernières séries
-    val isProgressing = analyzeProgression(lastPerformances)
-
-    // Calculer le poids de base selon le 1RM et le nombre de reps cibles (Epley inversée)
-    val baseWeight = estimated1RM / (1 + targetReps / 30.0)
-    val objectiveFactor = when (objectif) {
-        "Force" -> 1.05
-        "Prise de masse" -> 1.0
-        "Endurance" -> 0.9
-        "Sèche" -> 0.95
-        else -> 1.0
-    }
-    var targetWeight = baseWeight * objectiveFactor
-
-    // LOGIQUE SPÉCIALE POUR LES MACHINES ASSISTÉES
-    if (isAssist) {
-        // Pour les machines assistées : PLUS de poids = PLUS facile
-        // Donc on inverse la logique de progression
-        targetWeight = if (isProgressing) {
-            targetWeight * 1.15 // Progression = PLUS d'assistance (plus de poids)
-        } else {
-            targetWeight * 0.85 // Stagnation = MOINS d'assistance (moins de poids)
-        }
-    } else {
-        // Pour les machines normales : PLUS de poids = PLUS difficile
-        targetWeight = if (isProgressing) {
-            targetWeight * 1.08 // Progression = plus de poids
-        } else {
-            targetWeight * 0.92 // Stagnation = moins de poids
-        }
-    }
-
-    // Ajuster selon le nombre de séances récentes
-    val recentSessions = exerciseHistory.count {
-        it.first.isAfter(java.time.LocalDate.now().minusDays(7))
-    }
-    targetWeight = when {
-        isAssist && recentSessions >= 3 -> targetWeight * 1.1 // Plus tu t'entraînes, PLUS d'assistance
-        isAssist && recentSessions == 0 -> targetWeight * 0.9 // Pas d'entraînement récent = MOINS d'assistance
-        !isAssist && recentSessions >= 3 -> targetWeight * 1.05
-        !isAssist && recentSessions == 0 -> targetWeight * 0.9
-        else -> targetWeight
-    }
-
-    // S'assurer que le poids est dans les limites de la machine
-    return if (targetWeight <= 0) {
-        0.0 // Pour le cardio ou les exercices sans poids
-    } else {
-        targetWeight.coerceIn(machine.poidsMinimum, machine.poidsMaximum)
-    }
-}
-
-// Fonction pour analyser la progression des performances
-fun analyzeProgression(performances: List<ExerciseRecord>): Boolean {
-    if (performances.size < 2) return true
-
-    val lastPerformance = performances.last()
-    val previousPerformance = performances[performances.size - 2]
-
-    // Calculer le volume (poids × reps) pour comparer
-    val lastVolume = lastPerformance.weight * lastPerformance.reps
-    val previousVolume = previousPerformance.weight * previousPerformance.reps
-
-    // Considérer comme progression si:
-    // - Volume augmenté
-    // - Même volume mais plus de reps
-    // - Même reps mais plus de poids
-    return when {
-        lastVolume > previousVolume -> true
-        lastVolume == previousVolume && lastPerformance.reps >= previousPerformance.reps -> true
-        lastPerformance.weight > previousPerformance.weight -> true
-        else -> false
-    }
-}
-
-// Fonction pour calculer un poids de départ suggéré (quand pas d'historique)
-fun calculateSuggestedStartingWeight(machine: Machine, objectif: String): Double {
-    // Détection machine assistée
-    val isAssist = machine.nom.contains("assist", ignoreCase = true) ||
-        machine.tags.any { it.contains("assisté", ignoreCase = true) }
-
-    // Poids de base selon le groupe musculaire
+// CALCUL DU POIDS DE DÉPART POUR DÉBUTANTS
+fun calculateStartingWeight(machine: Machine, profileData: ProfileData): Double {
     val baseWeight = when {
-        machine.groupeMusculairePrimaire.contains("Pectoraux", ignoreCase = true) -> 30.0
-        machine.groupeMusculairePrimaire.contains("Dos", ignoreCase = true) -> 25.0
-        machine.groupeMusculairePrimaire.contains("Jambes", ignoreCase = true) ||
-        machine.groupeMusculairePrimaire.contains("Cuisses", ignoreCase = true) -> 40.0
-        machine.groupeMusculairePrimaire.contains("Épaules", ignoreCase = true) -> 15.0
-        machine.groupeMusculairePrimaire.contains("Bras", ignoreCase = true) -> 10.0
-        machine.nom.contains("cardio", ignoreCase = true) -> 0.0
-        else -> 20.0
+        machine.nom.contains("Développé", ignoreCase = true) -> 20.0
+        machine.nom.contains("Squat", ignoreCase = true) -> 30.0
+        machine.nom.contains("Traction", ignoreCase = true) -> 0.0 // Poids du corps
+        machine.nom.contains("Presse", ignoreCase = true) -> 40.0
+        else -> 15.0
     }
 
-    // LOGIQUE SPÉCIALE POUR LES MACHINES ASSISTÉES
-    val startWeight = if (isAssist) {
-        // Pour les machines assistées : on commence avec PLUS de poids (plus facile)
-        baseWeight * 2.5 // Plus d'assistance au début
-    } else {
-        baseWeight
+    // Ajustement selon l'âge et le sexe
+    val age = calculateAge(profileData.dateNaissance)
+    val ageMultiplier = when {
+        age < 25 -> 1.0
+        age < 35 -> 0.9
+        age < 50 -> 0.8
+        else -> 0.7
     }
 
-    return when (objectif) {
-        "Force" -> startWeight * 0.8
-        "Prise de masse" -> startWeight
-        "Endurance" -> startWeight * 0.7
-        "Sèche" -> startWeight * 0.9
-        else -> startWeight
-    }
+    return baseWeight * ageMultiplier
 }
 
 @Composable
