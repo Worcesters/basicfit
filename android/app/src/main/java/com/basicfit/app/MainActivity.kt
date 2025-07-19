@@ -2620,8 +2620,8 @@ fun WorkoutInProgressScreen(
                 workoutName = workoutName,
                 exercises = machines.map { machine ->
                     val goalObjective = when (selectedGoal) {
-                        "Puissance" -> "Force"
-                        "Volume" -> "Prise de masse"
+                        "Puissance" -> "Puissance"
+                        "Volume" -> "Volume"
                         "Endurance" -> "Endurance"
                         else -> profileData.objectif
                     }
@@ -3477,13 +3477,16 @@ fun calculateWorkoutRecommendations(
     }
 
     // 3) Détermination des reps cibles selon l'objectif ET le type d'exercice
+    android.util.Log.d("Recommendation", "Objectif: $objectif, Machine: ${machine.nom}")
     val targetReps = when (objectif) {
-        "Force" -> 4
-        "Prise de masse" -> 10
+        "Force", "Puissance" -> 4
+        "Prise de masse", "Volume" -> 10
         "Endurance" -> 18
         "Sèche" -> 12
+        "Maintenir" -> 10
         else -> 10
     }
+    android.util.Log.d("Recommendation", "TargetReps: $targetReps")
 
     // Ajuster selon le type d'exercice de la machine (si disponible)
     val finalTargetReps = when {
@@ -3505,12 +3508,12 @@ fun calculateWorkoutRecommendations(
 
     // 5) Sets / Rest ajustés selon le niveau & l'objectif
     val (sets, rest) = when (objectif) {
-        "Force" -> when (level) {
+        "Force", "Puissance" -> when (level) {
             "Débutant" -> Pair(3, 180)
             "Intermédiaire" -> Pair(4, 180)
             else -> Pair(5, 240)
         }
-        "Prise de masse" -> when (level) {
+        "Prise de masse", "Volume" -> when (level) {
             "Débutant" -> Pair(3, 90)
             "Intermédiaire" -> Pair(4, 90)
             else -> Pair(5, 120)
@@ -3532,8 +3535,8 @@ fun calculateWorkoutRecommendations(
     val tempo = if (!machine.tempo.isNullOrBlank()) {
         machine.tempo
     } else when (objectif) {
-        "Force" -> "2-0-1"
-        "Prise de masse" -> "3-1-2"
+        "Force", "Puissance" -> "2-0-1"
+        "Prise de masse", "Volume" -> "3-1-2"
         "Endurance" -> "2-0-2"
         "Sèche" -> "2-0-2"
         else -> "2-0-2"
@@ -3562,12 +3565,12 @@ fun generateExerciseNotes(objectif: String, age: Int, machine: Machine): String 
     val baseNotes = mutableListOf<String>()
 
     when (objectif) {
-        "Force" -> {
+        "Force", "Puissance" -> {
             baseNotes.add("Concentrez-vous sur la technique")
             baseNotes.add("Charges lourdes, mouvement contrôlé")
             baseNotes.add("Repos complet entre séries")
         }
-        "Prise de masse" -> {
+        "Prise de masse", "Volume" -> {
             baseNotes.add("Tempo : 3 sec descente, 1 sec montée")
             baseNotes.add("Maximisez la tension musculaire")
             baseNotes.add("Échauffement important")
@@ -3599,12 +3602,12 @@ fun generateCardioNotes(objectif: String, age: Int, machine: Machine): String {
     val baseNotes = mutableListOf<String>()
 
     when (objectif) {
-        "Force" -> {
+        "Force", "Puissance" -> {
             baseNotes.add("Intensité élevée, intervalles courts")
             baseNotes.add("Maintenez un rythme soutenu")
             baseNotes.add("Respiration contrôlée")
         }
-        "Prise de masse" -> {
+        "Prise de masse", "Volume" -> {
             baseNotes.add("Rythme modéré et régulier")
             baseNotes.add("Hydratation importante")
             baseNotes.add("Échauffement progressif")
