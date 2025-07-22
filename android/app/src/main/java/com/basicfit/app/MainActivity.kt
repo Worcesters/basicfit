@@ -55,6 +55,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.MainScope
 import com.basicfit.app.data.AuthManager
+import kotlin.math.roundToInt
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.graphics.Brush
@@ -1877,16 +1878,17 @@ fun MachinesScreen(
             // Bouton d'export des machines
             Button(
                 onClick = {
-                    // Créer le contenu de l'export
+                    // Créer le contenu de l'export avec les machines chargées
+                    val machinesToExport = if (machines.isNotEmpty()) machines else MachineData.machines
                     val exportContent = buildString {
                         appendLine("📋 LISTE COMPLÈTE DES MACHINES EN BASE DE DONNÉES")
                         appendLine("=".repeat(50))
                         appendLine()
-                        appendLine("Total: ${machines.size} machines")
+                        appendLine("Total: ${machinesToExport.size} machines")
                         appendLine()
 
                         // Grouper par catégorie
-                        val machinesByCategory = machines.groupBy { it.categorie }
+                        val machinesByCategory = machinesToExport.groupBy { it.categorie }
                         machinesByCategory.forEach { (category, machinesInCategory) ->
                             appendLine("🏋️ ${category.displayName} (${machinesInCategory.size} machines)")
                             appendLine("-".repeat(30))
@@ -1906,7 +1908,7 @@ fun MachinesScreen(
                         // Liste simple par ordre alphabétique
                         appendLine("📝 LISTE ALPHABÉTIQUE SIMPLE")
                         appendLine("=".repeat(30))
-                        machines.sortedBy { it.nom }.forEach { machine ->
+                        machinesToExport.sortedBy { it.nom }.forEach { machine ->
                             appendLine("• ${machine.nom}")
                         }
                     }
@@ -2763,7 +2765,7 @@ fun WorkoutInProgressScreen(
                     android.util.Log.d("Recommendation", "Recalcul des recommandations pour ${machine.nom} avec objectif: $goalObjective")
                     val recommendation = calculateWorkoutRecommendations(
                         machine = machine,
-                        workoutHistory = workoutHistory, // Utiliser l'historique réel
+                        workoutHistory = workoutHistory.map { it.toWorkoutSession() }, // Convertir en WorkoutSession
                         profileData = profileData.copy(objectif = goalObjective)
                     )
                     ExerciseSession(
@@ -4020,6 +4022,22 @@ fun AnimatedGifImage(
             contentScale = ContentScale.Fit
         )
     }
+}
+
+// Extension function pour convertir WorkoutEntry en WorkoutSession
+fun WorkoutEntry.toWorkoutSession(): WorkoutSession {
+    return WorkoutSession(
+        workoutName = this.mode,
+        exercises = this.exercises.map { exercise ->
+            ExerciseSession(
+                machine = MachineData.machines.find { it.nom == exercise.name } ?: MachineData.machines.first(),
+                targetSets = exercise.sets,
+                targetReps = exercise.reps,
+                recommendedWeight = exercise.weight,
+                restTime = 60
+            )
+        }
+    )
 }
 
 // Fonction pour récupérer la recommandation depuis l'API Django

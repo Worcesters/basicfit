@@ -310,42 +310,81 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
         lines.drop(1).forEach { line ->
             val parts = line.split(';', ',').map { it.trim() }
 
-            if (parts.size != 4 && parts.size != 5) return@forEach // format inconnu
+            // Support des formats : Machine;Date;Type OU Machine;Date;Répétitions;Séries;Poids
+            when (parts.size) {
+                3 -> {
+                    // Format simplifié : Machine;Date;Type
+                    val machineName = parts[0]
+                    val dateStr = parts[1]
+                    val typeStr = parts[2]
 
-            val machineName = parts[0]
-            val dateStr = parts[1]
-            val repetitionStr = parts[2]
-            val serieStr = parts[3]
-            val utilisationStr = if (parts.size == 5) parts[4] else "0"
+                    // Parsing flexible de la date
+                    val dateFormats = listOf(
+                        DateTimeFormatter.ISO_LOCAL_DATE,
+                        DateTimeFormatter.ofPattern("dd/MM/yyyy"),
+                        DateTimeFormatter.ofPattern("dd-MM-yyyy")
+                    )
+                    val parsedDate = dateFormats.firstNotNullOfOrNull { fmt ->
+                        runCatching { LocalDate.parse(dateStr, fmt) }.getOrNull()
+                    }
 
-            val utilisation = utilisationStr.toDoubleOrNull() ?: 0.0
+                    parsedDate?.let { date ->
+                        // Déterminer les valeurs par défaut selon le type
+                        val (sets, reps, weight) = when (typeStr.lowercase()) {
+                            "cardio", "tapis", "vélo", "rameur" -> Triple(1, 30, 0.0) // 30 min cardio
+                            "musculation", "force" -> Triple(3, 10, 50.0) // 3 séries de 10 reps
+                            "gainage", "plank", "core" -> Triple(1, 60, 0.0) // 1 min gainage
+                            else -> Triple(3, 10, 0.0) // Valeurs par défaut
+                        }
 
-            // Repetitions : "10-12" -> moyenne, sinon valeur directe
-            val repetition = if (repetitionStr.contains('-')) {
-                val bounds = repetitionStr.split('-').mapNotNull { it.toIntOrNull() }
-                if (bounds.size == 2) ((bounds[0] + bounds[1]) / 2.0).toInt() else 0
-            } else repetitionStr.toIntOrNull() ?: 0
+                        val record = ExerciseRecord(
+                            name = machineName,
+                            sets = sets,
+                            reps = reps,
+                            weight = weight
+                        )
+                        entriesByDate.getOrPut(date) { mutableListOf() }.add(record)
+                    }
+                }
+                4, 5 -> {
+                    // Format étendu : Machine;Date;Répétitions;Séries;Poids(optionnel)
+                    val machineName = parts[0]
+                    val dateStr = parts[1]
+                    val repetitionStr = parts[2]
+                    val serieStr = parts[3]
+                    val utilisationStr = if (parts.size == 5) parts[4] else "0"
 
-            val serie = serieStr.toIntOrNull() ?: 0
+                    val utilisation = utilisationStr.toDoubleOrNull() ?: 0.0
 
-            // Parsing flexible de la date
-            val dateFormats = listOf(
-                DateTimeFormatter.ISO_LOCAL_DATE,
-                DateTimeFormatter.ofPattern("dd/MM/yyyy"),
-                DateTimeFormatter.ofPattern("dd-MM-yyyy")
-            )
-            val parsedDate = dateFormats.firstNotNullOfOrNull { fmt ->
-                runCatching { LocalDate.parse(dateStr, fmt) }.getOrNull()
-            }
+                    // Repetitions : "10-12" -> moyenne, sinon valeur directe
+                    val repetition = if (repetitionStr.contains('-')) {
+                        val bounds = repetitionStr.split('-').mapNotNull { it.toIntOrNull() }
+                        if (bounds.size == 2) ((bounds[0] + bounds[1]) / 2.0).toInt() else 0
+                    } else repetitionStr.toIntOrNull() ?: 0
 
-            parsedDate?.let { date ->
-                val record = ExerciseRecord(
-                    name = machineName,
-                    sets = serie,
-                    reps = repetition,
-                    weight = utilisation
-                )
-                entriesByDate.getOrPut(date) { mutableListOf() }.add(record)
+                    val serie = serieStr.toIntOrNull() ?: 0
+
+                    // Parsing flexible de la date
+                    val dateFormats = listOf(
+                        DateTimeFormatter.ISO_LOCAL_DATE,
+                        DateTimeFormatter.ofPattern("dd/MM/yyyy"),
+                        DateTimeFormatter.ofPattern("dd-MM-yyyy")
+                    )
+                    val parsedDate = dateFormats.firstNotNullOfOrNull { fmt ->
+                        runCatching { LocalDate.parse(dateStr, fmt) }.getOrNull()
+                    }
+
+                    parsedDate?.let { date ->
+                        val record = ExerciseRecord(
+                            name = machineName,
+                            sets = serie,
+                            reps = repetition,
+                            weight = utilisation
+                        )
+                        entriesByDate.getOrPut(date) { mutableListOf() }.add(record)
+                    }
+                }
+                else -> return@forEach // format inconnu
             }
         }
     }
