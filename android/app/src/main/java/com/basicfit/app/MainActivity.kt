@@ -3719,6 +3719,10 @@ fun calculateWorkoutRecommendations(
     android.util.Log.d("Recommendation", "=== DÉBUT CALCUL RECOMMANDATION ===")
     android.util.Log.d("Recommendation", "Machine: ${machine.nom}")
     android.util.Log.d("Recommendation", "Objectif: ${profileData.objectif}")
+    android.util.Log.d("Recommendation", "Historique total: ${workoutHistory.size} séances")
+
+    // Diagnostic pour identifier les problèmes
+    diagnoseRecommendationIssue(machine, workoutHistory, profileData)
 
     val age = calculateAge(profileData.dateNaissance)
     val objectif = profileData.objectif
@@ -3730,10 +3734,18 @@ fun calculateWorkoutRecommendations(
     val historyCount = exerciseRecords.size
     val recentRecords = exerciseRecords.takeLast(5)
 
+    android.util.Log.d("Recommendation", "Exercices trouvés pour ${machine.nom}: $historyCount")
+    android.util.Log.d("Recommendation", "Séances récentes analysées: ${recentRecords.size}")
+
     // Extraire les poids réels des séries effectuées
     val actualWeights = recentRecords.flatMap { exerciseSession ->
         exerciseSession.sets.map { set -> set.weight }
     }.filter { it > 0 } // Filtrer les poids valides
+
+    android.util.Log.d("Recommendation", "Poids réels extraits: ${actualWeights.size} valeurs")
+    if (actualWeights.isNotEmpty()) {
+        android.util.Log.d("Recommendation", "Poids trouvés: ${actualWeights.joinToString(", ")} kg")
+    }
 
     // 2) DÉTERMINATION DU NIVEAU D'EXPÉRIENCE
     val experienceLevel = when {
@@ -3810,68 +3822,78 @@ fun calculateWorkoutRecommendations(
 
         recommendedWeightFrom1RM
     } else {
+        android.util.Log.d("Recommendation", "❌ PAS D'HISTORIQUE - Utilisation du poids de départ")
         val startingWeight = calculateStartingWeight(machine, profileData)
-        android.util.Log.d("Recommendation", "Pas d'historique, poids de départ: $startingWeight kg")
+        android.util.Log.d("Recommendation", "Poids de départ calculé: $startingWeight kg")
+
+        // Vérifier si c'est un poids par défaut problématique
+        if (startingWeight == 20.0 || startingWeight == 15.0) {
+            android.util.Log.w("Recommendation", "⚠️ ATTENTION: Poids par défaut détecté ($startingWeight kg)")
+            android.util.Log.w("Recommendation", "   Machine: ${machine.nom}")
+            android.util.Log.w("Recommendation", "   Genre: ${profileData.genre}")
+            android.util.Log.w("Recommendation", "   Objectif: $objectif")
+            android.util.Log.w("Recommendation", "   Âge: $age")
+        }
+
         startingWeight
     }
 
     // 5) CALCUL DES SÉRIES ET REPOS
     val (sets, restTime) = when (objectif) {
         "Force", "Puissance" -> {
-            val sets = when (experienceLevel) {
-                "Débutant" -> 3
-                "Intermédiaire" -> 4
-                "Avancé" -> 5
-                else -> 6
+            when (experienceLevel) {
+                "Débutant" -> Pair(3, 180)
+                "Intermédiaire" -> Pair(4, 180)
+                "Avancé" -> Pair(5, 180)
+                else -> Pair(6, 180)
             }
-            val rest = when (intensityPercentage) {
-                in 0.0..75.0 -> 120
-                in 75.0..85.0 -> 180
-                else -> 240
-            }
-            Pair(sets, rest)
         }
         "Prise de masse", "Volume" -> {
-            val sets = when (experienceLevel) {
-                "Débutant" -> 3
-                "Intermédiaire" -> 4
-                "Avancé" -> 5
-                else -> 6
+            when (experienceLevel) {
+                "Débutant" -> Pair(3, 90)
+                "Intermédiaire" -> Pair(4, 90)
+                "Avancé" -> Pair(5, 90)
+                else -> Pair(6, 90)
             }
-            val rest = when (targetReps) {
-                in 0..8 -> 120
-                in 9..12 -> 90
-                else -> 60
-            }
-            Pair(sets, rest)
         }
         "Endurance" -> {
-            val sets = when (experienceLevel) {
-                "Débutant" -> 2
-                "Intermédiaire" -> 3
-                "Avancé" -> 4
-                else -> 5
+            when (experienceLevel) {
+                "Débutant" -> Pair(3, 60)
+                "Intermédiaire" -> Pair(4, 60)
+                "Avancé" -> Pair(5, 60)
+                else -> Pair(6, 60)
             }
-            val rest = when (targetReps) {
-                in 0..15 -> 60
-                in 16..25 -> 45
-                else -> 30
-            }
-            Pair(sets, rest)
         }
         "Sèche" -> {
-            val sets = when (experienceLevel) {
-                "Débutant" -> 3
-                "Intermédiaire" -> 4
-                "Avancé" -> 5
-                else -> 6
+            when (experienceLevel) {
+                "Débutant" -> Pair(4, 75)
+                "Intermédiaire" -> Pair(5, 75)
+                "Avancé" -> Pair(6, 75)
+                else -> Pair(7, 75)
             }
-            Pair(sets, 45) // Repos court pour brûler plus
         }
-        else -> Pair(3, 90)
+        else -> {
+            // Objectif par défaut
+            when (experienceLevel) {
+                "Débutant" -> Pair(3, 90)
+                "Intermédiaire" -> Pair(4, 90)
+                "Avancé" -> Pair(5, 90)
+                else -> Pair(6, 90)
+            }
+        }
     }
 
-    // 6) GÉNÉRATION DE NOTES
+    // 6) ADAPTATION POUR LES EXERCICES CARDIO
+    val finalTargetReps = when {
+        machine.categorie == CategorieMachine.CARDIO -> targetReps * 60 // Convertir en secondes
+        machine.nom.contains("Tapis", ignoreCase = true) ||
+        machine.nom.contains("Vélo", ignoreCase = true) ||
+        machine.nom.contains("Rameur", ignoreCase = true) ||
+        machine.nom.contains("Elliptique", ignoreCase = true) -> targetReps * 60 // Convertir en secondes
+        else -> targetReps
+    }
+
+    // 7) NOTES DE RECOMMANDATION AMÉLIORÉES
     val notes = when (objectif) {
         "Force", "Puissance" -> "💪 Intensité: ${intensityPercentage.toInt()}% • Technique parfaite obligatoire • Repos complet"
         "Prise de masse", "Volume" -> "📈 Volume optimal: ${targetReps} reps • Tempo contrôlé • Tension musculaire maximale"
@@ -3882,7 +3904,7 @@ fun calculateWorkoutRecommendations(
 
     val result = ExerciseRecommendation(
         sets = sets,
-        reps = targetReps,
+        reps = finalTargetReps,
         weight = recommendedWeight,
         restTime = restTime,
         notes = notes
@@ -3928,12 +3950,17 @@ fun calculateStartingWeight(machine: Machine, profileData: ProfileData): Double 
         machine.nom.contains("Développé", ignoreCase = true) -> if (isMale) 30.0 else 20.0
         machine.nom.contains("Pec", ignoreCase = true) -> if (isMale) 25.0 else 15.0
         machine.nom.contains("Chest", ignoreCase = true) -> if (isMale) 25.0 else 15.0
+        machine.nom.contains("Bench", ignoreCase = true) -> if (isMale) 30.0 else 20.0
+        machine.nom.contains("Incline", ignoreCase = true) -> if (isMale) 25.0 else 15.0
+        machine.nom.contains("Decline", ignoreCase = true) -> if (isMale) 20.0 else 12.0
 
         // Exercices de dos
         machine.nom.contains("Traction", ignoreCase = true) -> 0.0 // Poids du corps
         machine.nom.contains("Pull", ignoreCase = true) -> if (isMale) 20.0 else 15.0
         machine.nom.contains("Row", ignoreCase = true) -> if (isMale) 25.0 else 18.0
         machine.nom.contains("Lat", ignoreCase = true) -> if (isMale) 20.0 else 15.0
+        machine.nom.contains("Back", ignoreCase = true) -> if (isMale) 25.0 else 18.0
+        machine.nom.contains("Dos", ignoreCase = true) -> if (isMale) 25.0 else 18.0
 
         // Exercices de jambes
         machine.nom.contains("Squat", ignoreCase = true) -> if (isMale) 40.0 else 30.0
@@ -3941,24 +3968,66 @@ fun calculateStartingWeight(machine: Machine, profileData: ProfileData): Double 
         machine.nom.contains("Leg", ignoreCase = true) -> if (isMale) 35.0 else 25.0
         machine.nom.contains("Extension", ignoreCase = true) -> if (isMale) 20.0 else 15.0
         machine.nom.contains("Flexion", ignoreCase = true) -> if (isMale) 25.0 else 20.0
+        machine.nom.contains("Lunge", ignoreCase = true) -> if (isMale) 15.0 else 10.0
+        machine.nom.contains("Step", ignoreCase = true) -> if (isMale) 15.0 else 10.0
+        machine.nom.contains("Jambes", ignoreCase = true) -> if (isMale) 35.0 else 25.0
 
         // Exercices d'épaules
         machine.nom.contains("Shoulder", ignoreCase = true) -> if (isMale) 15.0 else 10.0
         machine.nom.contains("Épaule", ignoreCase = true) -> if (isMale) 15.0 else 10.0
         machine.nom.contains("Press", ignoreCase = true) -> if (isMale) 20.0 else 15.0
+        machine.nom.contains("Lateral", ignoreCase = true) -> if (isMale) 8.0 else 5.0
+        machine.nom.contains("Frontal", ignoreCase = true) -> if (isMale) 10.0 else 7.0
 
         // Exercices de bras
         machine.nom.contains("Curl", ignoreCase = true) -> if (isMale) 15.0 else 10.0
         machine.nom.contains("Tricep", ignoreCase = true) -> if (isMale) 18.0 else 12.0
         machine.nom.contains("Bicep", ignoreCase = true) -> if (isMale) 15.0 else 10.0
+        machine.nom.contains("Bras", ignoreCase = true) -> if (isMale) 15.0 else 10.0
+        machine.nom.contains("Dips", ignoreCase = true) -> 0.0 // Poids du corps
+        machine.nom.contains("Push-up", ignoreCase = true) -> 0.0 // Poids du corps
 
         // Exercices d'abdominaux
         machine.nom.contains("Abdo", ignoreCase = true) -> if (isMale) 10.0 else 8.0
         machine.nom.contains("Crunch", ignoreCase = true) -> if (isMale) 10.0 else 8.0
         machine.nom.contains("Core", ignoreCase = true) -> if (isMale) 12.0 else 10.0
+        machine.nom.contains("Plank", ignoreCase = true) -> 0.0 // Poids du corps
+        machine.nom.contains("Sit-up", ignoreCase = true) -> if (isMale) 5.0 else 3.0
 
-        // Autres exercices
-        else -> if (isMale) 20.0 else 15.0
+        // Exercices de cardio (pas de poids)
+        machine.nom.contains("Tapis", ignoreCase = true) -> 0.0
+        machine.nom.contains("Vélo", ignoreCase = true) -> 0.0
+        machine.nom.contains("Rameur", ignoreCase = true) -> 0.0
+        machine.nom.contains("Elliptique", ignoreCase = true) -> 0.0
+        machine.nom.contains("Stepper", ignoreCase = true) -> 0.0
+
+        // Exercices de poids du corps
+        machine.nom.contains("Burpee", ignoreCase = true) -> 0.0
+        machine.nom.contains("Mountain", ignoreCase = true) -> 0.0
+        machine.nom.contains("Jump", ignoreCase = true) -> 0.0
+        machine.nom.contains("Wall", ignoreCase = true) -> 0.0
+
+        // Machines spécifiques
+        machine.nom.contains("Smith", ignoreCase = true) -> if (isMale) 25.0 else 18.0
+        machine.nom.contains("Cable", ignoreCase = true) -> if (isMale) 15.0 else 10.0
+        machine.nom.contains("Pulley", ignoreCase = true) -> if (isMale) 15.0 else 10.0
+
+        // Autres exercices - utiliser une logique plus intelligente
+        else -> {
+            // Analyser le nom de la machine pour deviner le type d'exercice
+            val machineName = machine.nom.lowercase()
+            when {
+                machineName.contains("press") -> if (isMale) 25.0 else 18.0
+                machineName.contains("lift") -> if (isMale) 30.0 else 20.0
+                machineName.contains("fly") -> if (isMale) 12.0 else 8.0
+                machineName.contains("raise") -> if (isMale) 8.0 else 5.0
+                machineName.contains("pull") -> if (isMale) 20.0 else 15.0
+                machineName.contains("push") -> if (isMale) 20.0 else 15.0
+                machineName.contains("dip") -> 0.0 // Poids du corps
+                machineName.contains("up") -> 0.0 // Poids du corps
+                else -> if (isMale) 18.0 else 12.0 // Poids par défaut réduit
+            }
+        }
     }
 
     // Ajustement selon l'âge
@@ -4500,4 +4569,69 @@ fun CalendarEntryDetailScreen(
             }
         )
     }
+}
+
+// Fonction de diagnostic pour analyser les recommandations
+fun diagnoseRecommendationIssue(
+    machine: Machine,
+    workoutHistory: List<WorkoutSession>,
+    profileData: ProfileData
+) {
+    android.util.Log.d("Diagnostic", "=== DIAGNOSTIC RECOMMANDATION ===")
+    android.util.Log.d("Diagnostic", "Machine: ${machine.nom}")
+    android.util.Log.d("Diagnostic", "Genre: ${profileData.genre}")
+    android.util.Log.d("Diagnostic", "Objectif: ${profileData.objectif}")
+    android.util.Log.d("Diagnostic", "Âge: ${calculateAge(profileData.dateNaissance)}")
+    android.util.Log.d("Diagnostic", "Historique total: ${workoutHistory.size} séances")
+
+    // Analyser l'historique pour cette machine
+    val exerciseRecords = workoutHistory.flatMap { it.exercises }
+        .filter { it.machine.nom.equals(machine.nom, ignoreCase = true) }
+
+    android.util.Log.d("Diagnostic", "Séances trouvées pour ${machine.nom}: ${exerciseRecords.size}")
+
+    if (exerciseRecords.isEmpty()) {
+        android.util.Log.w("Diagnostic", "❌ AUCUN HISTORIQUE TROUVÉ")
+        android.util.Log.w("Diagnostic", "   Raison possible: Pas encore d'entraînement sur cette machine")
+        android.util.Log.w("Diagnostic", "   Solution: Effectuer quelques séances pour créer un historique")
+    } else {
+        android.util.Log.d("Diagnostic", "✅ HISTORIQUE TROUVÉ")
+
+        // Analyser les poids utilisés
+        val allWeights = exerciseRecords.flatMap { exerciseSession ->
+            exerciseSession.sets.map { set -> set.weight }
+        }.filter { it > 0 }
+
+        android.util.Log.d("Diagnostic", "Poids utilisés: ${allWeights.joinToString(", ")} kg")
+
+        if (allWeights.isEmpty()) {
+            android.util.Log.w("Diagnostic", "⚠️ AUCUN POIDS VALIDE TROUVÉ")
+            android.util.Log.w("Diagnostic", "   Raison possible: Séances sans poids enregistré")
+        } else {
+            val maxWeight = allWeights.maxOrNull() ?: 0.0
+            val avgWeight = allWeights.average()
+            android.util.Log.d("Diagnostic", "Poids max: $maxWeight kg")
+            android.util.Log.d("Diagnostic", "Poids moyen: $avgWeight kg")
+        }
+    }
+
+    // Tester le calcul de poids de départ
+    val startingWeight = calculateStartingWeight(machine, profileData)
+    android.util.Log.d("Diagnostic", "Poids de départ calculé: $startingWeight kg")
+
+    // Vérifier si c'est le poids par défaut problématique
+    if (startingWeight == 20.0 || startingWeight == 15.0) {
+        android.util.Log.w("Diagnostic", "⚠️ POIDS PAR DÉFAUT DÉTECTÉ")
+        android.util.Log.w("Diagnostic", "   Machine: ${machine.nom}")
+        android.util.Log.w("Diagnostic", "   Poids: $startingWeight kg")
+        android.util.Log.w("Diagnostic", "   Raison: Aucun pattern spécifique trouvé pour cette machine")
+
+        // Suggérer des améliorations
+        android.util.Log.d("Diagnostic", "💡 SUGGESTIONS D'AMÉLIORATION:")
+        android.util.Log.d("Diagnostic", "   1. Ajouter des patterns spécifiques pour ${machine.nom}")
+        android.util.Log.d("Diagnostic", "   2. Effectuer quelques séances pour créer un historique")
+        android.util.Log.d("Diagnostic", "   3. Vérifier la synchronisation avec la BDD")
+    }
+
+    android.util.Log.d("Diagnostic", "=== FIN DIAGNOSTIC ===")
 }
