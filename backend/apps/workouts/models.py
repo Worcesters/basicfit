@@ -657,28 +657,48 @@ class ProgressionMachine(TimeStampedModel):
 
     def calculer_recommandation_intelligente(self):
         """
-        Calcule une recommandation de poids plus intelligente basée sur l'historique
+        Calcule une recommandation de poids intelligente basée sur plusieurs facteurs
         """
-        # Si on peut progresser, augmenter le poids
-        if self.evaluer_progression_historique():
-            increment = self.machine.increment_poids
-            nouveau_poids = self.poids_actuel + increment
+        # Facteur 1: Taux de réussite récent
+        taux_reussite = self.taux_reussite
 
-            # Vérifier que le nouveau poids ne dépasse pas le maximum
-            if nouveau_poids <= self.machine.poids_maximum:
-                return nouveau_poids
+        # Facteur 2: Nombre de séances
+        nombre_seances = self.nombre_seances_machine
 
-        # Vérifier si l'utilisateur stagne depuis trop longtemps
-        if self.detecter_stagnation():
-            increment = self.machine.increment_poids
-            nouveau_poids = self.poids_actuel + increment
+        # Facteur 3: Dernière progression
+        jours_sans_progression = 0
+        if self.derniere_progression:
+            jours_sans_progression = (timezone.now() - self.derniere_progression).days
 
-            # Vérifier que le nouveau poids ne dépasse pas le maximum
-            if nouveau_poids <= self.machine.poids_maximum:
-                return nouveau_poids
+        # Facteur 4: 1RM estimé
+        unrm_estime = self.dernier_1rm or 0
 
-        # Sinon, garder le poids actuel
-        return self.poids_actuel
+        # Logique de recommandation
+        increment = self.machine.increment_poids
+        poids_actuel = self.poids_actuel
+
+        # Cas 1: Taux de réussite élevé (> 85%)
+        if taux_reussite >= 85:
+            return min(poids_actuel + increment, self.machine.poids_maximum)
+
+        # Cas 2: Taux de réussite moyen (70-85%) et stagnation
+        elif taux_reussite >= 70 and jours_sans_progression > 14:
+            return min(poids_actuel + increment, self.machine.poids_maximum)
+
+        # Cas 3: Beaucoup de séances (> 5) et taux > 60%
+        elif nombre_seances >= 5 and taux_reussite >= 60:
+            return min(poids_actuel + increment, self.machine.poids_maximum)
+
+        # Cas 4: 1RM élevé par rapport au poids actuel
+        elif unrm_estime > 0 and (unrm_estime / poids_actuel) > 1.3:
+            return min(poids_actuel + increment, self.machine.poids_maximum)
+
+        # Cas 5: Ancienne logique de stagnation
+        elif self.detecter_stagnation():
+            return min(poids_actuel + increment, self.machine.poids_maximum)
+
+        # Sinon, maintenir le poids actuel
+        return poids_actuel
 
     def detecter_stagnation(self):
         """
