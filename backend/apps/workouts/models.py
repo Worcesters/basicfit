@@ -591,6 +591,10 @@ class ProgressionMachine(TimeStampedModel):
         if not self.increment_automatique:
             return False
 
+        # Si pas d'exercice_seance fourni, utiliser l'historique
+        if exercice_seance is None:
+            return self.evaluer_progression_historique()
+
         # Calculer le taux de réussite de cette séance
         series_reussies = 0
         for serie in exercice_seance.series.all():
@@ -604,6 +608,19 @@ class ProgressionMachine(TimeStampedModel):
 
         # Si le taux de réussite dépasse le seuil, on peut progresser
         if taux_reussite_seance >= self.seuil_progression:
+            return True
+
+        return False
+
+    def evaluer_progression_historique(self):
+        """
+        Évalue la progression basée sur l'historique des séances
+        """
+        if not self.increment_automatique:
+            return False
+
+        # Utiliser le taux de réussite global de la progression
+        if self.taux_reussite >= self.seuil_progression:
             return True
 
         return False
@@ -637,3 +654,48 @@ class ProgressionMachine(TimeStampedModel):
             'repetitions': repetitions,
             'repos': self.mode_entrainement.repos_entre_series,
         }
+
+    def calculer_recommandation_intelligente(self):
+        """
+        Calcule une recommandation de poids plus intelligente basée sur l'historique
+        """
+        # Si on peut progresser, augmenter le poids
+        if self.evaluer_progression_historique():
+            increment = self.machine.increment_poids
+            nouveau_poids = self.poids_actuel + increment
+
+            # Vérifier que le nouveau poids ne dépasse pas le maximum
+            if nouveau_poids <= self.machine.poids_maximum:
+                return nouveau_poids
+
+        # Vérifier si l'utilisateur stagne depuis trop longtemps
+        if self.detecter_stagnation():
+            increment = self.machine.increment_poids
+            nouveau_poids = self.poids_actuel + increment
+
+            # Vérifier que le nouveau poids ne dépasse pas le maximum
+            if nouveau_poids <= self.machine.poids_maximum:
+                return nouveau_poids
+
+        # Sinon, garder le poids actuel
+        return self.poids_actuel
+
+    def detecter_stagnation(self):
+        """
+        Détecte si l'utilisateur stagne depuis trop longtemps au même poids
+        """
+        # Si pas de progression depuis plus de 2 semaines et taux de réussite > 70%
+        if self.derniere_progression:
+            from django.utils import timezone
+            from datetime import timedelta
+
+            deux_semaines = timedelta(weeks=2)
+            if (timezone.now() - self.derniere_progression) > deux_semaines:
+                if self.taux_reussite >= 70.0:  # Seuil plus bas pour forcer la progression
+                    return True
+
+        # Si jamais de progression et taux de réussite élevé
+        elif self.taux_reussite >= 80.0 and self.nombre_seances_machine >= 3:
+            return True
+
+        return False

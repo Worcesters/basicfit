@@ -575,87 +575,143 @@ fun NextRecommendationsCard(
                     val context = LocalContext.current
                     var machinesList by remember { mutableStateOf<List<Machine>>(emptyList()) }
 
-                    // Charger les machines depuis l'API
-                    LaunchedEffect(Unit) {
+                    // État pour la recommandation
+                    var recommendation by remember { mutableStateOf<ExerciseRecommendation?>(null) }
+                    var isLoading by remember { mutableStateOf(true) }
+
+                    // Charger les machines et la recommandation
+                    LaunchedEffect(exercise.name) {
                         try {
-                            val api = ApiService.getInstance().apply { initialize(context) }.getApi()
-                            val fetched = api.getMachines()
-                            if (fetched.isNotEmpty()) {
-                                val remoteMachines = fetched.mapNotNull { dto ->
-                                    try {
-                                        Machine(
-                                            id = dto.id,
-                                            nom = dto.nom,
-                                            description = dto.description ?: "",
-                                            instructions = dto.instructions ?: "",
-                                            categorie = CategorieMachine.values().find { it.name.equals(dto.categorie ?: "", true) }
-                                                ?: CategorieMachine.MUSCULATION,
-                                            groupeMusculairePrimaire = dto.groupe_musculaire_primaires?.firstOrNull()?.get("nom") ?: "",
-                                            incrementPoids = 2.5,
-                                            poidsMinimum = 0.0,
-                                            poidsMaximum = 200.0,
-                                            imageGif = dto.image_gif
-                                        )
-                                    } catch (_: Exception) { null }
+                            // Charger les machines depuis l'API
+                            val apiService = ApiService.getInstance()
+                            apiService.initialize(context)
+                            val machines = apiService.getApi().getMachines()
+                            machinesList = machines.map { machineDto ->
+                                Machine(
+                                    id = machineDto.id,
+                                    nom = machineDto.nom,
+                                    description = machineDto.description ?: "",
+                                    instructions = machineDto.instructions ?: "",
+                                    categorie = when (machineDto.categorie) {
+                                        "MUSCULATION" -> CategorieMachine.MUSCULATION
+                                        "CARDIO" -> CategorieMachine.CARDIO
+                                        else -> CategorieMachine.MUSCULATION
+                                    },
+                                    groupeMusculairePrimaire = machineDto.groupe_musculaire_primaires?.firstOrNull()?.get("nom") ?: "",
+                                    incrementPoids = 2.5,
+                                    poidsMinimum = 0.0,
+                                    poidsMaximum = 200.0,
+                                    imageGif = machineDto.image_gif
+                                )
+                            }
+
+                            // Chercher la vraie machine par nom
+                            val machine = machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) } ?: Machine(
+                                id = 0,
+                                nom = exercise.name,
+                                description = "",
+                                instructions = "",
+                                categorie = CategorieMachine.MUSCULATION,
+                                groupeMusculairePrimaire = "",
+                                incrementPoids = 2.5,
+                                poidsMinimum = 0.0,
+                                poidsMaximum = 200.0
+                            )
+
+                            // Récupérer la recommandation depuis l'API
+                            try {
+                                val apiRecommendation = getRecommendationFromAPI(machine.id, context)
+                                if (apiRecommendation != null) {
+                                    recommendation = apiRecommendation
+                                } else {
+                                    // Fallback vers le calcul local si l'API échoue
+                                    recommendation = calculateWorkoutRecommendations(
+                                        machine = machine,
+                                        workoutHistory = workoutHistory.map { it.toWorkoutSession() },
+                                        profileData = profileData
+                                    )
                                 }
-                                machinesList = remoteMachines
+                            } catch (e: Exception) {
+                                android.util.Log.e("RecommendationAPI", "Erreur API, utilisation du calcul local: ${e.message}")
+                                // Fallback vers le calcul local
+                                recommendation = calculateWorkoutRecommendations(
+                                    machine = machine,
+                                    workoutHistory = workoutHistory.map { it.toWorkoutSession() },
+                                    profileData = profileData
+                                )
                             }
                         } catch (e: Exception) {
-                            // En cas d'erreur, utiliser la liste locale
-                            machinesList = MachineData.machines
+                            android.util.Log.e("WorkoutSummary", "Erreur lors du chargement: ${e.message}")
+                        } finally {
+                            isLoading = false
                         }
                     }
 
-                    // Chercher la vraie machine par nom
-                    val machine = machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) } ?: Machine(
-                        id = 0,
-                        nom = exercise.name,
-                        description = "",
-                        instructions = "",
-                        categorie = CategorieMachine.MUSCULATION,
-                        groupeMusculairePrimaire = "",
-                        incrementPoids = 2.5,
-                        poidsMinimum = 0.0,
-                        poidsMaximum = 200.0
-                    )
-
-                    val reco = ExerciseRecommendation(
-                        sets = 3,
-                        reps = 10,
-                        weight = 20.0,
-                        restTime = 90,
-                        notes = "💪 Recommandation personnalisée • Technique contrôlée • Progression adaptée"
-                    )
-                    val poids = when {
-                        reco.weight > 0 -> "${reco.weight.toInt()}kg"
-                        else -> {
-                            // Calculer une suggestion de poids de départ
-                            val suggestedWeight = calculateStartingWeight(machine, profileData)
-                            if (suggestedWeight > 0) "${suggestedWeight.toInt()}kg (suggestion)" else "À déterminer"
-                        }
-                    }
-                    val reps = reco.reps
-                    val sets = reco.sets
-                    val rest = reco.restTime
-
-                    // Affichage du GIF si présent
-                    if (!machine.imageGif.isNullOrBlank()) {
-                        AnimatedGifImage(
-                            imageUrl = machine.imageGif,
-                            contentDescription = "Démonstration GIF",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(120.dp)
-                                .padding(vertical = 4.dp)
+                    if (isLoading) {
+                        // Afficher un indicateur de chargement
+                        Text(
+                            text = "• ${exercise.name} : Chargement de la recommandation...",
+                            fontSize = 14.sp,
+                            color = Color.Gray,
+                            modifier = Modifier.padding(vertical = 2.dp)
                         )
-                    }
+                    } else {
+                        // Utiliser la recommandation de l'API ou le fallback
+                        val reco = recommendation ?: ExerciseRecommendation(
+                            sets = 3,
+                            reps = 10,
+                            weight = 20.0,
+                            restTime = 90,
+                            notes = "💪 Recommandation par défaut"
+                        )
 
-                    Text(
-                        text = "• ${exercise.name} : $poids × $reps reps ($sets séries, repos $rest s)",
-                        fontSize = 14.sp,
-                        color = Color(0xFF2E2E2E),
-                        modifier = Modifier.padding(vertical = 2.dp)
-                    )
+                        val poids = when {
+                            reco.weight > 0 -> "${reco.weight.toInt()}kg"
+                            else -> {
+                                // Calculer une suggestion de poids de départ
+                                val machine = machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) }
+                                if (machine != null) {
+                                    val suggestedWeight = calculateStartingWeight(machine, profileData)
+                                    if (suggestedWeight > 0) "${suggestedWeight.toInt()}kg (suggestion)" else "À déterminer"
+                                } else {
+                                    "À déterminer"
+                                }
+                            }
+                        }
+                        val reps = reco.reps
+                        val sets = reco.sets
+                        val rest = reco.restTime
+
+                        // Affichage du GIF si présent
+                        val machine = machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) }
+                        if (machine?.imageGif?.isNotBlank() == true) {
+                            AnimatedGifImage(
+                                imageUrl = machine.imageGif,
+                                contentDescription = "Démonstration GIF",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(120.dp)
+                                    .padding(vertical = 4.dp)
+                            )
+                        }
+
+                        Text(
+                            text = "• ${exercise.name} : $poids × $reps reps ($sets séries, repos $rest s)",
+                            fontSize = 14.sp,
+                            color = Color(0xFF2E2E2E),
+                            modifier = Modifier.padding(vertical = 2.dp)
+                        )
+
+                        // Afficher les notes de recommandation si disponibles
+                        if (reco.notes.isNotBlank()) {
+                            Text(
+                                text = "  ${reco.notes}",
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                                modifier = Modifier.padding(start = 16.dp, bottom = 4.dp)
+                            )
+                        }
+                    }
                 }
             } else {
                 Text(
