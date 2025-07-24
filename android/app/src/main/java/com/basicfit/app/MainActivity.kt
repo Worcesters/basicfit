@@ -4112,21 +4112,47 @@ fun WorkoutEntry.toWorkoutSession(): WorkoutSession {
 // Fonction pour récupérer la recommandation depuis l'API Django
 suspend fun getRecommendationFromAPI(machineId: Int, context: Context): ExerciseRecommendation? {
     return try {
+        android.util.Log.d("RecommendationAPI", "🔍 Début getRecommendationFromAPI pour machineId: $machineId")
+
         val apiService = ApiService.getInstance()
         apiService.initialize(context)
+
+        // Vérifier si l'API est disponible
+        val isApiAvailable = apiService.isApiAvailable()
+        val isServerReachable = apiService.isServerReachable()
+
+        android.util.Log.d("RecommendationAPI", "🌐 État API - Disponible: $isApiAvailable, Serveur accessible: $isServerReachable")
+
+        if (!isApiAvailable || !isServerReachable) {
+            android.util.Log.w("RecommendationAPI", "⚠️ API non disponible - Utilisation du fallback local")
+            return null
+        }
 
         // Récupérer le nom de la machine depuis les données locales
         val machine = MachineData.machines.find { it.id == machineId }
         if (machine == null) {
-            android.util.Log.e("RecommendationAPI", "Machine avec ID $machineId non trouvée")
+            android.util.Log.e("RecommendationAPI", "❌ Machine avec ID $machineId non trouvée")
             return null
         }
+
+        android.util.Log.d("RecommendationAPI", "✅ Machine trouvée: ${machine.nom}")
+        android.util.Log.d("RecommendationAPI", "🌐 Tentative de connexion à l'API...")
 
         // Utiliser le nom de la machine au lieu de l'ID
         val response = apiService.getApi().getRecommendationByName(machine.nom)
 
+        android.util.Log.d("RecommendationAPI", "📡 Réponse API reçue")
+        android.util.Log.d("RecommendationAPI", "   Success: ${response.success}")
+        android.util.Log.d("RecommendationAPI", "   Data: ${response.data}")
+
         if (response.success && response.data != null) {
             val recommendation = response.data as RecommendationResponse
+
+            android.util.Log.d("RecommendationAPI", "✅ Recommandation extraite:")
+            android.util.Log.d("RecommendationAPI", "   Poids recommandé: ${recommendation.poids_recommande}kg")
+            android.util.Log.d("RecommendationAPI", "   Séries: ${recommendation.series_recommandees}")
+            android.util.Log.d("RecommendationAPI", "   Reps: ${recommendation.reps_recommandees}")
+            android.util.Log.d("RecommendationAPI", "   Source: ${recommendation.source}")
 
             // Construire des notes détaillées incluant le type d'exercice
             val notes = buildString {
@@ -4141,18 +4167,26 @@ suspend fun getRecommendationFromAPI(machineId: Int, context: Context): Exercise
                 append(" • Objectif: ${recommendation.objectif}")
             }
 
-            ExerciseRecommendation(
+            val exerciseRecommendation = ExerciseRecommendation(
                 sets = recommendation.series_recommandees,
                 reps = recommendation.reps_recommandees,
                 weight = recommendation.poids_recommande,
                 restTime = recommendation.repos_recommande,
                 notes = notes
             )
+
+            android.util.Log.d("RecommendationAPI", "🎯 Recommandation finale créée: ${exerciseRecommendation.weight}kg")
+            exerciseRecommendation
         } else {
+            android.util.Log.e("RecommendationAPI", "❌ Réponse API invalide ou échec")
+            android.util.Log.e("RecommendationAPI", "   Success: ${response.success}")
+            android.util.Log.e("RecommendationAPI", "   Data null: ${response.data == null}")
             null
         }
     } catch (e: Exception) {
-        android.util.Log.e("RecommendationAPI", "Erreur lors de la récupération de la recommandation: ${e.message}")
+        android.util.Log.e("RecommendationAPI", "❌ Exception lors de la récupération: ${e.message}")
+        android.util.Log.e("RecommendationAPI", "   Type d'erreur: ${e.javaClass.simpleName}")
+        android.util.Log.e("RecommendationAPI", "   Stack trace: ${e.stackTraceToString()}")
         null
     }
 }

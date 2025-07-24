@@ -655,50 +655,179 @@ class ProgressionMachine(TimeStampedModel):
             'repos': self.mode_entrainement.repos_entre_series,
         }
 
+    def calculer_recommandation_professionnelle(self):
+        """
+        Système de recommandation professionnel basé sur :
+        1. Type de profil (prise de masse, sèche, maintenir)
+        2. Type d'entraînement (endurance, volume, puissance)
+        3. 1RM calculé à partir des séances précédentes
+        4. Taux de réussite adaptatif
+        """
+        from django.utils import timezone
+        from datetime import timedelta
+
+        # Récupérer les données utilisateur et mode d'entraînement
+        user = self.utilisateur
+        mode = self.mode_entrainement
+
+        # 1. ANALYSE DU PROFIL UTILISATEUR
+        objectif = user.objectif_sportif
+        niveau = user.niveau_experience
+
+        # 2. ANALYSE DU MODE D'ENTRAÎNEMENT
+        type_entrainement = mode.nom if mode else 'PRISE_MASSE'
+
+        # 3. CALCULER LE 1RM ACTUEL À PARTIR DES SÉANCES RÉCENTES
+        unrm_actuel = self._calculer_1rm_recent()
+
+        # 4. ANALYSER LES PERFORMANCES RÉCENTES
+        performances_recentes = self._analyser_performances_recentes()
+
+        # 5. CALCULER LA RECOMMANDATION BASÉE SUR LA LOGIQUE COACH
+        recommandation = self._calculer_recommandation_coach(
+            objectif, type_entrainement, unrm_actuel, performances_recentes
+        )
+
+        return recommandation
+
+    def _calculer_1rm_recent(self):
+        """
+        Calcule le 1RM basé sur les 3 dernières séances
+        """
+        # Récupérer les 3 dernières séances TERMINÉES de cet utilisateur
+        seances_recentes = SeanceEntrainement.objects.filter(
+            utilisateur=self.utilisateur,
+            statut='TERMINEE'
+        ).order_by('-date_fin')[:3]
+
+        meilleur_1rm = 0.0
+
+        for seance in seances_recentes:
+            exercice = seance.exercices.filter(machine=self.machine).first()
+            if exercice and exercice.charge_maximale_theorique:
+                meilleur_1rm = max(meilleur_1rm, exercice.charge_maximale_theorique)
+
+        return meilleur_1rm if meilleur_1rm > 0 else self.dernier_1rm or 0
+
+    def _analyser_performances_recentes(self):
+        """
+        Analyse les performances des 2 dernières séances
+        """
+        # Récupérer les 2 dernières séances TERMINÉES de cet utilisateur
+        seances_recentes = SeanceEntrainement.objects.filter(
+            utilisateur=self.utilisateur,
+            statut='TERMINEE'
+        ).order_by('-date_fin')[:2]
+
+        if not seances_recentes:
+            return {
+                'taux_reussite': 0.0,
+                'series_reussies': 0,
+                'series_totales': 0,
+                'poids_utilise': self.poids_actuel,
+                'repetitions_moyennes': 10
+            }
+
+        # Analyser la dernière séance qui contient cet exercice
+        for seance in seances_recentes:
+            exercice = seance.exercices.filter(machine=self.machine).first()
+            if exercice:
+                # Compter les séries réussies
+                series_reussies = 0
+                series_totales = 0
+                repetitions_total = 0
+
+                for serie in exercice.series.all():
+                    series_totales += 1
+                    repetitions_total += serie.repetitions_realisees
+
+                    # Une série est réussie si elle atteint au moins 80% des reps prévues
+                    if serie.repetitions_realisees >= serie.repetitions_prevues * 0.8:
+                        series_reussies += 1
+
+                taux_reussite = (series_reussies / series_totales * 100) if series_totales > 0 else 0
+                repetitions_moyennes = repetitions_total / series_totales if series_totales > 0 else 10
+
+                return {
+                    'taux_reussite': taux_reussite,
+                    'series_reussies': series_reussies,
+                    'series_totales': series_totales,
+                    'poids_utilise': exercice.poids_utilise or self.poids_actuel,
+                    'repetitions_moyennes': repetitions_moyennes
+                }
+
+        # Si aucune séance ne contient cet exercice
+        return {
+            'taux_reussite': 0.0,
+            'series_reussies': 0,
+            'series_totales': 0,
+            'poids_utilise': self.poids_actuel,
+            'repetitions_moyennes': 10
+        }
+
+    def _calculer_recommandation_coach(self, objectif, type_entrainement, unrm_actuel, performances):
+        """
+        Logique de recommandation basée sur l'expertise coach
+        """
+        poids_actuel = self.poids_actuel
+        increment = self.machine.increment_poids
+        taux_reussite = performances['taux_reussite']
+        repetitions_moyennes = performances['repetitions_moyennes']
+
+        # DÉFINIR LES OBJECTIFS PAR TYPE D'ENTRAÎNEMENT
+        objectifs_reps = {
+            'FORCE': {'min': 1, 'max': 5, 'cible': 3},
+            'PRISE_MASSE': {'min': 8, 'max': 12, 'cible': 10},
+            'SECHE': {'min': 12, 'max': 15, 'cible': 12},
+            'ENDURANCE': {'min': 15, 'max': 20, 'cible': 15},
+            'POWERLIFTING': {'min': 1, 'max': 3, 'cible': 2}
+        }
+
+        # Récupérer les objectifs pour ce type d'entraînement
+        objectif_reps = objectifs_reps.get(type_entrainement, objectifs_reps['PRISE_MASSE'])
+        reps_cible = objectif_reps['cible']
+        reps_min = objectif_reps['min']
+        reps_max = objectif_reps['max']
+
+        # LOGIQUE DE RECOMMANDATION COACH
+
+        # Cas 1: TAUX DE RÉUSSITE EXCELLENT (> 90%)
+        if taux_reussite >= 90:
+            # Progression automatique
+            nouveau_poids = min(poids_actuel + increment, self.machine.poids_maximum)
+            return nouveau_poids
+
+        # Cas 2: TAUX DE RÉUSSITE BON (80-90%)
+        elif taux_reussite >= 80:
+            # Vérifier si les reps sont dans la zone cible
+            if reps_min <= repetitions_moyennes <= reps_max:
+                # Progression si on est dans la zone cible
+                nouveau_poids = min(poids_actuel + increment, self.machine.poids_maximum)
+                return nouveau_poids
+            else:
+                # Maintenir le poids pour ajuster les reps
+                return poids_actuel
+
+        # Cas 3: TAUX DE RÉUSSITE MOYEN (60-80%)
+        elif taux_reussite >= 60:
+            # Maintenir le poids pour améliorer la technique
+            return poids_actuel
+
+        # Cas 4: TAUX DE RÉUSSITE FAIBLE (< 60%)
+        else:
+            # Réduire le poids pour améliorer la technique
+            reduction = increment * 2  # Réduire de 2 incréments
+            nouveau_poids = max(poids_actuel - reduction, self.machine.poids_minimum)
+            return nouveau_poids
+
+        # Fallback
+        return poids_actuel
+
     def calculer_recommandation_intelligente(self):
         """
-        Calcule une recommandation de poids intelligente basée sur plusieurs facteurs
+        Alias pour la nouvelle méthode professionnelle
         """
-        # Facteur 1: Taux de réussite récent
-        taux_reussite = self.taux_reussite
-
-        # Facteur 2: Nombre de séances
-        nombre_seances = self.nombre_seances_machine
-
-        # Facteur 3: Dernière progression
-        jours_sans_progression = 0
-        if self.derniere_progression:
-            jours_sans_progression = (timezone.now() - self.derniere_progression).days
-
-        # Facteur 4: 1RM estimé
-        unrm_estime = self.dernier_1rm or 0
-
-        # Logique de recommandation
-        increment = self.machine.increment_poids
-        poids_actuel = self.poids_actuel
-
-        # Cas 1: Taux de réussite élevé (> 85%)
-        if taux_reussite >= 85:
-            return min(poids_actuel + increment, self.machine.poids_maximum)
-
-        # Cas 2: Taux de réussite moyen (70-85%) et stagnation
-        elif taux_reussite >= 70 and jours_sans_progression > 14:
-            return min(poids_actuel + increment, self.machine.poids_maximum)
-
-        # Cas 3: Beaucoup de séances (> 5) et taux > 60%
-        elif nombre_seances >= 5 and taux_reussite >= 60:
-            return min(poids_actuel + increment, self.machine.poids_maximum)
-
-        # Cas 4: 1RM élevé par rapport au poids actuel
-        elif unrm_estime > 0 and (unrm_estime / poids_actuel) > 1.3:
-            return min(poids_actuel + increment, self.machine.poids_maximum)
-
-        # Cas 5: Ancienne logique de stagnation
-        elif self.detecter_stagnation():
-            return min(poids_actuel + increment, self.machine.poids_maximum)
-
-        # Sinon, maintenir le poids actuel
-        return poids_actuel
+        return self.calculer_recommandation_professionnelle()
 
     def detecter_stagnation(self):
         """

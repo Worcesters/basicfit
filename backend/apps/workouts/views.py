@@ -418,7 +418,7 @@ def get_recommendation_by_id(request, machine_id):
             )
 
             # Calculer la recommandation basée sur la progression
-            poids_recommande = progression.calculer_recommandation_intelligente()
+            poids_recommande = progression.calculer_recommandation_professionnelle()
             series_recommandees = progression.series_actuelles
             reps_recommandees = progression.repetitions_actuelles
 
@@ -572,7 +572,7 @@ def get_recommendation(request, machine_name):
             )
 
             # Calculer la recommandation basée sur la progression
-            poids_recommande = progression.calculer_recommandation_intelligente()
+            poids_recommande = progression.calculer_recommandation_professionnelle()
             series_recommandees = progression.series_actuelles
             reps_recommandees = progression.repetitions_actuelles
 
