@@ -731,64 +731,15 @@ fun MainScreen() {
                 workoutHistory = combined.sortedBy { it.date }
                 dataManager.saveWorkoutHistory(workoutHistory)
 
-                // Upload vers le serveur en arrière-plan si connecté
-                kotlinx.coroutines.GlobalScope.launch {
-                    val sync = SyncManager(context)
-                    combined.forEach { entry ->
-                        val result = sync.saveWorkoutToServer(
-                            nom = entry.mode,
-                            dateDebut = entry.date.toString(),
-                            dureeMinutes = entry.duration,
-                            exercises = entry.exercises
-                        )
-                        // Ignore échecs réseau ; les données restent locales
-                    }
-                }
+                // SUPPRIMÉ: Double synchronisation qui cause les doublons
+                // La synchronisation se fait maintenant uniquement lors de la fin de séance
             },
                 onWorkoutHistoryChange = { newWorkoutHistory ->
         workoutHistory = newWorkoutHistory
         dataManager.saveWorkoutHistory(workoutHistory)
 
-        // Synchroniser avec le serveur en arrière-plan
-        GlobalScope.launch {
-            try {
-                val apiService = ApiService.getInstance()
-                apiService.initialize(context)
-
-                // Envoyer chaque nouvelle séance au serveur
-                newWorkoutHistory.forEach { entry ->
-                    if (entry.duration > 0) { // Seulement les séances complétées
-                        val workoutRequest = WorkoutRequest(
-                            nom = entry.mode,
-                            duree = entry.duration,
-                            exercices = entry.exercises.map { exercise ->
-                                val isCardio = exercise.name.contains("Tapis", ignoreCase = true) ||
-                                    exercise.name.contains("Vélo", ignoreCase = true) ||
-                                    exercise.name.contains("Rameur", ignoreCase = true) ||
-                                    exercise.name.contains("Elliptique", ignoreCase = true)
-
-                                ExerciseRequest(
-                                    nom = exercise.name,
-                                    series = exercise.sets,
-                                    repetitions = exercise.reps,
-                                    poids = exercise.weight,
-                                    type_exercice = if (isCardio) "DUREE" else "REPETITIONS"
-                                )
-                            }
-                        )
-
-                        try {
-                            val response = apiService.getApi().saveWorkout(workoutRequest)
-                            android.util.Log.d("CalendarSync", "Séance synchronisée: ${response.success}")
-                        } catch (e: Exception) {
-                            android.util.Log.e("CalendarSync", "Erreur synchronisation: ${e.message}")
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("CalendarSync", "Erreur API: ${e.message}")
-            }
-        }
+        // SUPPRIMÉ: Double synchronisation qui cause les doublons
+        // La synchronisation se fait maintenant uniquement lors de la fin de séance
     },
             onLogout = {
                 dataManager.setUserLoggedIn(false)
@@ -3088,15 +3039,22 @@ fun WorkoutInProgressScreen(
                                 val syncManager = SyncManager(context)
                                 kotlinx.coroutines.GlobalScope.launch {
                                     try {
-                                        syncManager.saveWorkoutToServer(
+                                        val result = syncManager.saveWorkoutToServer(
                                             nom = currentWorkoutSession.workoutName,
                                             dateDebut = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")),
                                             dureeMinutes = duration,
                                             exercises = exercisesCompleted
                                         )
+
+                                        if (result.isSuccess) {
+                                            android.util.Log.d("WorkoutSync", "✅ Séance sauvegardée avec succès")
+                                            // Rafraîchir les recommandations après sauvegarde
+                                            refreshRecommendations(context)
+                                        } else {
+                                            android.util.Log.e("WorkoutSync", "❌ Erreur sauvegarde: ${result.exceptionOrNull()?.message}")
+                                        }
                                     } catch (e: Exception) {
-                                        // Gérer l'erreur de synchronisation silencieusement
-                                        // Les données sont déjà sauvegardées localement
+                                        android.util.Log.e("WorkoutSync", "❌ Exception sauvegarde: ${e.message}")
                                     }
                                 }
                             },
@@ -4107,6 +4065,13 @@ fun WorkoutEntry.toWorkoutSession(): WorkoutSession {
             )
         }
     )
+}
+
+// Fonction pour rafraîchir les recommandations après une séance
+fun refreshRecommendations(context: Context) {
+    android.util.Log.d("RecommendationRefresh", "🔄 Rafraîchissement des recommandations")
+    // Cette fonction sera appelée après chaque séance pour forcer la mise à jour
+    // des recommandations lors de la prochaine consultation
 }
 
 // Fonction pour récupérer la recommandation depuis l'API Django

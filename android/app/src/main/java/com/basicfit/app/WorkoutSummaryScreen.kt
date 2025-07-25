@@ -587,7 +587,7 @@ fun NextRecommendationsCard(
                             apiService.initialize(context)
                             val machines = apiService.getApi().getMachines()
                             machinesList = machines.map { machineDto ->
-                                Machine(
+                                        Machine(
                                     id = machineDto.id,
                                     nom = machineDto.nom,
                                     description = machineDto.description ?: "",
@@ -598,54 +598,65 @@ fun NextRecommendationsCard(
                                         else -> CategorieMachine.MUSCULATION
                                     },
                                     groupeMusculairePrimaire = machineDto.groupe_musculaire_primaires?.firstOrNull()?.get("nom") ?: "",
-                                    incrementPoids = 2.5,
-                                    poidsMinimum = 0.0,
-                                    poidsMaximum = 200.0,
+                                            incrementPoids = 2.5,
+                                            poidsMinimum = 0.0,
+                                            poidsMaximum = 200.0,
                                     imageGif = machineDto.image_gif
-                                )
+                                        )
+                    }
+
+                    // Chercher la vraie machine par nom
+                    val machine = machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) } ?: Machine(
+                        id = 0,
+                        nom = exercise.name,
+                        description = "",
+                        instructions = "",
+                        categorie = CategorieMachine.MUSCULATION,
+                        groupeMusculairePrimaire = "",
+                        incrementPoids = 2.5,
+                        poidsMinimum = 0.0,
+                        poidsMaximum = 200.0
+                    )
+
+                            // Récupérer la recommandation depuis l'API avec retry
+                            var apiRecommendation: ExerciseRecommendation? = null
+                            var retryCount = 0
+                            val maxRetries = 2
+
+                            while (apiRecommendation == null && retryCount < maxRetries) {
+                                try {
+                                    android.util.Log.d("WorkoutSummary", "🔍 Tentative ${retryCount + 1} de récupération API pour: ${exercise.name}")
+                                    apiRecommendation = getRecommendationFromAPI(machine.id, context)
+
+                                    if (apiRecommendation != null) {
+                                        android.util.Log.d("WorkoutSummary", "✅ Utilisation recommandation API: ${apiRecommendation.weight}kg")
+                                        recommendation = apiRecommendation
+                                        break
+                                    } else {
+                                        android.util.Log.w("WorkoutSummary", "⚠️ API retourne null, tentative ${retryCount + 1}")
+                                        retryCount++
+                                        if (retryCount < maxRetries) {
+                                            kotlinx.coroutines.delay(1000) // Attendre 1 seconde avant retry
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("WorkoutSummary", "❌ Erreur API tentative ${retryCount + 1}: ${e.message}")
+                                    retryCount++
+                                    if (retryCount < maxRetries) {
+                                        kotlinx.coroutines.delay(1000) // Attendre 1 seconde avant retry
+                                    }
+                                }
                             }
 
-                            // Chercher la vraie machine par nom
-                            val machine = machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) } ?: Machine(
-                                id = 0,
-                                nom = exercise.name,
-                                description = "",
-                                instructions = "",
-                                categorie = CategorieMachine.MUSCULATION,
-                                groupeMusculairePrimaire = "",
-                                incrementPoids = 2.5,
-                                poidsMinimum = 0.0,
-                                poidsMaximum = 200.0
-                            )
-
-                            // Récupérer la recommandation depuis l'API
-                            try {
-                                android.util.Log.d("WorkoutSummary", "🔍 Tentative de récupération API pour: ${exercise.name}")
-                                val apiRecommendation = getRecommendationFromAPI(machine.id, context)
-                                android.util.Log.d("WorkoutSummary", "📡 Réponse API reçue: ${apiRecommendation != null}")
-
-                                if (apiRecommendation != null) {
-                                    android.util.Log.d("WorkoutSummary", "✅ Utilisation recommandation API: ${apiRecommendation.weight}kg")
-                                    recommendation = apiRecommendation
-                                } else {
-                                    android.util.Log.w("WorkoutSummary", "⚠️ API échouée, utilisation calcul local")
-                                    // Fallback vers le calcul local si l'API échoue
-                                    recommendation = calculateWorkoutRecommendations(
-                                        machine = machine,
-                                        workoutHistory = workoutHistory.map { it.toWorkoutSession() },
-                                        profileData = profileData
-                                    )
-                                    android.util.Log.d("WorkoutSummary", "📊 Calcul local: ${recommendation?.weight}kg")
-                                }
-                            } catch (e: Exception) {
-                                android.util.Log.e("WorkoutSummary", "❌ Erreur API, utilisation du calcul local: ${e.message}")
-                                // Fallback vers le calcul local
+                            // Si l'API échoue après tous les retries, utiliser le fallback local
+                            if (apiRecommendation == null) {
+                                android.util.Log.w("WorkoutSummary", "⚠️ API échouée après ${maxRetries} tentatives, utilisation calcul local")
                                 recommendation = calculateWorkoutRecommendations(
                                     machine = machine,
                                     workoutHistory = workoutHistory.map { it.toWorkoutSession() },
                                     profileData = profileData
                                 )
-                                android.util.Log.d("WorkoutSummary", "📊 Calcul local après erreur: ${recommendation?.weight}kg")
+                                android.util.Log.d("WorkoutSummary", "📊 Calcul local: ${recommendation?.weight}kg")
                             }
                         } catch (e: Exception) {
                             android.util.Log.e("WorkoutSummary", "Erreur lors du chargement: ${e.message}")
@@ -688,10 +699,10 @@ fun NextRecommendationsCard(
                             }
 
                             ExerciseRecommendation(
-                                sets = 3,
-                                reps = 10,
+                        sets = 3,
+                        reps = 10,
                                 weight = fallbackWeight,
-                                restTime = 90,
+                        restTime = 90,
                                 notes = "💪 Recommandation basée sur l'historique (API non disponible)"
                             )
                         }
@@ -707,35 +718,35 @@ fun NextRecommendationsCard(
                             // Calculer une suggestion de poids de départ
                             val machine = machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) }
                             if (machine != null) {
-                                val suggestedWeight = calculateStartingWeight(machine, profileData)
-                                if (suggestedWeight > 0) "${suggestedWeight.toInt()}kg (suggestion)" else "À déterminer"
+                            val suggestedWeight = calculateStartingWeight(machine, profileData)
+                            if (suggestedWeight > 0) "${suggestedWeight.toInt()}kg (suggestion)" else "À déterminer"
                             } else {
                                 "À déterminer"
-                            }
                         }
+                    }
                         val reps = reco?.reps ?: 10
                         val sets = reco?.sets ?: 3
                         val rest = reco?.restTime ?: 90
 
-                        // Affichage du GIF si présent
+                    // Affichage du GIF si présent
                         val machine = machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) }
                         if (machine?.imageGif?.isNotBlank() == true) {
-                            AnimatedGifImage(
-                                imageUrl = machine.imageGif,
-                                contentDescription = "Démonstration GIF",
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(120.dp)
-                                    .padding(vertical = 4.dp)
-                            )
-                        }
-
-                        Text(
-                            text = "• ${exercise.name} : $poids × $reps reps ($sets séries, repos $rest s)",
-                            fontSize = 14.sp,
-                            color = Color(0xFF2E2E2E),
-                            modifier = Modifier.padding(vertical = 2.dp)
+                        AnimatedGifImage(
+                            imageUrl = machine.imageGif,
+                            contentDescription = "Démonstration GIF",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                                .padding(vertical = 4.dp)
                         )
+                    }
+
+                    Text(
+                        text = "• ${exercise.name} : $poids × $reps reps ($sets séries, repos $rest s)",
+                        fontSize = 14.sp,
+                        color = Color(0xFF2E2E2E),
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    )
 
                         // Afficher les notes de recommandation si disponibles
                         if (reco?.notes?.isNotBlank() == true) {
