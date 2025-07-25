@@ -395,7 +395,7 @@ def seances_list(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def get_recommendation_by_id(request, machine_id):
     """Endpoint pour obtenir la recommandation de poids basée sur ProgressionMachine avec ID"""
     try:
@@ -527,7 +527,7 @@ def get_recommendation_by_id(request, machine_id):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def get_recommendation(request, machine_name):
     """Endpoint pour obtenir la recommandation de poids basée sur ProgressionMachine"""
     try:
