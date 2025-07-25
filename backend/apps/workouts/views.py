@@ -153,7 +153,43 @@ def sauvegarder_seance_simple(request):
         else:
             date_prevue = raw_date or timezone.now()
 
-        # Créer la séance
+        # ------ DEDUPLICATION LOGIC ------
+        # Create a fingerprint based on workout content for deduplication
+        workout_exercises = data.get('exercices', [])
+        workout_fingerprint = ""
+        if workout_exercises:
+            # Sort exercises and create a hash of the workout content
+            sorted_exercises = sorted(workout_exercises, key=lambda x: x.get('nom', ''))
+            fingerprint_data = {
+                'user_id': user.id,
+                'date': date_prevue.date().isoformat(),
+                'nom': data.get('nom', ''),
+                'duree': data.get('duree', 45),
+                'exercises': [(ex.get('nom', ''), ex.get('series', 0), ex.get('reps', 0), ex.get('poids', 0)) for ex in sorted_exercises]
+            }
+            import hashlib
+            import json
+            workout_fingerprint = hashlib.md5(json.dumps(fingerprint_data, sort_keys=True).encode()).hexdigest()
+            
+            # Check if this exact workout already exists
+            existing_seance = SeanceEntrainement.objects.filter(
+                utilisateur=user,
+                date_prevue__date=date_prevue.date(),
+                commentaire__contains=workout_fingerprint
+            ).first()
+            
+            if existing_seance:
+                # Return existing workout instead of creating duplicate
+                serializer = SeanceEntrainementSerializer(existing_seance)
+                return Response({
+                    'id': existing_seance.id,
+                    'nom': existing_seance.nom,
+                    'statut': existing_seance.statut,
+                    'message': 'Séance déjà existante (éviter doublon)',
+                    'data': serializer.data
+                }, status=status.HTTP_200_OK)
+
+        # Créer la séance avec fingerprint dans commentaire pour deduplication
         seance = SeanceEntrainement.objects.create(
             utilisateur=user,
             nom=data.get('nom', f"Séance du {timezone.now().strftime('%d/%m/%Y')}"),
@@ -163,7 +199,7 @@ def sauvegarder_seance_simple(request):
             duree_prevue= data.get('duree', 45),
             statut      = 'TERMINEE',
             note_ressenti = data.get('note_ressenti', 7),
-            commentaire   = data.get('commentaire', '')
+            commentaire   = f"{data.get('commentaire', '')} [DEDUP:{workout_fingerprint}]"
         )
 
         # Ajouter les exercices
@@ -295,6 +331,10 @@ def sauvegarder_seance_simple(request):
                 )
                 created = False
             except ProgressionMachine.DoesNotExist:
+                # Calculer le 1RM pour cette première séance
+                premier_1rm = exercice.calculer_1rm_brzycki() if not is_cardio else None
+                
+                # Créer la progression avec le poids de la séance comme base
                 progression = ProgressionMachine.objects.create(
                     utilisateur=user,
                     machine=machine,
@@ -303,7 +343,7 @@ def sauvegarder_seance_simple(request):
                     series_actuelles=exercice.nombre_series,
                     repetitions_actuelles=exercice.repetitions_realisees,
                     derniere_seance=seance,
-                    dernier_1rm=exercice.calculer_1rm_brzycki() if not is_cardio else None,
+                    dernier_1rm=premier_1rm,
                     nombre_seances_machine=1,
                     progression_poids_total=exercice.poids_utilise or exercice.poids_prevu or 0.0,
                     taux_reussite=100.0,
@@ -311,23 +351,61 @@ def sauvegarder_seance_simple(request):
                     seuil_progression=90.0,
                     derniere_progression=timezone.now(),
                 )
+                
+                # Maintenant calculer la recommandation pour la PROCHAINE séance
+                recommandation_prochaine = progression.calculer_recommandation_professionnelle()
+                progression.poids_actuel = recommandation_prochaine
+                progression.save()
+                
+                print(f"[DEBUG] Nouvelle progression créée pour {machine.nom}:")
+                print(f"  Poids première séance: {exercice.poids_utilise}kg")
+                print(f"  1RM calculé: {premier_1rm}kg")
+                print(f"  Recommandation prochaine séance: {recommandation_prochaine}kg")
+                
                 created = True
             if not created:
-                # Mise à jour des champs
+                # Mise à jour des champs de progression
                 if not is_cardio:
-                    # Pour musculation, mettre à jour le poids et 1RM
-                    progression.poids_actuel = exercice.poids_utilise or exercice.poids_prevu or progression.poids_actuel
-                    progression.dernier_1rm = exercice.calculer_1rm_brzycki()
+                    # Mettre à jour le 1RM avec le meilleur calculé
+                    nouveau_1rm = exercice.calculer_1rm_brzycki()
+                    if nouveau_1rm and (not progression.dernier_1rm or nouveau_1rm > progression.dernier_1rm):
+                        progression.dernier_1rm = nouveau_1rm
+                    
+                    # Ajouter au tonnage total
                     progression.progression_poids_total += exercice.poids_utilise or exercice.poids_prevu or 0.0
                 else:
                     # Pour cardio, mettre à jour la durée
                     progression.repetitions_actuelles = exercice.repetitions_realisees
 
+                # Mettre à jour les informations de base
                 progression.series_actuelles = exercice.nombre_series
                 progression.derniere_seance = seance
                 progression.nombre_seances_machine += 1
-                progression.taux_reussite = 100.0
                 progression.derniere_progression = timezone.now()
+                
+                # CALCUL DU TAUX DE RÉUSSITE BASÉ SUR LES SÉRIES
+                series_reussies = 0
+                series_totales = exercice.series.count()
+                if series_totales > 0:
+                    for serie in exercice.series.all():
+                        if serie.repetitions_realisees >= serie.repetitions_prevues * 0.8:  # 80% = réussite
+                            series_reussies += 1
+                    progression.taux_reussite = (series_reussies / series_totales) * 100
+                else:
+                    progression.taux_reussite = 100.0  # Par défaut si pas de séries détaillées
+                
+                # *** CALCUL DE LA NOUVELLE RECOMMANDATION POUR LA PROCHAINE SÉANCE ***
+                ancien_poids = progression.poids_actuel
+                nouvelle_recommandation = progression.calculer_recommandation_professionnelle()
+                progression.poids_actuel = nouvelle_recommandation
+                
+                print(f"[DEBUG] Progression mise à jour pour {machine.nom}:")
+                print(f"  Ancien poids: {ancien_poids}kg")
+                print(f"  Nouvelle recommandation: {nouvelle_recommandation}kg")
+                print(f"  1RM: {progression.dernier_1rm}kg")
+                print(f"  Taux réussite: {progression.taux_reussite}%")
+                print(f"  Poids de la séance: {exercice.poids_utilise}kg")
+                
                 progression.save()
 
         # Calculer les métriques

@@ -692,22 +692,45 @@ class ProgressionMachine(TimeStampedModel):
 
     def _calculer_1rm_recent(self):
         """
-        Calcule le 1RM basé sur les 3 dernières séances
+        Calcule le 1RM basé sur les 5 dernières séances avec cette machine
         """
-        # Récupérer les 3 dernières séances TERMINÉES de cet utilisateur
+        # Récupérer les 5 dernières séances TERMINÉES de cet utilisateur avec cette machine
         seances_recentes = SeanceEntrainement.objects.filter(
             utilisateur=self.utilisateur,
-            statut='TERMINEE'
-        ).order_by('-date_fin')[:3]
+            statut='TERMINEE',
+            exercices__machine=self.machine
+        ).distinct().order_by('-date_fin')[:5]
 
         meilleur_1rm = 0.0
+        meilleur_performance = 0.0
 
         for seance in seances_recentes:
             exercice = seance.exercices.filter(machine=self.machine).first()
-            if exercice and exercice.charge_maximale_theorique:
-                meilleur_1rm = max(meilleur_1rm, exercice.charge_maximale_theorique)
+            if exercice:
+                # Calculer 1RM pour cette séance si pas déjà fait
+                if not exercice.charge_maximale_theorique and exercice.poids_utilise and exercice.repetitions_realisees:
+                    exercice.calculer_metriques()
+                    exercice.save()
+                
+                # Prendre le meilleur 1RM
+                if exercice.charge_maximale_theorique:
+                    meilleur_1rm = max(meilleur_1rm, exercice.charge_maximale_theorique)
+                
+                # Aussi considérer le poids max utilisé comme référence
+                if exercice.poids_utilise:
+                    meilleur_performance = max(meilleur_performance, exercice.poids_utilise)
 
-        return meilleur_1rm if meilleur_1rm > 0 else self.dernier_1rm or 0
+        # Utiliser le meilleur 1RM calculé, sinon le 1RM stocké, sinon une estimation basée sur le poids max
+        if meilleur_1rm > 0:
+            return meilleur_1rm
+        elif self.dernier_1rm and self.dernier_1rm > 0:
+            return self.dernier_1rm
+        elif meilleur_performance > 0:
+            # Estimation conservative: poids max utilisé + 20% (approximation pour 1RM)
+            return meilleur_performance * 1.2
+        else:
+            # Dernier recours: utiliser le poids actuel comme base
+            return self.poids_actuel * 1.1 if self.poids_actuel > 0 else 20.0
 
     def _analyser_performances_recentes(self):
         """
@@ -767,7 +790,7 @@ class ProgressionMachine(TimeStampedModel):
 
     def _calculer_recommandation_coach(self, objectif, type_entrainement, unrm_actuel, performances):
         """
-        Logique de recommandation basée sur l'expertise coach
+        Logique de recommandation intelligente basée sur l'expertise coach et le 1RM
         """
         poids_actuel = self.poids_actuel
         increment = self.machine.increment_poids
@@ -776,11 +799,11 @@ class ProgressionMachine(TimeStampedModel):
 
         # DÉFINIR LES OBJECTIFS PAR TYPE D'ENTRAÎNEMENT
         objectifs_reps = {
-            'FORCE': {'min': 1, 'max': 5, 'cible': 3},
-            'PRISE_MASSE': {'min': 8, 'max': 12, 'cible': 10},
-            'SECHE': {'min': 12, 'max': 15, 'cible': 12},
-            'ENDURANCE': {'min': 15, 'max': 20, 'cible': 15},
-            'POWERLIFTING': {'min': 1, 'max': 3, 'cible': 2}
+            'FORCE': {'min': 1, 'max': 5, 'cible': 3, 'pct_1rm': 0.85},
+            'PRISE_MASSE': {'min': 8, 'max': 12, 'cible': 10, 'pct_1rm': 0.70},
+            'SECHE': {'min': 12, 'max': 15, 'cible': 12, 'pct_1rm': 0.65},
+            'ENDURANCE': {'min': 15, 'max': 20, 'cible': 15, 'pct_1rm': 0.60},
+            'POWERLIFTING': {'min': 1, 'max': 3, 'cible': 2, 'pct_1rm': 0.90}
         }
 
         # Récupérer les objectifs pour ce type d'entraînement
@@ -788,40 +811,78 @@ class ProgressionMachine(TimeStampedModel):
         reps_cible = objectif_reps['cible']
         reps_min = objectif_reps['min']
         reps_max = objectif_reps['max']
+        pct_1rm_cible = objectif_reps['pct_1rm']
 
-        # LOGIQUE DE RECOMMANDATION COACH
-
-        # Cas 1: TAUX DE RÉUSSITE EXCELLENT (> 90%)
-        if taux_reussite >= 90:
-            # Progression automatique
-            nouveau_poids = min(poids_actuel + increment, self.machine.poids_maximum)
-            return nouveau_poids
-
-        # Cas 2: TAUX DE RÉUSSITE BON (80-90%)
-        elif taux_reussite >= 80:
-            # Vérifier si les reps sont dans la zone cible
-            if reps_min <= repetitions_moyennes <= reps_max:
-                # Progression si on est dans la zone cible
+        # CALCUL BASÉ SUR LE 1RM SI DISPONIBLE
+        if unrm_actuel > 0:
+            poids_theorique = unrm_actuel * pct_1rm_cible
+            
+            # Arrondir au multiple de l'incrément le plus proche
+            poids_theorique = round(poids_theorique / increment) * increment
+            
+            # S'assurer que c'est dans les limites de la machine
+            poids_theorique = max(self.machine.poids_minimum, 
+                                min(poids_theorique, self.machine.poids_maximum))
+            
+            # LOGIQUE DE PROGRESSION INTELLIGENTE BASÉE SUR LE 1RM
+            
+            # Si pas de données de performance récentes, utiliser le calcul théorique
+            if taux_reussite == 0 and performances['series_totales'] == 0:
+                return poids_theorique
+            
+            # Cas 1: TAUX DE RÉUSSITE EXCELLENT (> 90%)
+            if taux_reussite >= 90:
+                # Progression vers le poids théorique ou légèrement au-dessus
+                if poids_actuel < poids_theorique:
+                    nouveau_poids = min(poids_actuel + increment, poids_theorique)
+                else:
+                    nouveau_poids = min(poids_actuel + increment, self.machine.poids_maximum)
+                return nouveau_poids
+            
+            # Cas 2: TAUX DE RÉUSSITE BON (75-90%)
+            elif taux_reussite >= 75:
+                # Progression modérée vers le poids théorique
+                if poids_actuel < poids_theorique * 0.95:  # Si on est en dessous de 95% du théorique
+                    return min(poids_actuel + increment, poids_theorique)
+                else:
+                    return poids_actuel
+            
+            # Cas 3: TAUX DE RÉUSSITE MOYEN (60-75%)
+            elif taux_reussite >= 60:
+                # Maintenir ou réduire légèrement si trop lourd
+                if poids_actuel > poids_theorique:
+                    return max(poids_theorique, poids_actuel - increment)
+                else:
+                    return poids_actuel
+            
+            # Cas 4: TAUX DE RÉUSSITE FAIBLE (< 60%)
+            else:
+                # Retour vers un poids plus gérable basé sur le 1RM
+                poids_reduit = poids_theorique * 0.85  # Réduire à 85% du poids théorique
+                poids_reduit = round(poids_reduit / increment) * increment
+                return max(self.machine.poids_minimum, poids_reduit)
+        
+        # FALLBACK: LOGIQUE TRADITIONNELLE SI PAS DE 1RM FIABLE
+        else:
+            # Utiliser la logique basée sur les performances seulement
+            if taux_reussite >= 90:
                 nouveau_poids = min(poids_actuel + increment, self.machine.poids_maximum)
                 return nouveau_poids
-            else:
-                # Maintenir le poids pour ajuster les reps
+            elif taux_reussite >= 80:
+                if reps_min <= repetitions_moyennes <= reps_max:
+                    nouveau_poids = min(poids_actuel + increment, self.machine.poids_maximum)
+                    return nouveau_poids
+                else:
+                    return poids_actuel
+            elif taux_reussite >= 60:
                 return poids_actuel
+            else:
+                reduction = increment * 2
+                nouveau_poids = max(poids_actuel - reduction, self.machine.poids_minimum)
+                return nouveau_poids
 
-        # Cas 3: TAUX DE RÉUSSITE MOYEN (60-80%)
-        elif taux_reussite >= 60:
-            # Maintenir le poids pour améliorer la technique
-            return poids_actuel
-
-        # Cas 4: TAUX DE RÉUSSITE FAIBLE (< 60%)
-        else:
-            # Réduire le poids pour améliorer la technique
-            reduction = increment * 2  # Réduire de 2 incréments
-            nouveau_poids = max(poids_actuel - reduction, self.machine.poids_minimum)
-            return nouveau_poids
-
-        # Fallback
-        return poids_actuel
+        # Ultime fallback - ne devrait jamais arriver
+        return max(poids_actuel, self.machine.poids_minimum)
 
     def calculer_recommandation_intelligente(self):
         """
