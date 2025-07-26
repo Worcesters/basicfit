@@ -24,14 +24,14 @@ class WorkoutRecommendationEngine:
             'sets_range': (3, 6),
             'intensity_1rm': 0.85,
             'rest_seconds': 180,
-            'progression_threshold': 85.0
+            'progression_threshold': 100.0
         },
         'PRISE_MASSE': {
             'reps_range': (6, 12),
             'sets_range': (3, 5),
             'intensity_1rm': 0.70,
             'rest_seconds': 90,
-            'progression_threshold': 80.0
+            'progression_threshold': 100.0
         },
         'ENDURANCE': {
             'reps_range': (12, 20),
