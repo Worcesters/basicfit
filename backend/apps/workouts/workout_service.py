@@ -454,26 +454,22 @@ class WorkoutSaveService:
                         'poids_actuel': exercise_data['poids'],
                         'series_actuelles': exercise_data['series'],
                         'repetitions_actuelles': exercise_data['reps'],
-                        'poids_precedent': 0.0,
-                        'date_derniere_seance': timezone.now(),
-                        'nombre_seances_totales': 1,
-                        'meilleur_1rm': exercise_data['poids'] * 1.0278 ** exercise_data['reps']  # Formule de Brzycki
+                        'nombre_seances_machine': 1,
+                        'dernier_1rm': exercise_data['poids'] * (1.0278 ** exercise_data['reps'])  # Formule de Brzycki
                     }
                 )
                 
                 if not created:
                     # Mettre à jour la progression existante
-                    progression.poids_precedent = progression.poids_actuel
                     progression.poids_actuel = exercise_data['poids']
                     progression.series_actuelles = exercise_data['series']
                     progression.repetitions_actuelles = exercise_data['reps']
-                    progression.date_derniere_seance = timezone.now()
-                    progression.nombre_seances_totales += 1
+                    progression.nombre_seances_machine += 1
                     
                     # Calculer le nouveau 1RM si c'est mieux
                     nouveau_1rm = exercise_data['poids'] * (1.0278 ** exercise_data['reps'])
-                    if nouveau_1rm > progression.meilleur_1rm:
-                        progression.meilleur_1rm = nouveau_1rm
+                    if progression.dernier_1rm is None or nouveau_1rm > progression.dernier_1rm:
+                        progression.dernier_1rm = nouveau_1rm
                     
                     progression.save()
                 

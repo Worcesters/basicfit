@@ -65,7 +65,7 @@ class SeriExerciceSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'numero_serie', 'repetitions_prevues', 'duree_prevue',
             'poids_prevu', 'repetitions_realisees', 'duree_realisee',
-            'poids_utilise', 'repos_reel', 'statut', 'duree_serie',
+            'poids_utilise', 'statut', 'duree_serie',
             'note_effort', 'commentaire'
         ]
 
