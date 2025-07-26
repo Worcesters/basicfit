@@ -265,35 +265,35 @@ def sauvegarder_seance_simple(request):
                     lambda: Machine.objects.get(nom__icontains=nom_exercice.replace('e', 'è')),
                 ]
 
-            for strategy in search_strategies:
-                try:
-                    machine = strategy()
-                    if machine:
-                        break
-                except (Machine.DoesNotExist, Machine.MultipleObjectsReturned):
-                    continue
+                for strategy in search_strategies:
+                    try:
+                        machine = strategy()
+                        if machine:
+                            break
+                    except (Machine.DoesNotExist, Machine.MultipleObjectsReturned):
+                        continue
 
-            if not machine:
-                # Créer la machine si elle n'existe pas
-                from apps.machines.models import CategorieMachine
-                categorie_defaut, _ = CategorieMachine.objects.get_or_create(nom='MUSCULATION', defaults={
-                    'description': 'Catégorie auto générée',
-                })
-                machine = Machine.objects.create(
-                    nom=nom_exercice,
-                    description='Créée automatiquement depuis l\'app Android',
-                    instructions='',
-                    categorie=categorie_defaut,
-                    increment_poids=2.5,
-                    poids_minimum=0.0,
-                    poids_maximum=200.0
+                if not machine:
+                    # Créer la machine si elle n'existe pas
+                    from apps.machines.models import CategorieMachine
+                    categorie_defaut, _ = CategorieMachine.objects.get_or_create(nom='MUSCULATION', defaults={
+                        'description': 'Catégorie auto générée',
+                    })
+                    machine = Machine.objects.create(
+                        nom=nom_exercice,
+                        description='Créée automatiquement depuis l\'app Android',
+                        instructions='',
+                        categorie=categorie_defaut,
+                        increment_poids=2.5,
+                        poids_minimum=0.0,
+                        poids_maximum=200.0
+                    )
+
+                # Vérifier si c'est une machine cardio (basé sur la catégorie ou le type d'exercice envoyé)
+                is_cardio = (
+                    machine.categorie.nom == 'CARDIO' if machine.categorie else False or
+                    exercice_data.get('type_exercice') == 'DUREE'
                 )
-
-            # Vérifier si c'est une machine cardio (basé sur la catégorie ou le type d'exercice envoyé)
-            is_cardio = (
-                machine.categorie.nom == 'CARDIO' if machine.categorie else False or
-                exercice_data.get('type_exercice') == 'DUREE'
-            )
 
             if is_cardio:
                 # Pour les exercices cardio, les reps représentent la durée en minutes
