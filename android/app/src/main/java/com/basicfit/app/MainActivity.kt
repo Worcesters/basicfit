@@ -73,7 +73,6 @@ import coil.ImageLoader
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import android.widget.Toast
 
 // Palette couleur globale
 val Mint = Color(0xFF00C9A7)
@@ -1839,7 +1838,7 @@ fun MachinesScreen(
                     clipboard.setPrimaryClip(clip)
 
                     // Afficher un toast de confirmation
-                    Toast.makeText(context, "📋 Liste exportée dans le presse-papiers !", Toast.LENGTH_LONG).show()
+                    android.widget.Toast.makeText(context, "📋 Liste exportée dans le presse-papiers !", android.widget.Toast.LENGTH_LONG).show()
                 },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF4CAF50)
@@ -3015,15 +3014,23 @@ fun WorkoutInProgressScreen(
                                             exercises = exercisesCompleted
                                         )
 
-                                        if (result.isSuccess) {
-                                            android.util.Log.d("WorkoutSync", "✅ Séance sauvegardée avec succès")
-                                            // Rafraîchir les recommandations après sauvegarde
-                                            refreshRecommendations(context)
-                                        } else {
-                                            android.util.Log.e("WorkoutSync", "❌ Erreur sauvegarde: ${result.exceptionOrNull()?.message}")
+                                        kotlinx.coroutines.MainScope().launch {
+                                            if (result.isSuccess) {
+                                                android.util.Log.d("WorkoutSync", "✅ Séance sauvegardée avec succès")
+                                                // Afficher message de confirmation à l'utilisateur
+                                                android.widget.Toast.makeText(context, "✅ Entraînement enregistré en base de données", android.widget.Toast.LENGTH_LONG).show()
+                                                // Rafraîchir les recommandations après sauvegarde
+                                                refreshRecommendations(context)
+                                            } else {
+                                                android.util.Log.e("WorkoutSync", "❌ Erreur sauvegarde: ${result.exceptionOrNull()?.message}")
+                                                android.widget.Toast.makeText(context, "❌ Erreur lors de l'enregistrement", android.widget.Toast.LENGTH_LONG).show()
+                                            }
                                         }
                                     } catch (e: Exception) {
                                         android.util.Log.e("WorkoutSync", "❌ Exception sauvegarde: ${e.message}")
+                                        kotlinx.coroutines.MainScope().launch {
+                                            android.widget.Toast.makeText(context, "❌ Erreur de connexion serveur", android.widget.Toast.LENGTH_LONG).show()
+                                        }
                                     }
                                 }
                             },
@@ -4188,7 +4195,7 @@ fun CalendarEntryDetailScreen(
         currentExerciseToReplace = null
 
         // Afficher une confirmation
-        Toast.makeText(context, "✅ ${oldExercise.name} remplacé par ${newMachine.nom}", Toast.LENGTH_SHORT).show()
+        android.widget.Toast.makeText(context, "✅ ${oldExercise.name} remplacé par ${newMachine.nom}", android.widget.Toast.LENGTH_SHORT).show()
     }
 
     // Charger les machines depuis l'API
