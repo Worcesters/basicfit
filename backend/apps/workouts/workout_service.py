@@ -160,6 +160,9 @@ class WorkoutSaveService:
                 # 7. Calcul des métriques
                 session.calculer_metriques()
                 session.save()
+                
+                # 8. Mise à jour des progressions machine
+                self._update_machine_progressions(user, exercises)
             
             logger.info(f"Séance sauvegardée: {session.nom} ({session.statut})")
             return session, True, "Séance sauvegardée avec succès"
@@ -422,6 +425,63 @@ class WorkoutSaveService:
                     poids_utilise=exercise_data['poids'],
                     statut='REUSSIE'
                 )
+    
+    def _update_machine_progressions(self, user, exercises: List[Dict]):
+        """Met à jour les progressions machine après une séance"""
+        from .models import ProgressionMachine, ModeEntrainement
+        
+        for exercise_data in exercises:
+            try:
+                # Récupérer la machine
+                machine = self._get_or_create_machine(exercise_data['nom'])
+                
+                # Ignorer les exercices cardio pour la progression
+                if self._is_cardio_exercise(machine, exercise_data):
+                    continue
+                
+                # Récupérer ou créer le mode d'entraînement (par défaut "Force")
+                mode_entrainement, _ = ModeEntrainement.objects.get_or_create(
+                    nom="Force",
+                    defaults={'description': 'Entraînement de force générale'}
+                )
+                
+                # Récupérer ou créer la progression
+                progression, created = ProgressionMachine.objects.get_or_create(
+                    utilisateur=user,
+                    machine=machine,
+                    mode_entrainement=mode_entrainement,
+                    defaults={
+                        'poids_actuel': exercise_data['poids'],
+                        'series_actuelles': exercise_data['series'],
+                        'repetitions_actuelles': exercise_data['reps'],
+                        'poids_precedent': 0.0,
+                        'date_derniere_seance': timezone.now(),
+                        'nombre_seances_totales': 1,
+                        'meilleur_1rm': exercise_data['poids'] * 1.0278 ** exercise_data['reps']  # Formule de Brzycki
+                    }
+                )
+                
+                if not created:
+                    # Mettre à jour la progression existante
+                    progression.poids_precedent = progression.poids_actuel
+                    progression.poids_actuel = exercise_data['poids']
+                    progression.series_actuelles = exercise_data['series']
+                    progression.repetitions_actuelles = exercise_data['reps']
+                    progression.date_derniere_seance = timezone.now()
+                    progression.nombre_seances_totales += 1
+                    
+                    # Calculer le nouveau 1RM si c'est mieux
+                    nouveau_1rm = exercise_data['poids'] * (1.0278 ** exercise_data['reps'])
+                    if nouveau_1rm > progression.meilleur_1rm:
+                        progression.meilleur_1rm = nouveau_1rm
+                    
+                    progression.save()
+                
+                logger.info(f"Progression mise à jour: {machine.nom} - {exercise_data['poids']}kg x {exercise_data['reps']}")
+                
+            except Exception as e:
+                logger.error(f"Erreur mise à jour progression {exercise_data.get('nom', 'unknown')}: {e}")
+                continue
 
 
 class CalendarService:
