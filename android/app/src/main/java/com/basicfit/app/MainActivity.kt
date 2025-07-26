@@ -623,39 +623,8 @@ fun MainScreen() {
                 workoutHistory = workoutHistory + newEntry
                 dataManager.saveWorkoutHistory(workoutHistory)
 
-                // Envoyer à l'API Django pour mettre à jour ProgressionMachine
-                GlobalScope.launch {
-                    try {
-                        val apiService = ApiService.getInstance()
-                        apiService.initialize(context)
-
-                        val workoutRequest = WorkoutRequest(
-                            nom = currentWorkoutName,
-                            duree = duration,
-                            exercices = exercisesCompleted.map { exercise ->
-                                // Déterminer le type d'exercice basé sur le nom de la machine
-                                val isCardio = exercise.name.contains("Tapis", ignoreCase = true) ||
-                                    exercise.name.contains("Vélo", ignoreCase = true) ||
-                                    exercise.name.contains("Rameur", ignoreCase = true) ||
-                                    exercise.name.contains("Elliptique", ignoreCase = true)
-
-                                ExerciseRequest(
-                                    nom = exercise.name,
-                                    series = exercise.sets,
-                                    repetitions = exercise.reps,
-                                    poids = exercise.weight,
-                                    type_exercice = if (isCardio) "DUREE" else "REPETITIONS"
-                                )
-                            }
-                        )
-
-                        val response = apiService.getApi().saveWorkout(workoutRequest)
-                        android.util.Log.d("WorkoutAPI", "Séance envoyée au serveur: ${response.success}")
-                    } catch (e: Exception) {
-                        android.util.Log.e("WorkoutAPI", "Erreur lors de l'envoi au serveur: ${e.message}")
-                        // L'entraînement reste sauvegardé localement même si l'envoi échoue
-                    }
-                }
+                // SUPPRIMÉ: Premier envoi pour éviter les doublons
+                // L'envoi au serveur est maintenant géré uniquement par SyncManager plus bas
 
                 // Nettoyer l'état d'entraînement sauvegardé
                 dataManager.clearCurrentWorkout()

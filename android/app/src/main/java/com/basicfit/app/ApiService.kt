@@ -99,6 +99,14 @@ data class CompleteExerciseRequest(
     val poids: Double
 )
 
+// Nouvelle classe pour planifier une séance
+data class PlanWorkoutRequest(
+    val nom: String,
+    val date: String,  // Format ISO: "2025-07-28T10:00:00Z"
+    val duree: Int,
+    val commentaire: String? = null
+)
+
 data class RecommendationResponse(
     val machine_id: Int,
     val machine_nom: String,
@@ -135,6 +143,10 @@ interface BasicFitApi {
     // Workouts
     @POST("workouts/sauvegarder/")
     suspend fun saveWorkout(@Body request: WorkoutRequest): ApiResponse<Any>
+    
+    // Nouveau: Planifier une séance (calendrier)
+    @POST("workouts/calendar/plan/")
+    suspend fun planWorkout(@Body request: PlanWorkoutRequest): ApiResponse<Any>
 
     @GET("workouts/seances/")
     suspend fun getWorkoutHistory(): ApiResponse<List<Any>>
