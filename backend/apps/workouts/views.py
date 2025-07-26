@@ -145,78 +145,125 @@ def sauvegarder_seance_simple(request):
         user = request.user
 
         # ------ Gestion date prévue ------
-        raw_date = data.get('date') or data.get('date_prevue')
-        if isinstance(raw_date, str):
-            # Support ISO 8601 ou formats courants
-            parsed = parse_datetime(raw_date) or datetime.fromisoformat(raw_date.replace('Z', '+00:00'))
-            date_prevue = timezone.make_aware(parsed) if parsed.tzinfo is None else parsed
+        raw_date = data.get('date') or data.get('date_prevue') or data.get('date_seance')
+        
+        if isinstance(raw_date, str) and raw_date.strip():
+            try:
+                # Essayer différents formats de date
+                parsed = None
+                formats_to_try = [
+                    raw_date,  # Format original
+                    raw_date + 'T00:00:00' if 'T' not in raw_date else raw_date,  # Ajouter heure si manquante
+                    raw_date.replace('Z', '+00:00'),  # Remplacer Z par +00:00
+                ]
+                
+                for date_format in formats_to_try:
+                    try:
+                        parsed = parse_datetime(date_format)
+                        if parsed:
+                            break
+                    except:
+                        try:
+                            parsed = datetime.fromisoformat(date_format)
+                            break
+                        except:
+                            continue
+                
+                if parsed:
+                    date_prevue = timezone.make_aware(parsed) if parsed.tzinfo is None else parsed
+                else:
+                    # Si impossible de parser, utiliser aujourd'hui
+                    date_prevue = timezone.now()
+                    print(f"[WARNING] Impossible de parser la date '{raw_date}', utilisation de la date actuelle")
+            except Exception as e:
+                print(f"[ERROR] Erreur parsing date '{raw_date}': {e}")
+                date_prevue = timezone.now()
         else:
             date_prevue = raw_date or timezone.now()
+        
+        print(f"[DEBUG] Date prévue traitée: {date_prevue} (original: {raw_date})")
 
-        # ------ DEDUPLICATION LOGIC ------
-        # Create a fingerprint based on workout content for deduplication
+        # ------ DEDUPLICATION LOGIC IMPROVED ------
+        # Check for exact duplicate sessions on the same date with same exercises
         workout_exercises = data.get('exercices', [])
-        workout_fingerprint = ""
-        if workout_exercises:
-            # Sort exercises and create a hash of the workout content
-            sorted_exercises = sorted(workout_exercises, key=lambda x: x.get('nom', ''))
-            fingerprint_data = {
-                'user_id': user.id,
-                'date': date_prevue.date().isoformat(),
-                'nom': data.get('nom', ''),
-                'duree': data.get('duree', 45),
-                'exercises': [(ex.get('nom', ''), ex.get('series', 0), ex.get('reps', 0), ex.get('poids', 0)) for ex in sorted_exercises]
-            }
-            import hashlib
-            import json
-            workout_fingerprint = hashlib.md5(json.dumps(fingerprint_data, sort_keys=True).encode()).hexdigest()
-            
-            # Check if this exact workout already exists
-            existing_seance = SeanceEntrainement.objects.filter(
-                utilisateur=user,
-                date_prevue__date=date_prevue.date(),
-                commentaire__contains=workout_fingerprint
-            ).first()
-            
-            if existing_seance:
-                # Return existing workout instead of creating duplicate
-                serializer = SeanceEntrainementSerializer(existing_seance)
-                return Response({
-                    'id': existing_seance.id,
-                    'nom': existing_seance.nom,
-                    'statut': existing_seance.statut,
-                    'message': 'Séance déjà existante (éviter doublon)',
-                    'data': serializer.data
-                }, status=status.HTTP_200_OK)
-
-        # Créer la séance avec fingerprint dans commentaire pour deduplication
-        seance = SeanceEntrainement.objects.create(
+        
+        # Look for duplicate sessions on the same date first
+        existing_seances = SeanceEntrainement.objects.filter(
             utilisateur=user,
-            nom=data.get('nom', f"Séance du {timezone.now().strftime('%d/%m/%Y')}"),
-            date_prevue = date_prevue,
-            date_debut  = timezone.now() - timedelta(minutes=data.get('duree', 45)),
-            date_fin    = timezone.now(),
-            duree_prevue= data.get('duree', 45),
-            statut      = 'TERMINEE',
-            note_ressenti = data.get('note_ressenti', 7),
-            commentaire   = f"{data.get('commentaire', '')} [DEDUP:{workout_fingerprint}]"
-        )
+            date_prevue__date=date_prevue.date(),
+            statut='TERMINEE'
+        ).prefetch_related('exercices__machine', 'exercices__series')
+        
+        for existing_seance in existing_seances:
+            existing_exercises = list(existing_seance.exercices.all())
+            
+            # Compare if exercises match (same machines and similar weights)
+            if len(existing_exercises) == len(workout_exercises):
+                match_count = 0
+                for new_ex in workout_exercises:
+                    for existing_ex in existing_exercises:
+                        if (existing_ex.machine.nom.lower() == new_ex.get('nom', '').lower() and
+                            abs(float(existing_ex.poids_utilise or 0) - float(new_ex.get('poids', 0))) < 2.5):
+                            match_count += 1
+                            break
+                
+                # If 80% or more exercises match, consider it a duplicate
+                if match_count >= len(workout_exercises) * 0.8:
+                    serializer = SeanceEntrainementSerializer(existing_seance)
+                    return Response({
+                        'id': existing_seance.id,
+                        'nom': existing_seance.nom,
+                        'statut': existing_seance.statut,
+                        'message': 'Séance similaire déjà existante (éviter doublon)',
+                        'data': serializer.data
+                    }, status=status.HTTP_200_OK)
 
-        # Ajouter les exercices
-        for idx, exercice_data in enumerate(data.get('exercices', [])):
-            # Récupérer la machine par nom (recherche flexible)
-            machine = None
-            nom_exercice = exercice_data['nom']
+        # Déterminer le statut selon le type d'action
+        est_planification = data.get('est_planification', False) or data.get('action') == 'planifier'
+        
+        if est_planification:
+            # Mode planification : séance future
+            seance = SeanceEntrainement.objects.create(
+                utilisateur=user,
+                nom=data.get('nom', f"Séance du {date_prevue.strftime('%d/%m/%Y')}"),
+                date_prevue=date_prevue,
+                duree_prevue=data.get('duree', 45),
+                statut='PLANIFIEE',
+                commentaire=data.get('commentaire', '')
+            )
+            print(f"[DEBUG] Séance PLANIFIEE créée pour le {date_prevue}")
+        else:
+            # Mode sauvegarde : séance terminée
+            seance = SeanceEntrainement.objects.create(
+                utilisateur=user,
+                nom=data.get('nom', f"Séance du {timezone.now().strftime('%d/%m/%Y')}"),
+                date_prevue=date_prevue,
+                date_debut=timezone.now() - timedelta(minutes=data.get('duree', 45)),
+                date_fin=timezone.now(),
+                duree_prevue=data.get('duree', 45),
+                statut='TERMINEE',
+                note_ressenti=data.get('note_ressenti', 7),
+                commentaire=data.get('commentaire', '')
+            )
+            print(f"[DEBUG] Séance TERMINEE sauvegardée")
+        
+        # Les exercices ne sont ajoutés que pour les séances terminées
+        if not est_planification:
+            # Ajouter les exercices
+            for idx, exercice_data in enumerate(data.get('exercices', [])):
+                # Récupérer la machine par nom (recherche flexible)
+                machine = None
+                nom_exercice = exercice_data['nom']
 
-            # Essayer différentes stratégies de recherche
-            search_strategies = [
-                lambda: Machine.objects.get(nom__iexact=nom_exercice),
-                lambda: Machine.objects.get(nom__icontains=nom_exercice),
-                lambda: Machine.objects.filter(nom__icontains=nom_exercice).first(),
-                lambda: Machine.objects.get(nom__icontains=nom_exercice.replace('é', 'e').replace('è', 'e')),
-                lambda: Machine.objects.get(nom__icontains=nom_exercice.replace('e', 'é')),
-                lambda: Machine.objects.get(nom__icontains=nom_exercice.replace('e', 'è')),
-            ]
+                # Essayer différentes stratégies de recherche
+                search_strategies = [
+                    lambda: Machine.objects.get(nom__iexact=nom_exercice),
+                    lambda: Machine.objects.get(nom__icontains=nom_exercice),
+                    lambda: Machine.objects.filter(nom__icontains=nom_exercice).first(),
+                    lambda: Machine.objects.get(nom__icontains=nom_exercice.replace('é', 'e').replace('è', 'e')),
+                    lambda: Machine.objects.get(nom__icontains=nom_exercice.replace('e', 'é')),
+                    lambda: Machine.objects.get(nom__icontains=nom_exercice.replace('e', 'è')),
+                ]
 
             for strategy in search_strategies:
                 try:
@@ -352,15 +399,12 @@ def sauvegarder_seance_simple(request):
                     derniere_progression=timezone.now(),
                 )
                 
-                # Maintenant calculer la recommandation pour la PROCHAINE séance
-                recommandation_prochaine = progression.calculer_recommandation_professionnelle()
-                progression.poids_actuel = recommandation_prochaine
-                progression.save()
-                
+                # IMPORTANT: Pour la première séance, on démarre avec le poids utilisé
+                # La recommandation sera calculée après cette première séance
                 print(f"[DEBUG] Nouvelle progression créée pour {machine.nom}:")
                 print(f"  Poids première séance: {exercice.poids_utilise}kg")
                 print(f"  1RM calculé: {premier_1rm}kg")
-                print(f"  Recommandation prochaine séance: {recommandation_prochaine}kg")
+                print(f"  Poids de départ stocké: {progression.poids_actuel}kg")
                 
                 created = True
             if not created:
@@ -396,15 +440,28 @@ def sauvegarder_seance_simple(request):
                 
                 # *** CALCUL DE LA NOUVELLE RECOMMANDATION POUR LA PROCHAINE SÉANCE ***
                 ancien_poids = progression.poids_actuel
+                
+                # Pour éviter de bloquer à 17kg, utilisons directement le poids de la séance
+                # si c'est supérieur à la recommandation actuelle
+                poids_seance = exercice.poids_utilise or exercice.poids_prevu or 0.0
                 nouvelle_recommandation = progression.calculer_recommandation_professionnelle()
-                progression.poids_actuel = nouvelle_recommandation
+                
+                # Si le poids de la séance actuelle est supérieur à la recommandation,
+                # utiliser le poids de la séance comme base pour la prochaine fois
+                if poids_seance > nouvelle_recommandation:
+                    # Le joueur progresse plus vite que prévu, suivre son rythme
+                    progression.poids_actuel = poids_seance
+                    print(f"[DEBUG] Progression accélérée détectée - utilisation du poids séance: {poids_seance}kg")
+                else:
+                    progression.poids_actuel = nouvelle_recommandation
                 
                 print(f"[DEBUG] Progression mise à jour pour {machine.nom}:")
                 print(f"  Ancien poids: {ancien_poids}kg")
-                print(f"  Nouvelle recommandation: {nouvelle_recommandation}kg")
+                print(f"  Poids de la séance: {poids_seance}kg")
+                print(f"  Recommandation calculée: {nouvelle_recommandation}kg")
+                print(f"  Nouveau poids retenu: {progression.poids_actuel}kg")
                 print(f"  1RM: {progression.dernier_1rm}kg")
                 print(f"  Taux réussite: {progression.taux_reussite}%")
-                print(f"  Poids de la séance: {exercice.poids_utilise}kg")
                 
                 progression.save()
 
@@ -495,8 +552,8 @@ def get_recommendation_by_id(request, machine_id):
                 machine=machine
             )
 
-            # Calculer la recommandation basée sur la progression
-            poids_recommande = progression.calculer_recommandation_professionnelle()
+            # Utiliser le poids actuel stocké dans la progression (déjà calculé)
+            poids_recommande = progression.poids_actuel
             series_recommandees = progression.series_actuelles
             reps_recommandees = progression.repetitions_actuelles
 
@@ -649,8 +706,8 @@ def get_recommendation(request, machine_name):
                 machine=machine
             )
 
-            # Calculer la recommandation basée sur la progression
-            poids_recommande = progression.calculer_recommandation_professionnelle()
+            # Utiliser le poids actuel stocké dans la progression (déjà calculé)
+            poids_recommande = progression.poids_actuel
             series_recommandees = progression.series_actuelles
             reps_recommandees = progression.repetitions_actuelles
 
