@@ -981,3 +981,11 @@ Watching for file changes with StatReloader
 Séance sauvegardée: Test Nouveau Système (TERMINEE)
 Erreur sérialisation: Field name `repos_reel` is not valid for model `SeriExercice`.
 Recommandation générée pour test@example.com - Développé couché: 20.0kg
+1RM trouvé dans ProgressionMachine: 65.45kg (mode: PRISE_MASSE)
+Performance depuis ProgressionMachine: 60.0kg, taux: 100.0%
+Recommandation générée pour test@example.com - Supine Press: 47.5kg
+1RM trouvé dans ProgressionMachine: 65.45kg (mode: PRISE_MASSE)
+Performance depuis ProgressionMachine: 60.0kg, taux: 100.0%
+Poids actuel (60.0kg) > cible calculée (45.815kg), utilisation du poids actuel
+Performance excellente (100.0%), augmentation à 62.5kg
+Recommandation générée pour test@example.com - Supine Press: 62.5kg

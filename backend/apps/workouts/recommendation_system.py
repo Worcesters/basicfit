@@ -64,12 +64,22 @@ class WorkoutRecommendationEngine:
         
     def calculate_current_1rm(self) -> Optional[float]:
         """
-        Calcule le 1RM actuel basé sur les dernières performances
-        Utilise la formule de Brzycki: 1RM = weight × (36 / (37 - reps))
+        Calcule le 1RM actuel en priorité depuis ProgressionMachine,
+        sinon calcule basé sur les dernières performances
         """
-        from .models import ExerciceSeance
+        from .models import ProgressionMachine, ExerciceSeance
         
-        # Récupérer les 3 dernières séances avec cette machine
+        # PRIORITÉ 1: Utiliser ProgressionMachine existante (peu importe le mode)
+        progression = ProgressionMachine.objects.filter(
+            utilisateur=self.user,
+            machine=self.machine
+        ).order_by('-updated_at').first()
+        
+        if progression and progression.dernier_1rm and progression.dernier_1rm > 0:
+            logger.info(f"1RM trouvé dans ProgressionMachine: {progression.dernier_1rm}kg (mode: {progression.mode_entrainement.nom})")
+            return progression.dernier_1rm
+        
+        # PRIORITÉ 2: Calculer depuis les exercices récents
         recent_exercises = ExerciceSeance.objects.filter(
             seance__utilisateur=self.user,
             machine=self.machine,
@@ -79,6 +89,7 @@ class WorkoutRecommendationEngine:
         ).select_related('seance').order_by('-seance__date_fin')[:3]
         
         if not recent_exercises.exists():
+            logger.info(f"Aucune donnée 1RM trouvée pour {self.machine.nom}")
             return None
             
         best_1rm = 0.0
@@ -91,15 +102,31 @@ class WorkoutRecommendationEngine:
                 estimated_1rm = weight * (36 / (37 - avg_reps))
                 best_1rm = max(best_1rm, estimated_1rm)
                 
+        logger.info(f"1RM calculé depuis exercices: {best_1rm}kg")
         return best_1rm if best_1rm > 0 else None
     
     def analyze_recent_performance(self) -> Dict:
         """
-        Analyse les performances récentes pour adapter la recommandation
+        Analyse les performances récentes en priorité depuis ProgressionMachine
         """
-        from .models import ExerciceSeance, SeriExercice
+        from .models import ProgressionMachine, ExerciceSeance, SeriExercice
         
-        # Récupérer les 2 dernières séances
+        # PRIORITÉ 1: Utiliser les données ProgressionMachine
+        progression = ProgressionMachine.objects.filter(
+            utilisateur=self.user,
+            machine=self.machine
+        ).order_by('-updated_at').first()
+        
+        if progression and progression.poids_actuel and progression.poids_actuel > 0:
+            logger.info(f"Performance depuis ProgressionMachine: {progression.poids_actuel}kg, taux: {progression.taux_reussite}%")
+            return {
+                'success_rate': progression.taux_reussite or 85.0,  # Valeur par défaut optimiste
+                'average_weight': progression.poids_actuel,
+                'trend': 'stable',  # Peut être amélioré plus tard avec l'historique
+                'sessions_count': progression.nombre_seances_machine or 1
+            }
+        
+        # PRIORITÉ 2: Calculer depuis les exercices récents
         recent_exercises = ExerciceSeance.objects.filter(
             seance__utilisateur=self.user,
             machine=self.machine,
@@ -107,6 +134,7 @@ class WorkoutRecommendationEngine:
         ).select_related('seance').prefetch_related('series').order_by('-seance__date_fin')[:2]
         
         if not recent_exercises.exists():
+            logger.info(f"Aucune performance trouvée, utilisation poids de base")
             return {
                 'success_rate': 0.0,
                 'average_weight': self._get_base_weight(),
@@ -142,6 +170,7 @@ class WorkoutRecommendationEngine:
         else:
             trend = 'unknown'
         
+        logger.info(f"Performance calculée: {avg_weight}kg, taux: {success_rate}%")
         return {
             'success_rate': success_rate,
             'average_weight': avg_weight,
@@ -193,6 +222,12 @@ class WorkoutRecommendationEngine:
             # Première séance ou pas assez de données
             target_weight = performance['average_weight']
         
+        # IMPORTANT: Ne jamais recommander moins que le poids actuel si l'utilisateur progresse bien
+        current_weight = performance['average_weight']
+        if current_weight > target_weight and performance['success_rate'] >= 80:
+            logger.info(f"Poids actuel ({current_weight}kg) > cible calculée ({target_weight}kg), utilisation du poids actuel")
+            target_weight = current_weight
+        
         # Ajuster selon les performances récentes
         if performance['sessions_count'] > 0:
             if performance['success_rate'] >= self.goal_config['progression_threshold']:
@@ -201,13 +236,16 @@ class WorkoutRecommendationEngine:
                     target_weight + self.machine.increment_poids,
                     self.machine.poids_maximum
                 )
+                logger.info(f"Performance excellente ({performance['success_rate']}%), augmentation à {target_weight}kg")
             elif performance['success_rate'] < 60:
                 # Performance faible : réduire
                 target_weight = max(
                     target_weight - self.machine.increment_poids,
                     self.machine.poids_minimum
                 )
-            # Sinon maintenir le poids actuel
+                logger.info(f"Performance faible ({performance['success_rate']}%), réduction à {target_weight}kg")
+            else:
+                logger.info(f"Performance stable ({performance['success_rate']}%), maintien à {target_weight}kg")
         
         # Arrondir au multiple de l'incrément
         increment = self.machine.increment_poids
