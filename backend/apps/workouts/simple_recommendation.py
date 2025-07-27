@@ -113,7 +113,7 @@ class SimpleRecommendationEngine:
             recommended_reps = min(12, max(8, base_reps))  # Entre 8 et 12 reps
             recommended_sets = min(4, max(3, base_sets))   # Entre 3 et 4 sets
             
-            # 4. Retourner la recommandation
+            # 4. Retourner la recommandation (format compatible Android)
             return {
                 'machine_id': self.machine.id,
                 'machine_nom': self.machine.nom,
@@ -124,7 +124,13 @@ class SimpleRecommendationEngine:
                 'objectif': 'PROGRESSION',
                 'source': source,
                 'notes': f"Basé sur {source}",
-                'peut_progresser': True
+                'peut_progresser': True,
+                # Champs compatibilité Android
+                'dernier_1rm': progression.dernier_1rm if progression else None,
+                'nombre_seances': progression.nombre_seances_machine if progression else 0,
+                'progression_totale': recommended_weight - base_weight if progression else 0.0,
+                'taux_reussite': progression.taux_reussite if progression else 0.0,
+                'derniere_progression': source
             }
             
         except Exception as e:
@@ -214,7 +220,13 @@ class SimpleRecommendationEngine:
             'objectif': 'DEBUTANT',
             'source': 'fallback',
             'notes': 'Recommandation de base - effectuez quelques séances pour personnaliser',
-            'peut_progresser': True
+            'peut_progresser': True,
+            # Champs compatibilité Android
+            'dernier_1rm': None,
+            'nombre_seances': 0,
+            'progression_totale': 0.0,
+            'taux_reussite': 0.0,
+            'derniere_progression': 'fallback'
         }
 
 def get_simple_recommendation(user, machine_id: int) -> Dict:
