@@ -49,19 +49,28 @@ def get_recommendation_simple(request, machine_id):
         # Obtenir la recommandation
         result = get_simple_recommendation(request.user, machine_id)
         
+        # Maintenir la compatibilité avec le format ApiResponse Android
         if result['success']:
-            return Response(result['data'], status=status.HTTP_200_OK)
+            return Response({
+                'success': True,
+                'data': result['data'],
+                'message': 'Recommandation générée avec succès'
+            }, status=status.HTTP_200_OK)
         else:
             return Response({
                 'success': False,
-                'error': result['error']
+                'data': None,
+                'error': result['error'],
+                'message': result['error']
             }, status=status.HTTP_400_BAD_REQUEST)
             
     except Exception as e:
         logger.error(f"Erreur endpoint recommandation: {e}")
         return Response({
             'success': False,
-            'error': 'Erreur interne du serveur'
+            'data': None,
+            'error': 'Erreur interne du serveur',
+            'message': 'Erreur interne du serveur'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @csrf_exempt
@@ -82,19 +91,28 @@ def get_recommendation_by_name_simple(request, machine_name):
         # Obtenir la recommandation
         result = get_simple_recommendation_by_name(request.user, machine_name)
         
+        # Maintenir la compatibilité avec le format ApiResponse Android
         if result['success']:
-            return Response(result['data'], status=status.HTTP_200_OK)
+            return Response({
+                'success': True,
+                'data': result['data'],
+                'message': 'Recommandation générée avec succès'
+            }, status=status.HTTP_200_OK)
         else:
             return Response({
                 'success': False,
-                'error': result['error']
+                'data': None,
+                'error': result['error'],
+                'message': result['error']
             }, status=status.HTTP_400_BAD_REQUEST)
             
     except Exception as e:
         logger.error(f"Erreur endpoint recommandation par nom: {e}")
         return Response({
             'success': False,
-            'error': 'Erreur interne du serveur'
+            'data': None,
+            'error': 'Erreur interne du serveur',
+            'message': 'Erreur interne du serveur'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @csrf_exempt
@@ -131,5 +149,7 @@ def test_recommendation_system(request):
         logger.error(f"Erreur test système: {e}")
         return Response({
             'success': False,
-            'error': str(e)
+            'data': None,
+            'error': str(e),
+            'message': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

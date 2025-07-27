@@ -121,7 +121,8 @@ data class RecommendationResponse(
     val progression_totale: Double,
     val taux_reussite: Double,
     val derniere_progression: String?,
-    val source: String
+    val source: String,
+    val notes: String = ""
 )
 
 // ==============================================
@@ -141,7 +142,7 @@ interface BasicFitApi {
     suspend fun getProfile(): AuthResponse
 
     // Workouts
-    @POST("workouts/sauvegarder/")
+    @POST("workouts/save/")
     suspend fun saveWorkout(@Body request: WorkoutRequest): ApiResponse<Any>
     
     // Nouveau: Planifier une séance (calendrier)
@@ -158,14 +159,17 @@ interface BasicFitApi {
 
 
 
-    @GET("workouts/recommendation/{machine_id}/")
+    @GET("workouts/recommendation/id/{machine_id}/")
     suspend fun getRecommendation(@Path("machine_id") machineId: Int): ApiResponse<RecommendationResponse>
 
-    @GET("workouts/recommendation/{machine_name}/")
+    @GET("workouts/recommendation/name/{machine_name}/")
     suspend fun getRecommendationByName(@Path("machine_name") machineName: String): ApiResponse<RecommendationResponse>
 
     @GET("users/android/ping/")
     suspend fun ping(): retrofit2.Response<Void>
+    
+    @POST("workouts/progressions/force-update/")
+    suspend fun forceProgressionUpdate(): ApiResponse<Any>
 }
 
 // ==============================================
