@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from django.utils import timezone
 from datetime import timedelta, datetime
 from django.utils.dateparse import parse_datetime
+from django.views.decorators.csrf import csrf_exempt
 
 from .models import SeanceEntrainement, ExerciceSeance, SeriExercice, ProgressionMachine
 from .workout_service import WorkoutSaveService
@@ -491,6 +492,7 @@ class MachineViewSet(viewsets.ReadOnlyModelViewSet):
         return Response({'groupes': list(groupes)})
 
 
+@csrf_exempt
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def force_progression_update(request):
@@ -519,8 +521,8 @@ def force_progression_update(request):
                     exercises.append({
                         'nom': exercice.machine.nom,
                         'series': exercice.nombre_series,
-                        'reps': last_serie.repetitions,
-                        'poids': last_serie.poids
+                        'reps': last_serie.repetitions_realisees,
+                        'poids': last_serie.poids_utilise
                     })
             
             if exercises:
