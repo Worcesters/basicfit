@@ -3,7 +3,7 @@ URLs pour l'API des entraînements - Version professionnelle refactorisée
 """
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from . import views_refactored
+from . import views_refactored, views_simple
 
 # Router pour les ViewSets
 router = DefaultRouter()
@@ -19,9 +19,9 @@ urlpatterns = [
     # Sauvegarde des séances (remplace l'ancien endpoint)
     path('save/', views_refactored.save_workout_professional, name='save-workout-professional'),
     
-    # Recommandations (nouveau système)
-    path('recommendation/id/<int:machine_id>/', views_refactored.get_recommendation_professional, name='get-recommendation-by-id-pro'),
-    path('recommendation/name/<str:machine_name>/', views_refactored.get_recommendation_by_name_professional, name='get-recommendation-by-name-pro'),
+    # Recommandations (système simplifié avec authentification robuste)
+    path('recommendation/id/<int:machine_id>/', views_simple.get_recommendation_simple, name='get-recommendation-by-id-simple'),
+    path('recommendation/name/<str:machine_name>/', views_simple.get_recommendation_by_name_simple, name='get-recommendation-by-name-simple'),
     
     # Force la mise à jour des progressions
     path('progressions/force-update/', views_refactored.force_progression_update, name='force-progression-update'),
@@ -32,10 +32,10 @@ urlpatterns = [
     
     # ===== ENDPOINTS DE COMPATIBILITÉ (Anciens endpoints maintenus) =====
     
-    # Ancien endpoint (maintenu pour compatibilité, mais utilise le nouveau système)
+    # Ancien endpoint (maintenu pour compatibilité, mais utilise le système simplifié)
     path('sauvegarder/', views_refactored.save_workout_professional, name='sauvegarder-seance-legacy'),
-    path('recommendation/<int:machine_id>/', views_refactored.get_recommendation_professional, name='get-recommendation-by-id-legacy'),
-    path('recommendation/<str:machine_name>/', views_refactored.get_recommendation_by_name_professional, name='get-recommendation-legacy'),
+    path('recommendation/<int:machine_id>/', views_simple.get_recommendation_simple, name='get-recommendation-by-id-legacy'),
+    path('recommendation/<str:machine_name>/', views_simple.get_recommendation_by_name_simple, name='get-recommendation-legacy'),
 
     # ===== ENDPOINTS D'INFORMATION =====
     
@@ -46,4 +46,9 @@ urlpatterns = [
     
     # Nettoyage des doublons (à utiliser une seule fois)
     path('cleanup/duplicates/', views_refactored.cleanup_duplicate_sessions, name='cleanup-duplicates'),
+    
+    # ===== ENDPOINTS DE TEST (Système simplifié) =====
+    
+    # Test du système de recommandation
+    path('test/recommendation/', views_simple.test_recommendation_system, name='test-recommendation-system'),
 ]
