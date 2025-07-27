@@ -23,6 +23,9 @@ urlpatterns = [
     path('recommendation/id/<int:machine_id>/', views_refactored.get_recommendation_professional, name='get-recommendation-by-id-pro'),
     path('recommendation/name/<str:machine_name>/', views_refactored.get_recommendation_by_name_professional, name='get-recommendation-by-name-pro'),
     
+    # Force la mise à jour des progressions
+    path('progressions/force-update/', views_refactored.force_progression_update, name='force-progression-update'),
+    
     # Calendrier (nouveau système)
     path('calendar/', views_refactored.get_calendar_sessions_professional, name='get-calendar-sessions-pro'),
     path('calendar/plan/', views_refactored.plan_session_professional, name='plan-session-pro'),

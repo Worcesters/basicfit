@@ -143,6 +143,58 @@ class MachineViewSet(viewsets.ReadOnlyModelViewSet):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def force_progression_update(request):
+    """Force la mise à jour des progressions pour toutes les séances terminées de l'utilisateur"""
+    try:
+        user = request.user
+        
+        # Récupérer toutes les séances terminées récentes (7 derniers jours)
+        from datetime import timedelta
+        recent_sessions = SeanceEntrainement.objects.filter(
+            utilisateur=user,
+            statut='TERMINEE',
+            date_debut__gte=timezone.now() - timedelta(days=7)
+        ).prefetch_related('exercices')
+        
+        updated_count = 0
+        save_service = WorkoutSaveService()
+        
+        for session in recent_sessions:
+            # Convertir les exercices au format attendu
+            exercises = []
+            for exercice in session.exercices.all():
+                if exercice.series.exists():
+                    # Prendre les valeurs de la dernière série
+                    last_serie = exercice.series.last()
+                    exercises.append({
+                        'nom': exercice.machine.nom,
+                        'series': exercice.nombre_series,
+                        'reps': last_serie.repetitions,
+                        'poids': last_serie.poids
+                    })
+            
+            if exercises:
+                save_service._update_machine_progressions(user, exercises)
+                updated_count += 1
+        
+        logger.info(f"Mise à jour forcée des progressions: {updated_count} séances traitées")
+        
+        return Response({
+            'success': True,
+            'updated_sessions': updated_count,
+            'message': f'Progressions mises à jour pour {updated_count} séances'
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur mise à jour forcée: {e}")
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def save_workout_professional(request):
     """
     Endpoint professionnel pour sauvegarder les séances
@@ -488,3 +540,55 @@ class MachineViewSet(viewsets.ReadOnlyModelViewSet):
         """Liste des groupes musculaires disponibles"""
         groupes = Machine.objects.values_list('groupe_musculaire', flat=True).distinct()
         return Response({'groupes': list(groupes)})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def force_progression_update(request):
+    """Force la mise à jour des progressions pour toutes les séances terminées de l'utilisateur"""
+    try:
+        user = request.user
+        
+        # Récupérer toutes les séances terminées récentes (7 derniers jours)
+        from datetime import timedelta
+        recent_sessions = SeanceEntrainement.objects.filter(
+            utilisateur=user,
+            statut='TERMINEE',
+            date_debut__gte=timezone.now() - timedelta(days=7)
+        ).prefetch_related('exercices')
+        
+        updated_count = 0
+        save_service = WorkoutSaveService()
+        
+        for session in recent_sessions:
+            # Convertir les exercices au format attendu
+            exercises = []
+            for exercice in session.exercices.all():
+                if exercice.series.exists():
+                    # Prendre les valeurs de la dernière série
+                    last_serie = exercice.series.last()
+                    exercises.append({
+                        'nom': exercice.machine.nom,
+                        'series': exercice.nombre_series,
+                        'reps': last_serie.repetitions,
+                        'poids': last_serie.poids
+                    })
+            
+            if exercises:
+                save_service._update_machine_progressions(user, exercises)
+                updated_count += 1
+        
+        logger.info(f"Mise à jour forcée des progressions: {updated_count} séances traitées")
+        
+        return Response({
+            'success': True,
+            'updated_sessions': updated_count,
+            'message': f'Progressions mises à jour pour {updated_count} séances'
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur mise à jour forcée: {e}")
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
