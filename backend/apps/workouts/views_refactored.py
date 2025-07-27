@@ -475,3 +475,16 @@ def cleanup_duplicate_sessions(request):
         return Response({
             'error': 'Erreur lors du nettoyage'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class MachineViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet pour les machines (lecture seule)"""
+    queryset = Machine.objects.all()
+    serializer_class = MachineSerializer
+    permission_classes = [AllowAny]
+
+    @action(detail=False, methods=['get'])
+    def groupes_musculaires(self, request):
+        """Liste des groupes musculaires disponibles"""
+        groupes = Machine.objects.values_list('groupe_musculaire', flat=True).distinct()
+        return Response({'groupes': list(groupes)})
