@@ -36,6 +36,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 
 @Composable
 fun CalendarScreen(
@@ -357,7 +362,7 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
             date = date,
             mode = "Import CSV",
             exercises = records,
-            duration = 0,
+            duration = 0, // Durée 0 = séance planifiée (non terminée)
             totalWeight = records.sumOf { it.weight * it.reps }
         )
     }

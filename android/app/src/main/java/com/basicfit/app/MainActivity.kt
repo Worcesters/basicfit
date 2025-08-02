@@ -2939,7 +2939,7 @@ fun WorkoutInProgressScreen(
                     }
                     android.util.Log.d("Recommendation", "Recalcul des recommandations pour ${machine.nom} avec objectif: $goalObjective")
                     
-                    // Utiliser directement le calcul local pour l'instant (l'API sera utilisée ailleurs)
+                    // Utiliser directement le calcul local pour l'instant (l'API sera utilisée en temps réel dans CurrentExerciseCard)
                     val recommendation = calculateWorkoutRecommendations(
                         machine = machine,
                         workoutHistory = workoutHistory.map { it.toWorkoutSession() },
@@ -3478,28 +3478,53 @@ fun CurrentExerciseCard(
     var weight by remember { mutableStateOf("") }
     var reps by remember { mutableStateOf("") }
     var duration by remember { mutableStateOf("") }
+    
+    // État pour la recommandation API
+    var apiRecommendation by remember { mutableStateOf<ExerciseRecommendation?>(null) }
+    var isLoadingRecommendation by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    // Charger la recommandation depuis l'API
+    LaunchedEffect(exerciseSession.machine.id) {
+        isLoadingRecommendation = true
+        try {
+            android.util.Log.d("CurrentExercise", "🔄 Chargement recommandation API pour: ${exerciseSession.machine.nom}")
+            val rec = getRecommendationFromAPI(exerciseSession.machine.id, context)
+            if (rec != null) {
+                apiRecommendation = rec
+                android.util.Log.d("CurrentExercise", "✅ Recommandation API chargée: ${rec.weight}kg")
+            } else {
+                android.util.Log.w("CurrentExercise", "⚠️ Pas de recommandation API disponible")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("CurrentExercise", "❌ Erreur recommandation API: ${e.message}")
+        } finally {
+            isLoadingRecommendation = false
+        }
+    }
 
     // Préremplissage selon la progression des séries
-    LaunchedEffect(exerciseSession.sets.size) {
+    LaunchedEffect(exerciseSession.sets.size, apiRecommendation) {
         if (exerciseSession.sets.isNotEmpty()) {
             val last = exerciseSession.sets.last()
             weight = String.format(java.util.Locale.US, "%.1f", last.weight).trimEnd('0').trimEnd('.')
             reps = last.reps.toString()
         } else {
-            weight = String.format(java.util.Locale.US, "%.1f", exerciseSession.recommendedWeight).trimEnd('0').trimEnd('.')
-            reps = exerciseSession.targetReps.toString()
+            // Utiliser l'API en priorité, sinon la valeur par défaut
+            val recommendedWeight = apiRecommendation?.weight ?: exerciseSession.recommendedWeight
+            weight = String.format(java.util.Locale.US, "%.1f", recommendedWeight).trimEnd('0').trimEnd('.')
+            reps = (apiRecommendation?.reps ?: exerciseSession.targetReps).toString()
         }
     }
 
-    val recommendation = remember(exerciseSession) {
-        ExerciseRecommendation(
-            sets = exerciseSession.targetSets,
-            reps = exerciseSession.targetReps,
-            weight = exerciseSession.recommendedWeight,
-            restTime = exerciseSession.restTime,
-            notes = "💪 Recommandation personnalisée • Technique contrôlée • Progression adaptée"
-        )
-    }
+    // Utiliser la recommandation API si disponible, sinon les valeurs par défaut
+    val recommendation = apiRecommendation ?: ExerciseRecommendation(
+        sets = exerciseSession.targetSets,
+        reps = exerciseSession.targetReps,
+        weight = exerciseSession.recommendedWeight,
+        restTime = exerciseSession.restTime,
+        notes = "💪 Recommandation personnalisée • Technique contrôlée • Progression adaptée"
+    )
 
     // Vérifier si c'est une machine cardio ou un exercice basé sur le temps
     val isCardioMachine = exerciseSession.machine.categorie == CategorieMachine.CARDIO ||
@@ -3514,10 +3539,14 @@ fun CurrentExerciseCard(
         exerciseSession.machine.nom.contains("Push-up", ignoreCase = true) ||
         exerciseSession.machine.nom.contains("Pompe", ignoreCase = true)
 
-    // Afficher un message si pas de poids recommandé
+    // Afficher un message si pas de poids recommandé (utiliser API en priorité)
+    val actualRecommendedWeight = apiRecommendation?.weight ?: exerciseSession.recommendedWeight
     val weightDisplay = when {
-        exerciseSession.recommendedWeight > 0 -> "${exerciseSession.recommendedWeight.toInt()} kg"
-        exerciseSession.recommendedWeight == 0.0 -> {
+        actualRecommendedWeight > 0 -> {
+            val source = if (apiRecommendation != null) "API" else "local"
+            "${actualRecommendedWeight.toInt()} kg ${if (isLoadingRecommendation) "(chargement...)" else "($source)"}"
+        }
+        actualRecommendedWeight == 0.0 -> {
             // Calculer une suggestion de poids de départ
             val suggestedWeight = calculateStartingWeight(exerciseSession.machine, profileData)
             if (suggestedWeight > 0) "${suggestedWeight.toInt()}kg (suggestion)" else "Poids à déterminer"
@@ -3653,8 +3682,8 @@ fun CurrentExerciseCard(
                             color = Color(0xFF666666)
                         )
 
-                        // Afficher une suggestion si pas d'historique
-                        if (exerciseSession.recommendedWeight == 0.0) {
+                        // Afficher une suggestion si pas d'historique (utiliser API en priorité)
+                        if (actualRecommendedWeight == 0.0) {
                             val suggestedWeight = calculateStartingWeight(exerciseSession.machine, profileData)
                             if (suggestedWeight > 0) {
                                 Text(

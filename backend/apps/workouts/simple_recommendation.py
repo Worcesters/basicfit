@@ -85,7 +85,15 @@ class SimpleRecommendationEngine:
             progression = self.get_user_progression()
             recent_workouts = self.get_recent_workouts()
             
-            # 2. Déterminer le poids de base
+            # 2. Vérifier s'il y a des données d'entraînement
+            has_workout_data = bool(progression and progression.poids_actuel > 0) or bool(recent_workouts)
+            
+            if not has_workout_data:
+                # Aucune donnée d'entraînement trouvée
+                logger.info(f"Aucune séance trouvée pour {self.machine.nom}")
+                return self._get_no_data_response()
+            
+            # 3. Déterminer le poids de base
             if progression and progression.poids_actuel > 0:
                 base_weight = progression.poids_actuel
                 base_reps = progression.repetitions_actuelles
@@ -101,19 +109,15 @@ class SimpleRecommendationEngine:
                 source = "dernière séance"
                 logger.info(f"Base sur dernière séance: {base_weight}kg")
             else:
-                # Valeurs par défaut pour débutant
-                base_weight = self._get_default_weight()
-                base_reps = 10
-                base_sets = 3
-                source = "défaut débutant"
-                logger.info(f"Base par défaut: {base_weight}kg")
+                # Ne devrait pas arriver grâce à la vérification has_workout_data
+                return self._get_no_data_response()
             
-            # 3. Calculer la progression
+            # 4. Calculer la progression
             recommended_weight = self._calculate_progression(base_weight, progression, recent_workouts)
             recommended_reps = min(12, max(8, base_reps))  # Entre 8 et 12 reps
-            recommended_sets = min(4, max(3, base_sets))   # Entre 3 et 4 sets
+            recommended_sets = min(4, max(3, base_sets))   # Entre 3 et 4 sets - FIX BUG 6 séries
             
-            # 4. Retourner la recommandation (format compatible Android)
+            # 5. Retourner la recommandation (format compatible Android)
             return {
                 'machine_id': self.machine.id,
                 'machine_nom': self.machine.nom,
@@ -208,6 +212,28 @@ class SimpleRecommendationEngine:
         
         return 20.0  # Défaut général
     
+    def _get_no_data_response(self) -> Dict:
+        """Réponse quand aucune donnée d'entraînement n'est trouvée"""
+        return {
+            'machine_id': self.machine.id,
+            'machine_nom': self.machine.nom,
+            'poids_recommande': None,
+            'series_recommandees': None,
+            'reps_recommandees': None,
+            'repos_recommande': None,
+            'objectif': 'AUCUNE_DONNEE',
+            'source': 'no_data',
+            'notes': 'Aucune recommandation pour cette machine',
+            'peut_progresser': False,
+            'message': 'Aucune recommandation pour cette machine',
+            # Champs compatibilité Android
+            'dernier_1rm': None,
+            'nombre_seances': 0,
+            'progression_totale': 0.0,
+            'taux_reussite': 0.0,
+            'derniere_progression': 'no_data'
+        }
+
     def _get_fallback_recommendation(self) -> Dict:
         """Recommandation de secours en cas d'erreur"""
         return {

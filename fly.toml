@@ -1,0 +1,48 @@
+# fly.toml - Configuration Fly.io pour BasicFit v2
+# Documentation: https://fly.io/docs/reference/configuration/
+
+app = "basicfit-v2"
+primary_region = "cdg"  # Paris (plus proche de la France)
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  DJANGO_SETTINGS_MODULE = "basicfit_project.settings.flyio"
+  PORT = "8000"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+  # Configuration pour l'application Django
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/api/"
+
+[processes]
+  web = "python manage.py migrate && gunicorn basicfit_project.wsgi:application --bind 0.0.0.0:8000"
+
+# Configuration des machines
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+# Variables d'environnement sécurisées (à définir via flyctl secrets)
+# flyctl secrets set SECRET_KEY=your-secret-key
+# flyctl secrets set DATABASE_URL=postgres://...
+# flyctl secrets set CLOUDINARY_CLOUD_NAME=your-cloud-name
+# flyctl secrets set CLOUDINARY_API_KEY=your-api-key
+# flyctl secrets set CLOUDINARY_API_SECRET=your-api-secret
+
+# Volume pour les fichiers persistants (optionnel)
+# [[mounts]]
+#   source = "basicfit_data"
+#   destination = "/app/data"

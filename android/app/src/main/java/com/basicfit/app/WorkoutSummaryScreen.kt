@@ -578,6 +578,7 @@ fun NextRecommendationsCard(
                     // État pour la recommandation
                     var recommendation by remember { mutableStateOf<ExerciseRecommendation?>(null) }
                     var isLoading by remember { mutableStateOf(true) }
+                    var debugInfo by remember { mutableStateOf("🔍 Chargement...") }
 
                     // Charger les machines et la recommandation
                     LaunchedEffect(exercise.name) {
@@ -625,14 +626,18 @@ fun NextRecommendationsCard(
 
                             while (apiRecommendation == null && retryCount < maxRetries) {
                                 try {
+                                    debugInfo = "🔍 Tentative ${retryCount + 1} API pour: ${exercise.name}"
                                     android.util.Log.d("WorkoutSummary", "🔍 Tentative ${retryCount + 1} de récupération API pour: ${exercise.name}")
                                     apiRecommendation = getRecommendationFromAPI(machine.id, context)
 
                                     if (apiRecommendation != null) {
-                                        android.util.Log.d("WorkoutSummary", "✅ Utilisation recommandation API: ${apiRecommendation.weight}kg")
+                                        debugInfo = "✅ API: ${apiRecommendation.weight}kg reçu"
+                                        android.util.Log.d("WorkoutSummary", "✅ SUCCÈS API - Recommandation reçue: ${apiRecommendation.weight}kg pour ${exercise.name}")
+                                        android.util.Log.d("WorkoutSummary", "   Détails API: ${apiRecommendation.sets} séries, ${apiRecommendation.reps} reps, repos ${apiRecommendation.restTime}s")
                                         recommendation = apiRecommendation
                                         break
                                     } else {
+                                        debugInfo = "⚠️ API null, tentative ${retryCount + 1}"
                                         android.util.Log.w("WorkoutSummary", "⚠️ API retourne null, tentative ${retryCount + 1}")
                                         retryCount++
                                         if (retryCount < maxRetries) {
@@ -640,6 +645,7 @@ fun NextRecommendationsCard(
                                         }
                                     }
                                 } catch (e: Exception) {
+                                    debugInfo = "❌ Erreur API: ${e.message}"
                                     android.util.Log.e("WorkoutSummary", "❌ Erreur API tentative ${retryCount + 1}: ${e.message}")
                                     retryCount++
                                     if (retryCount < maxRetries) {
@@ -650,12 +656,14 @@ fun NextRecommendationsCard(
 
                             // Si l'API échoue après tous les retries, utiliser le fallback local
                             if (apiRecommendation == null) {
+                                debugInfo = "⚠️ API échouée, calcul local"
                                 android.util.Log.w("WorkoutSummary", "⚠️ API échouée après ${maxRetries} tentatives, utilisation calcul local")
                                 recommendation = calculateWorkoutRecommendations(
                                     machine = machine,
                                     workoutHistory = workoutHistory.map { it.toWorkoutSession() },
                                     profileData = profileData
                                 )
+                                debugInfo = "📊 Calcul local: ${recommendation?.weight}kg"
                                 android.util.Log.d("WorkoutSummary", "📊 Calcul local: ${recommendation?.weight}kg")
                             }
                         } catch (e: Exception) {
@@ -676,7 +684,12 @@ fun NextRecommendationsCard(
                     } else {
                         // Utiliser la recommandation de l'API ou le fallback intelligent
                         val reco = if (recommendation != null) {
-                            recommendation
+                            val rec = recommendation
+                            android.util.Log.d("WorkoutSummary", "🔍 DEBUG: recommendation n'est pas null")
+                            android.util.Log.d("WorkoutSummary", "🔍 DEBUG: recommendation.weight = ${rec?.weight}")
+                            android.util.Log.d("WorkoutSummary", "🔍 DEBUG: recommendation.sets = ${rec?.sets}")
+                            android.util.Log.d("WorkoutSummary", "🔍 DEBUG: recommendation.reps = ${rec?.reps}")
+                            rec
                         } else {
                             // Fallback intelligent basé sur l'historique
                             val machine = machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) }
@@ -708,11 +721,16 @@ fun NextRecommendationsCard(
                         }
 
                         android.util.Log.d("WorkoutSummary", "🎯 Recommandation finale pour ${exercise.name}: ${reco?.weight}kg")
+                        android.util.Log.d("WorkoutSummary", "🔍 DEBUG FINAL: reco.weight = ${reco?.weight}, reco.sets = ${reco?.sets}, reco.reps = ${reco?.reps}")
+                        android.util.Log.d("WorkoutSummary", "🔍 DEBUG FINAL: recommendation était null? ${recommendation == null}")
                         if (reco?.weight == 20.0 && recommendation == null) {
                             android.util.Log.w("WorkoutSummary", "⚠️ FALBACK 20kg utilisé pour ${exercise.name} - API non disponible")
                         }
 
                         val poids = if (reco?.weight != null && reco.weight > 0) {
+                            val source = if (recommendation != null) "API" else "LOCAL"
+                            debugInfo = "🚀 FINAL: ${reco.weight.toInt()}kg ($source)"
+                            android.util.Log.d("WorkoutSummary", "🚀 AFFICHAGE FINAL: ${reco.weight.toInt()}kg pour ${exercise.name} (source: $source)")
                             "${reco.weight.toInt()}kg"
                         } else {
                             // Calculer une suggestion de poids de départ
@@ -746,6 +764,14 @@ fun NextRecommendationsCard(
                         fontSize = 14.sp,
                         color = Color(0xFF2E2E2E),
                         modifier = Modifier.padding(vertical = 2.dp)
+                    )
+                    
+                    // DEBUG INFO - À afficher temporairement
+                    Text(
+                        text = "DEBUG: $debugInfo",
+                        fontSize = 10.sp,
+                        color = Color.Red,
+                        modifier = Modifier.padding(start = 16.dp, top = 2.dp)
                     )
 
                         // Afficher les notes de recommandation si disponibles

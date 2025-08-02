@@ -554,7 +554,7 @@ def get_recommendation_by_id(request, machine_id):
 
             # Utiliser le poids actuel stocké dans la progression (déjà calculé)
             poids_recommande = progression.poids_actuel
-            series_recommandees = progression.series_actuelles
+            series_recommandees = min(4, max(3, progression.series_actuelles))  # Limite 3-4 séries
             reps_recommandees = progression.repetitions_actuelles
 
             # Ajuster selon l'objectif
@@ -708,7 +708,7 @@ def get_recommendation(request, machine_name):
 
             # Utiliser le poids actuel stocké dans la progression (déjà calculé)
             poids_recommande = progression.poids_actuel
-            series_recommandees = progression.series_actuelles
+            series_recommandees = min(4, max(3, progression.series_actuelles))  # Limite 3-4 séries
             reps_recommandees = progression.repetitions_actuelles
 
             # Ajuster selon l'objectif
