@@ -9,7 +9,7 @@ def test_recommendations_complete():
     """Test des recommandations avec le vrai utilisateur"""
     print("=== TEST COMPLET DES RECOMMANDATIONS ===")
     
-    base_url = "https://basicfit-production.up.railway.app/api"
+    base_url = "https://basicfit-v2.fly.dev/api"
     
     # Login avec le compte utilisateur réel
     print("1. Login utilisateur...")

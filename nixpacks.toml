@@ -5,12 +5,12 @@ python = "3.11"
 cmds = [
   "cd backend",
   "pip install -r requirements.txt", 
-  "python manage.py collectstatic --noinput --settings=basicfit_project.settings.railway"
+  "python manage.py collectstatic --noinput --settings=basicfit_project.settings.production"
 ]
 
 [phases.start]
-cmd = "cd backend && python manage.py migrate --settings=basicfit_project.settings.railway && python manage.py runserver 0.0.0.0:$PORT --settings=basicfit_project.settings.railway"
+cmd = "cd backend && python manage.py migrate --settings=basicfit_project.settings.production && python manage.py runserver 0.0.0.0:$PORT --settings=basicfit_project.settings.production"
 
 [variables]
-DJANGO_SETTINGS_MODULE = "basicfit_project.settings.railway"
+DJANGO_SETTINGS_MODULE = "basicfit_project.settings.production"
 DEBUG = "False"

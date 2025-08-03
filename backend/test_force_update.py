@@ -6,7 +6,7 @@ import os
 import django
 
 # Configuration Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'basicfit_project.settings.railway')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'basicfit_project.settings.production')
 django.setup()
 
 from django.contrib.auth import get_user_model

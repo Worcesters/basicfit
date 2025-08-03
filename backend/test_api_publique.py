@@ -20,14 +20,14 @@ def test_api_publique():
     print("🌐 TEST API RECOMMANDATION PUBLIQUE")
     print("=" * 50)
 
-    RAILWAY_URL = "https://basicfit-production.up.railway.app"
+    FLYIO_URL = "https://basicfit-v2.fly.dev"
 
     # Test sans authentification (comme l'app Android)
     print("🔍 Test SANS authentification (comme Android):")
 
     try:
         # Test par ID
-        url_id = f"{RAILWAY_URL}/api/workouts/recommendation/1/"
+        url_id = f"{FLYIO_URL}/api/workouts/recommendation/1/"
         response = requests.get(url_id, timeout=10)
         print(f"   URL ID: {url_id}")
         print(f"   Status: {response.status_code}")
@@ -47,7 +47,7 @@ def test_api_publique():
     try:
         # Test par nom
         machine_name = "Développé%20couché"  # Encoder les espaces
-        url_name = f"{RAILWAY_URL}/api/workouts/recommendation/{machine_name}/"
+        url_name = f"{FLYIO_URL}/api/workouts/recommendation/{machine_name}/"
         response = requests.get(url_name, timeout=10)
         print(f"   URL Nom: {url_name}")
         print(f"   Status: {response.status_code}")

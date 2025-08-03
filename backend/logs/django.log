@@ -49,3 +49,67 @@ INFO 2025-08-03 22:21:09,133 basehttp 25316 14352 "GET /api/workouts/recommendat
 INFO 2025-08-03 22:36:59,385 views_simple 25316 12904 Demande recommandation générique pour machine 'Supine Press' (utilisateur anonyme)
 INFO 2025-08-03 22:36:59,389 basehttp 25316 12904 "GET /api/workouts/recommendation/name/Supine%20Press/ HTTP/1.1" 200 532
 INFO 2025-08-03 22:39:19,743 basehttp 25316 8796 "GET /api/workouts/info/ HTTP/1.1" 200 130
+INFO 2025-08-03 22:48:04,508 views_simple 25316 21960 Demande recommandation générique pour machine 'D%E9velopp%E9 couch%E9' (utilisateur anonyme)
+WARNING 2025-08-03 22:48:04,511 log 25316 21960 Bad Request: /api/workouts/recommendation/name/D%E9velopp%E9 couch%E9/
+WARNING 2025-08-03 22:48:04,511 basehttp 25316 21960 "GET /api/workouts/recommendation/name/D%e9velopp%e9%20couch%e9/ HTTP/1.1" 400 147
+INFO 2025-08-03 22:48:17,101 views_simple 25316 3444 Demande recommandation générique pour machine 'Supine Press' (utilisateur anonyme)
+INFO 2025-08-03 22:48:17,103 basehttp 25316 3444 "GET /api/workouts/recommendation/name/Supine%20Press/ HTTP/1.1" 200 532
+INFO 2025-08-03 22:48:38,084 autoreload 28412 14580 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:48:38,098 autoreload 25316 4372 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:48:38,474 autoreload 5032 8256 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:48:38,476 autoreload 19428 13164 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:48:38,684 autoreload 3300 16028 Watching for file changes with StatReloader
+INFO 2025-08-03 22:48:38,707 autoreload 19360 2532 Watching for file changes with StatReloader
+INFO 2025-08-03 22:48:39,088 autoreload 26728 10852 Watching for file changes with StatReloader
+INFO 2025-08-03 22:48:39,088 autoreload 28380 19300 Watching for file changes with StatReloader
+INFO 2025-08-03 22:48:42,586 autoreload 3300 16028 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:48:42,598 autoreload 19360 2532 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:48:42,992 autoreload 26728 10852 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:48:42,999 autoreload 28380 19300 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:48:43,178 autoreload 10116 10936 Watching for file changes with StatReloader
+INFO 2025-08-03 22:48:43,184 autoreload 23732 5980 Watching for file changes with StatReloader
+INFO 2025-08-03 22:48:43,580 autoreload 17284 12092 Watching for file changes with StatReloader
+INFO 2025-08-03 22:48:43,586 autoreload 25792 24408 Watching for file changes with StatReloader
+INFO 2025-08-03 22:48:46,065 autoreload 10116 10936 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:48:46,067 autoreload 23732 5980 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:48:46,439 autoreload 25792 24408 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:48:46,452 autoreload 17284 12092 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:48:46,664 autoreload 15644 10604 Watching for file changes with StatReloader
+INFO 2025-08-03 22:48:46,664 autoreload 27972 19672 Watching for file changes with StatReloader
+INFO 2025-08-03 22:48:47,040 autoreload 17084 20668 Watching for file changes with StatReloader
+INFO 2025-08-03 22:48:47,054 autoreload 12716 13548 Watching for file changes with StatReloader
+INFO 2025-08-03 22:48:58,161 autoreload 17084 20668 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:48:58,168 autoreload 12716 13548 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:48:58,714 autoreload 1612 26536 Watching for file changes with StatReloader
+INFO 2025-08-03 22:48:58,714 autoreload 24420 28492 Watching for file changes with StatReloader
+INFO 2025-08-03 22:48:58,861 autoreload 15644 10604 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:48:58,878 autoreload 27972 19672 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:48:59,421 autoreload 12884 4572 Watching for file changes with StatReloader
+INFO 2025-08-03 22:48:59,434 autoreload 22752 22168 Watching for file changes with StatReloader
+INFO 2025-08-03 22:49:05,248 views_simple 22752 25104 Demande recommandation générique pour machine 'Développé couché' (utilisateur anonyme)
+INFO 2025-08-03 22:49:05,252 basehttp 22752 25104 "GET /api/workouts/recommendation/name/D%C3%A9velopp%C3%A9%20couch%C3%A9/ HTTP/1.1" 200 539
+INFO 2025-08-03 22:52:43,056 views_simple 22752 17372 Demande recommandation générique pour machine 'Supine Press' (utilisateur anonyme)
+INFO 2025-08-03 22:52:43,060 basehttp 22752 17372 "GET /api/workouts/recommendation/name/Supine%20Press/ HTTP/1.1" 200 532
+INFO 2025-08-03 22:53:05,706 simple_recommendation 15700 11532 Progression trouvée: 60.0kg x 12
+INFO 2025-08-03 22:53:05,710 simple_recommendation 15700 11532 Trouvé 2 séances récentes
+INFO 2025-08-03 22:53:05,710 simple_recommendation 15700 11532 Base sur progression: 60.0kg
+INFO 2025-08-03 22:53:05,710 simple_recommendation 15700 11532 Recommandation générée pour test@example.com - Supine Press: 56.4kg
+INFO 2025-08-03 22:54:55,382 autoreload 1612 26536 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:54:55,893 autoreload 24420 28492 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:54:55,958 autoreload 12380 13356 Watching for file changes with StatReloader
+INFO 2025-08-03 22:54:55,985 autoreload 12884 4572 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:54:55,991 autoreload 22752 22168 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 22:54:56,491 autoreload 16468 11696 Watching for file changes with StatReloader
+INFO 2025-08-03 22:54:56,597 autoreload 24652 12088 Watching for file changes with StatReloader
+INFO 2025-08-03 22:54:56,597 autoreload 5332 13676 Watching for file changes with StatReloader
+INFO 2025-08-03 22:56:14,996 simple_recommendation 20224 17284 Vérification séances pour Squat: 0 séances trouvées
+INFO 2025-08-03 22:56:22,210 views_simple 5332 25588 Demande recommandation générique pour machine 3 (utilisateur anonyme)
+INFO 2025-08-03 22:56:22,214 simple_recommendation 5332 25588 Vérification séances pour Squat: 0 séances trouvées
+INFO 2025-08-03 22:56:22,214 basehttp 5332 25588 "GET /api/workouts/recommendation/id/3/ HTTP/1.1" 200 545
+INFO 2025-08-03 22:56:28,431 views_simple 5332 6784 Demande recommandation générique pour machine 'Supine Press' (utilisateur anonyme)
+INFO 2025-08-03 22:56:28,433 simple_recommendation 5332 6784 Vérification séances pour Supine Press: 2 séances trouvées
+INFO 2025-08-03 22:56:28,434 basehttp 5332 6784 "GET /api/workouts/recommendation/name/Supine%20Press/ HTTP/1.1" 200 532
+INFO 2025-08-03 23:09:54,610 simple_recommendation 1140 25048 Progression trouvée: 60.0kg x 12
+INFO 2025-08-03 23:09:54,614 simple_recommendation 1140 25048 Trouvé 2 séances récentes
+INFO 2025-08-03 23:09:54,614 simple_recommendation 1140 25048 Base sur progression: 60.0kg
+INFO 2025-08-03 23:09:54,614 simple_recommendation 1140 25048 Recommandation générée pour test@example.com - Supine Press: 56.4kg

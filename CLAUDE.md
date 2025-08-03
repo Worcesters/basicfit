@@ -13,8 +13,8 @@ BasicFit v2 is a fitness tracking application with an Android mobile client and 
 - **Framework**: Django 4.2.7 with Django REST Framework
 - **Database**: PostgreSQL (production), SQLite (development)
 - **Authentication**: JWT tokens via djangorestframework-simplejwt
-- **Deployment**: Railway platform
-- **API URL**: https://basicfit-production.up.railway.app/
+- **Deployment**: Fly.io platform
+- **API URL**: https://basicfit-v2.fly.dev/
 
 ### Android App
 - **Location**: `android/`
@@ -70,8 +70,8 @@ python test_systeme_complet.py
 
 ### Deployment Commands
 ```bash
-# Deploy API to Railway
-deploy_api_railway.bat
+# Deploy API to Fly.io
+fly deploy
 
 # Complete deployment (backend + Android)
 deploy_complete.bat

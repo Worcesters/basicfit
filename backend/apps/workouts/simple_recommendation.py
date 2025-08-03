@@ -423,15 +423,20 @@ def get_simple_recommendation_by_name(user, machine_name: str) -> Dict:
     Point d'entrée pour obtenir une recommandation par nom de machine
     """
     try:
-        # Récupérer la machine par nom
-        machine = Machine.objects.filter(nom__iexact=machine_name).first()
+        # Décoder l'URL si nécessaire
+        from urllib.parse import unquote
+        decoded_name = unquote(machine_name)
+        logger.debug(f"Recherche machine authentifiée: '{machine_name}' -> '{decoded_name}'")
+        
+        # Récupérer la machine par nom (utiliser le nom décodé)
+        machine = Machine.objects.filter(nom__iexact=decoded_name).first()
         if not machine:
-            machine = Machine.objects.filter(nom__icontains=machine_name).first()
+            machine = Machine.objects.filter(nom__icontains=decoded_name).first()
         
         if not machine:
             return {
                 'success': False,
-                'error': f'Machine "{machine_name}" non trouvée'
+                'error': f'Machine "{decoded_name}" non trouvée'
             }
         
         return get_simple_recommendation(user, machine.id)
@@ -469,18 +474,23 @@ def get_generic_recommendation_by_name(machine_name: str) -> Dict:
     Génère une recommandation générique par nom de machine
     """
     try:
-        # Recherche flexible par nom
+        # Décoder l'URL si nécessaire
+        from urllib.parse import unquote
+        decoded_name = unquote(machine_name)
+        logger.debug(f"Recherche machine: '{machine_name}' -> '{decoded_name}'")
+        
+        # Recherche flexible par nom (utiliser le nom décodé)
         try:
-            machine = Machine.objects.get(nom__iexact=machine_name)
+            machine = Machine.objects.get(nom__iexact=decoded_name)
         except Machine.DoesNotExist:
             try:
-                machine = Machine.objects.get(nom__icontains=machine_name)
+                machine = Machine.objects.get(nom__icontains=decoded_name)
             except Machine.DoesNotExist:
                 # Essayer avec des variations courantes
                 variations = [
-                    machine_name.replace('é', 'e').replace('è', 'e'),
-                    machine_name.replace('e', 'é'),
-                    machine_name.replace('e', 'è'),
+                    decoded_name.replace('é', 'e').replace('è', 'e'),
+                    decoded_name.replace('e', 'é'),
+                    decoded_name.replace('e', 'è'),
                 ]
                 for variation in variations:
                     try:
@@ -491,7 +501,7 @@ def get_generic_recommendation_by_name(machine_name: str) -> Dict:
                 else:
                     return {
                         'success': False,
-                        'error': f'Machine "{machine_name}" non trouvée'
+                        'error': f'Machine "{decoded_name}" non trouvée'
                     }
         
         return _generate_generic_recommendation(machine)
@@ -506,7 +516,45 @@ def get_generic_recommendation_by_name(machine_name: str) -> Dict:
 def _generate_generic_recommendation(machine: Machine) -> Dict:
     """
     Génère une recommandation générique basée sur les caractéristiques de la machine
+    SEULEMENT s'il y a des séances historiques pour cette machine
     """
+    # VÉRIFIER D'ABORD S'IL Y A DES SÉANCES POUR CETTE MACHINE
+    from .models import ExerciceSeance
+    
+    # Compter toutes les séances terminées pour cette machine (tous utilisateurs)
+    total_sessions = ExerciceSeance.objects.filter(
+        machine=machine,
+        seance__statut='TERMINEE'
+    ).count()
+    
+    logger.info(f"Vérification séances pour {machine.nom}: {total_sessions} séances trouvées")
+    
+    # Si aucune séance trouvée, retourner "pas de recommandation"
+    if total_sessions == 0:
+        return {
+            'success': True,
+            'data': {
+                'machine_id': machine.id,
+                'machine_nom': machine.nom,
+                'poids_recommande': None,
+                'series_recommandees': None,
+                'reps_recommandees': None,
+                'repos_recommande': None,
+                'objectif': 'AUCUNE_DONNEE',
+                'source': 'no_data',
+                'notes': 'Aucune séance trouvée pour cette machine',
+                'peut_progresser': False,
+                'message': 'Aucune recommandation disponible - faites d\'abord une séance',
+                'dernier_1rm': None,
+                'nombre_seances': 0,
+                'progression_totale': 0.0,
+                'taux_reussite': 0.0,
+                'derniere_progression': None,
+                'tempo_recommande': None
+            }
+        }
+    
+    # Si des séances existent, générer une recommandation générique
     # Détecter le groupe musculaire principal
     groupes_primaires = machine.groupes_musculaires_primaires.all()
     groupe_principal = groupes_primaires.first() if groupes_primaires.exists() else None

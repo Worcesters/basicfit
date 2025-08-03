@@ -20,12 +20,12 @@ def test_authentification_android():
     print("🔐 TEST AUTHENTIFICATION ANDROID")
     print("=" * 50)
 
-    RAILWAY_URL = "https://basicfit-production.up.railway.app"
+    FLYIO_URL = "https://basicfit-v2.fly.dev"
 
     # 1. Test sans authentification (comme l'app Android si pas connectée)
     print("🔍 Test SANS authentification:")
     try:
-        url = f"{RAILWAY_URL}/api/workouts/recommendation/1/"
+        url = f"{FLYIO_URL}/api/workouts/recommendation/1/"
         response = requests.get(url, timeout=10)
         print(f"   URL: {url}")
         print(f"   Status: {response.status_code}")
@@ -45,7 +45,7 @@ def test_authentification_android():
     # Créer un token de test (vous devrez adapter selon votre système d'auth)
     try:
         # D'abord, essayer de se connecter
-        login_url = f"{RAILWAY_URL}/api/users/android/login/"
+        login_url = f"{FLYIO_URL}/api/users/android/login/"
         login_data = {
             "email": "test@example.com",
             "password": "test123"
@@ -67,7 +67,7 @@ def test_authentification_android():
                     'Content-Type': 'application/json'
                 }
 
-                url = f"{RAILWAY_URL}/api/workouts/recommendation/1/"
+                url = f"{FLYIO_URL}/api/workouts/recommendation/1/"
                 response = requests.get(url, headers=headers, timeout=10)
                 print(f"   Test avec token: {response.status_code}")
 

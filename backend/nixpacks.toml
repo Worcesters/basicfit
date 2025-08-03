@@ -15,4 +15,4 @@ cmd = 'gunicorn basicfit_project.wsgi:application --bind 0.0.0.0:$PORT'
 
 [variables]
 PYTHONPATH = '/app'
-DJANGO_SETTINGS_MODULE = 'basicfit_project.settings.railway'
+DJANGO_SETTINGS_MODULE = 'basicfit_project.settings.production'

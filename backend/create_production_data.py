@@ -8,7 +8,7 @@ import django
 import requests
 
 # Configuration pour Railway
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'basicfit_project.settings.railway')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'basicfit_project.settings.production')
 
 try:
     django.setup()
