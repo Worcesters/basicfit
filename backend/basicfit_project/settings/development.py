@@ -1,11 +1,19 @@
 """
 Configuration de développement Django pour BasicFit
-Railway utilise ce fichier par défaut, on redirige vers railway.py
 """
 
-# Pour Railway : utiliser les settings de production
-from .railway import *
+# Utiliser les settings de base et production pour développement local
+from .base import *
+from .production import *
 
-# Override pour développement si nécessaire
-DEBUG = False  # Garder False pour Railway
-ALLOWED_HOSTS = ['*', '.railway.app', 'localhost', '127.0.0.1']
+# Override pour développement local
+DEBUG = True
+ALLOWED_HOSTS = ['*', 'localhost', '127.0.0.1']
+
+# Base de données SQLite pour développement local
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}

@@ -116,7 +116,8 @@ data class ExerciseRecommendation(
     val reps: Int,
     val weight: Double,
     val restTime: Int,
-    val notes: String
+    val notes: String,
+    val tempo: String = "3-1-2"  // Nouveau champ pour le tempo
 )
 
 // Data classes pour l'entraînement avancé
@@ -2352,6 +2353,12 @@ fun MachineCard(machine: Machine) {
                                 fontSize = 12.sp,
                                 color = Color(0xFF666666)
                             )
+                            Text(
+                                text = "Tempo recommandé: ${recommendation!!.tempo}",
+                                fontSize = 12.sp,
+                                color = Color(0xFF2E7D32),
+                                fontWeight = FontWeight.Medium
+                            )
                             if (recommendation!!.notes.isNotBlank()) {
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
@@ -3523,7 +3530,8 @@ fun CurrentExerciseCard(
         reps = exerciseSession.targetReps,
         weight = exerciseSession.recommendedWeight,
         restTime = exerciseSession.restTime,
-        notes = "💪 Recommandation personnalisée • Technique contrôlée • Progression adaptée"
+        notes = "💪 Recommandation personnalisée • Technique contrôlée • Progression adaptée",
+        tempo = exerciseSession.machine.tempo ?: "3-1-2"
     )
 
     // Vérifier si c'est une machine cardio ou un exercice basé sur le temps
@@ -4101,7 +4109,8 @@ fun calculateWorkoutRecommendations(
         reps = finalTargetReps,
         weight = recommendedWeight,
         restTime = restTime,
-        notes = notes
+        notes = notes,
+        tempo = machine.tempo ?: "3-1-2"
     )
 
     android.util.Log.d("Recommendation", "=== RÉSULTAT FINAL ===")
@@ -4365,6 +4374,7 @@ suspend fun getRecommendationFromAPI(machineId: Int, context: Context): Exercise
                 append(" • Objectif: ${recommendation.objectif}")
                 append(" • ${recommendation.series_recommandees} séries x ${recommendation.reps_recommandees} reps")
                 append(" • Repos: ${recommendation.repos_recommande}s")
+                append(" • Tempo: ${recommendation.tempo_recommande}")
             }
 
             val exerciseRecommendation = ExerciseRecommendation(
@@ -4372,7 +4382,8 @@ suspend fun getRecommendationFromAPI(machineId: Int, context: Context): Exercise
                 reps = recommendation.reps_recommandees,
                 weight = recommendation.poids_recommande,
                 restTime = recommendation.repos_recommande,
-                notes = notes
+                notes = notes,
+                tempo = recommendation.tempo_recommande
             )
 
             android.util.Log.d("RecommendationAPI", "🎯 Recommandation finale créée: ${exerciseRecommendation.weight}kg")

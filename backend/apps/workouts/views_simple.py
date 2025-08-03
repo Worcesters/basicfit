@@ -3,12 +3,15 @@ Vues simplifiées pour les recommandations avec gestion d'authentification robus
 """
 import logging
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from django.views.decorators.csrf import csrf_exempt
 
-from .simple_recommendation import get_simple_recommendation, get_simple_recommendation_by_name
+from .simple_recommendation import (
+    get_simple_recommendation, get_simple_recommendation_by_name,
+    get_generic_recommendation, get_generic_recommendation_by_name
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,21 +36,22 @@ def handle_auth_error(request):
 
 @csrf_exempt
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def get_recommendation_simple(request, machine_id):
     """
     Endpoint simplifié pour obtenir une recommandation par ID de machine
+    Support des utilisateurs authentifiés et anonymes
     """
     try:
-        # Vérifier l'authentification
-        auth_error = handle_auth_error(request)
-        if auth_error:
-            return auth_error
+        user = request.user
         
-        logger.info(f"Demande recommandation pour machine {machine_id} par {request.user.email}")
-        
-        # Obtenir la recommandation
-        result = get_simple_recommendation(request.user, machine_id)
+        # Obtenir la recommandation selon le statut d'authentification
+        if user.is_authenticated:
+            logger.info(f"Demande recommandation authentifiée pour machine {machine_id} par {user.email}")
+            result = get_simple_recommendation(user, machine_id)
+        else:
+            logger.info(f"Demande recommandation générique pour machine {machine_id} (utilisateur anonyme)")
+            result = get_generic_recommendation(machine_id)
         
         # Maintenir la compatibilité avec le format ApiResponse Android
         if result['success']:
@@ -75,21 +79,22 @@ def get_recommendation_simple(request, machine_id):
 
 @csrf_exempt
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def get_recommendation_by_name_simple(request, machine_name):
     """
     Endpoint simplifié pour obtenir une recommandation par nom de machine
+    Support des utilisateurs authentifiés et anonymes
     """
     try:
-        # Vérifier l'authentification
-        auth_error = handle_auth_error(request)
-        if auth_error:
-            return auth_error
+        user = request.user
         
-        logger.info(f"Demande recommandation pour machine '{machine_name}' par {request.user.email}")
-        
-        # Obtenir la recommandation
-        result = get_simple_recommendation_by_name(request.user, machine_name)
+        # Obtenir la recommandation selon le statut d'authentification
+        if user.is_authenticated:
+            logger.info(f"Demande recommandation authentifiée pour machine '{machine_name}' par {user.email}")
+            result = get_simple_recommendation_by_name(user, machine_name)
+        else:
+            logger.info(f"Demande recommandation générique pour machine '{machine_name}' (utilisateur anonyme)")
+            result = get_generic_recommendation_by_name(machine_name)
         
         # Maintenir la compatibilité avec le format ApiResponse Android
         if result['success']:

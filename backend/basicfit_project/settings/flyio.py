@@ -200,8 +200,7 @@ LOGGING = {
         },
         'file': {
             'level': 'ERROR',
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'logs/django-errors.log',
+            'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
     },

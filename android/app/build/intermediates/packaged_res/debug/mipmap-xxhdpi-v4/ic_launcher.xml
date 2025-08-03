@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="144dp"
+    android:height="144dp"
+    android:viewportWidth="144"
+    android:viewportHeight="144">
+
+    <!-- Fond avec dégradé -->
+    <path
+        android:fillColor="#00C9A7"
+        android:pathData="M72,12
+            a60 60 0 1 1 0 120
+            a60 60 0 1 1 0 -120" />
+
+    <!-- Cercle intérieur -->
+    <path
+        android:fillColor="#6DD5ED"
+        android:pathData="M72,24
+            a48 48 0 1 1 0 96
+            a48 48 0 1 1 0 -96" />
+
+    <!-- Haltère -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,60h8v24h-8z M44,69h56v6h-56z M100,60h8v24h-8z" />
+</vector>

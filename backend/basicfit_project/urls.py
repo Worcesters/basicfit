@@ -10,7 +10,7 @@ from django.http import HttpResponse
 def home_view(request):
     """Page d'accueil avec informations API"""
     return HttpResponse("""
-    <h1>💪 BasicFit v2 API - Railway</h1>
+    <h1>💪 BasicFit v2 API - Fly.io</h1>
     <h2>Serveur Django actif !</h2>
     <ul>
         <li><a href="/admin/">🔧 Administration Django</a></li>
@@ -25,7 +25,7 @@ def home_view(request):
         <li><strong>GET</strong> /api/users/android/profile/ - Profil utilisateur</li>
         <li><strong>POST</strong> /api/workouts/sauvegarder/ - Sauvegarder entraînement</li>
     </ul>
-    <p>🌐 API déployée sur Railway</p>
+    <p>🌐 API déployée sur Fly.io - Migration réussie !</p>
     <p>📱 Compatible avec l'application Android BasicFit</p>
     """, content_type='text/html')
 

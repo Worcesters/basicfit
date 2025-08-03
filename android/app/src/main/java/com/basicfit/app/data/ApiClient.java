@@ -6,7 +6,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 public class ApiClient {
-    private static final String BASE_URL = "https://basicfit-production.up.railway.app/";
+    private static final String BASE_URL = "https://basicfit-v2.fly.dev/";
     private static final OkHttpClient client = new OkHttpClient();
 
     public static boolean testConnection() {

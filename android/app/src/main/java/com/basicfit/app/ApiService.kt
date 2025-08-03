@@ -122,7 +122,30 @@ data class RecommendationResponse(
     val taux_reussite: Double,
     val derniere_progression: String?,
     val source: String,
-    val notes: String = ""
+    val notes: String = "",
+    val tempo_recommande: String = "3-1-2"  // Nouveau champ pour le tempo
+)
+
+// DTO pour l'historique des séances
+data class SeanceHistoryDto(
+    val id: Int,
+    val date_debut: String,
+    val date_fin: String?,
+    val mode_entrainement: String,
+    val duree_totale: Int?, // en minutes
+    val exercises: List<ExerciceHistoryDto>
+)
+
+data class ExerciceHistoryDto(
+    val machine_nom: String,
+    val series: List<SerieHistoryDto>
+)
+
+data class SerieHistoryDto(
+    val repetitions: Int,
+    val poids: Double,
+    val duree_repos: Int?,
+    val ordre: Int
 )
 
 // ==============================================
@@ -151,6 +174,10 @@ interface BasicFitApi {
 
     @GET("workouts/seances/")
     suspend fun getWorkoutHistory(): ApiResponse<List<Any>>
+    
+    // Historique complet pour le calendrier
+    @GET("workouts/history/")
+    suspend fun getSeancesHistory(): ApiResponse<List<SeanceHistoryDto>>
 
     // Machines
     // Retourne directement la liste sans wrapper JSON
@@ -207,8 +234,8 @@ class AuthInterceptor(private val context: Context) : Interceptor {
 class ApiService private constructor() {
 
     companion object {
-        // URL de votre API Django sur Railway
-        private const val BASE_URL = "https://basicfit-production.up.railway.app/api/"
+        // URL de votre API Django sur Fly.io
+        private const val BASE_URL = "https://basicfit-v2.fly.dev/api/"
         // URL locale pour les tests (si besoin)
         // private const val LOCAL_URL = "http://10.0.2.2:8000/api/"
 
@@ -314,6 +341,57 @@ class ApiService private constructor() {
     fun getAuthToken(context: Context): String? {
         val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
         return prefs.getString("auth_token", null)
+    }
+
+    // Récupérer l'historique des séances pour le calendrier
+    suspend fun getCalendarHistory(): Result<List<WorkoutEntry>> {
+        return try {
+            if (!isInitialized) {
+                return Result.failure(Exception("ApiService non initialisé"))
+            }
+
+            val response = api.getSeancesHistory()
+            if (response.success && response.data != null) {
+                val workoutEntries = response.data.map { seance ->
+                    convertSeanceToWorkoutEntry(seance)
+                }
+                Result.success(workoutEntries)
+            } else {
+                Result.failure(Exception(response.message ?: "Erreur lors de la récupération de l'historique"))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ApiService", "Erreur getCalendarHistory: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    // Convertir une séance DTO en WorkoutEntry
+    private fun convertSeanceToWorkoutEntry(seance: SeanceHistoryDto): WorkoutEntry {
+        val dateString = seance.date_debut.split("T")[0] // Récupérer juste la date
+        val date = java.time.LocalDate.parse(dateString)
+        
+        val exercises = seance.exercises.map { exercice ->
+            // Calculer les moyennes des séries
+            val totalReps = exercice.series.sumOf { it.repetitions }
+            val totalWeight = exercice.series.sumOf { it.poids }
+            val avgReps = if (exercice.series.isNotEmpty()) totalReps / exercice.series.size else 0
+            val avgWeight = if (exercice.series.isNotEmpty()) totalWeight / exercice.series.size else 0.0
+
+            ExerciseRecord(
+                name = exercice.machine_nom,
+                sets = exercice.series.size,
+                reps = avgReps,
+                weight = avgWeight
+            )
+        }
+
+        return WorkoutEntry(
+            date = date,
+            mode = seance.mode_entrainement,
+            exercises = exercises,
+            duration = seance.duree_totale ?: 0, // 0 si pas terminé
+            totalWeight = exercises.sumOf { it.weight * it.reps }
+        )
     }
 }
 

@@ -10,6 +10,7 @@ from datetime import timedelta
 
 from .models import ProgressionMachine, SeanceEntrainement, ExerciceSeance, ModeEntrainement
 from apps.machines.models import Machine
+from .advanced_1rm_calculator import calculate_professional_recommendation
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -112,10 +113,10 @@ class SimpleRecommendationEngine:
                 # Ne devrait pas arriver grâce à la vérification has_workout_data
                 return self._get_no_data_response()
             
-            # 4. Calculer la progression
-            recommended_weight = self._calculate_progression(base_weight, progression, recent_workouts)
-            recommended_reps = min(12, max(8, base_reps))  # Entre 8 et 12 reps
-            recommended_sets = min(4, max(3, base_sets))   # Entre 3 et 4 sets - FIX BUG 6 séries
+            # 4. Calculer la progression avec système professionnel
+            recommended_weight, recommended_reps, recommended_sets, calculation_details = self._calculate_professional_progression(
+                base_weight, base_reps, base_sets, progression, recent_workouts
+            )
             
             # 5. Retourner la recommandation (format compatible Android)
             return {
@@ -127,19 +128,142 @@ class SimpleRecommendationEngine:
                 'repos_recommande': 90,
                 'objectif': 'PROGRESSION',
                 'source': source,
-                'notes': f"Basé sur {source}",
+                'notes': self._generate_professional_notes(calculation_details, source),
                 'peut_progresser': True,
+                'tempo_recommande': self.machine.tempo or "3-1-2",  # Ajout du tempo
                 # Champs compatibilité Android
-                'dernier_1rm': progression.dernier_1rm if progression else None,
+                'dernier_1rm': calculation_details.get('estimated_1rm') if calculation_details else (progression.dernier_1rm if progression else None),
                 'nombre_seances': progression.nombre_seances_machine if progression else 0,
                 'progression_totale': recommended_weight - base_weight if progression else 0.0,
                 'taux_reussite': progression.taux_reussite if progression else 0.0,
-                'derniere_progression': source
+                'derniere_progression': source,
+                # Détails du calcul professionnel
+                'calcul_1rm_details': calculation_details,
+                'volume_precedent': base_weight * base_reps * base_sets,
+                'volume_recommande': recommended_weight * recommended_reps * recommended_sets
             }
             
         except Exception as e:
             logger.error(f"Erreur calcul recommandation: {e}")
             return self._get_fallback_recommendation()
+    
+    def _calculate_professional_progression(self, base_weight: float, base_reps: int, base_sets: int, 
+                                          progression: ProgressionMachine, recent_workouts: list) -> tuple:
+        """
+        Calcule la progression avec le système professionnel 1RM
+        Retourne (poids, reps, sets, details_calcul)
+        """
+        try:
+            # Analyser les performances récentes pour déterminer la stratégie
+            success_rate = self._calculate_success_rate(recent_workouts)
+            
+            # Déterminer les répétitions et séries cibles selon l'objectif
+            if hasattr(self.user, 'profil_fitness') and self.user.profil_fitness:
+                objectif = self.user.profil_fitness.objectif_principal
+            else:
+                objectif = 'PRISE_MASSE'  # Par défaut
+            
+            target_reps, target_sets = self._get_target_reps_sets(objectif, success_rate)
+            
+            # Utiliser le calculateur professionnel
+            if base_reps > 0 and base_sets > 0:
+                machine_tempo = getattr(self.machine, 'tempo', '3-1-2')
+                
+                professional_calc = calculate_professional_recommendation(
+                    current_weight=base_weight,
+                    current_reps=base_reps,
+                    current_sets=base_sets,
+                    target_reps=target_reps,
+                    target_sets=target_sets,
+                    tempo=machine_tempo
+                )
+                
+                if professional_calc.get('success'):
+                    recommended_weight = professional_calc['recommended_weight']
+                    
+                    # Ajustement selon le taux de réussite
+                    if success_rate >= 0.8:  # Très bon
+                        weight_adjustment = 1.0  # Aucun ajustement
+                    elif success_rate >= 0.6:  # Moyen
+                        weight_adjustment = 0.95  # -5%
+                    else:  # Faible
+                        weight_adjustment = 0.90  # -10%
+                    
+                    final_weight = recommended_weight * weight_adjustment
+                    
+                    return (
+                        round(final_weight, 1),
+                        target_reps,
+                        target_sets,
+                        professional_calc
+                    )
+            
+            # Fallback vers l'ancienne méthode
+            return (
+                self._calculate_progression(base_weight, progression, recent_workouts),
+                min(12, max(8, base_reps)),
+                min(4, max(3, base_sets)),
+                {'success': False, 'method': 'fallback'}
+            )
+            
+        except Exception as e:
+            logger.error(f"Erreur calcul professionnel: {e}")
+            # Fallback
+            return (
+                base_weight,
+                base_reps,
+                base_sets,
+                {'success': False, 'error': str(e)}
+            )
+    
+    def _get_target_reps_sets(self, objectif: str, success_rate: float) -> tuple:
+        """Détermine les répétitions et séries cibles selon l'objectif"""
+        targets = {
+            'FORCE': (5, 4),
+            'PRISE_MASSE': (10, 4),
+            'SECHE': (12, 3),
+            'ENDURANCE': (15, 3),
+            'POWERLIFTING': (3, 5)
+        }
+        
+        base_reps, base_sets = targets.get(objectif, (10, 3))
+        
+        # Ajustement selon le taux de réussite
+        if success_rate < 0.6:
+            # Réduire l'intensité : plus de reps, moins de séries
+            base_reps += 2
+            base_sets = max(2, base_sets - 1)
+        elif success_rate > 0.8:
+            # Augmenter l'intensité : moins de reps, plus de séries
+            base_reps = max(3, base_reps - 1)
+            base_sets = min(5, base_sets + 1)
+        
+        return base_reps, base_sets
+    
+    def _generate_professional_notes(self, calculation_details: dict, source: str) -> str:
+        """Génère des notes détaillées sur le calcul professionnel"""
+        if not calculation_details or not calculation_details.get('success'):
+            return f"Basé sur {source} (méthode classique)"
+        
+        notes = []
+        notes.append(f"Basé sur {source}")
+        
+        if '1rm_analysis' in calculation_details:
+            analysis = calculation_details['1rm_analysis']
+            if analysis.get('estimated_1rm'):
+                notes.append(f"1RM estimé: {analysis['estimated_1rm']}kg")
+                notes.append(f"Fiabilité: {analysis.get('reliability', 'inconnue')}")
+        
+        if 'volume_ratio' in calculation_details:
+            ratio = calculation_details['volume_ratio']
+            if ratio > 1.1:
+                notes.append("Volume augmenté pour progression")
+            elif ratio < 0.9:
+                notes.append("Volume réduit pour récupération")
+            else:
+                notes.append("Volume maintenu")
+        
+        return " | ".join(notes)
     
     def _calculate_progression(self, base_weight: float, progression: ProgressionMachine, recent_workouts: list) -> float:
         """Calcule la progression du poids"""
@@ -318,3 +442,132 @@ def get_simple_recommendation_by_name(user, machine_name: str) -> Dict:
             'success': False,
             'error': str(e)
         }
+
+
+def get_generic_recommendation(machine_id: int) -> Dict:
+    """
+    Génère une recommandation générique pour un utilisateur non authentifié
+    """
+    try:
+        machine = Machine.objects.get(id=machine_id)
+        return _generate_generic_recommendation(machine)
+    except Machine.DoesNotExist:
+        return {
+            'success': False,
+            'error': f'Machine avec ID {machine_id} non trouvée'
+        }
+    except Exception as e:
+        logger.error(f"Erreur recommandation générique ID {machine_id}: {e}")
+        return {
+            'success': False,
+            'error': f'Erreur lors du calcul de la recommandation: {str(e)}'
+        }
+
+
+def get_generic_recommendation_by_name(machine_name: str) -> Dict:
+    """
+    Génère une recommandation générique par nom de machine
+    """
+    try:
+        # Recherche flexible par nom
+        try:
+            machine = Machine.objects.get(nom__iexact=machine_name)
+        except Machine.DoesNotExist:
+            try:
+                machine = Machine.objects.get(nom__icontains=machine_name)
+            except Machine.DoesNotExist:
+                # Essayer avec des variations courantes
+                variations = [
+                    machine_name.replace('é', 'e').replace('è', 'e'),
+                    machine_name.replace('e', 'é'),
+                    machine_name.replace('e', 'è'),
+                ]
+                for variation in variations:
+                    try:
+                        machine = Machine.objects.get(nom__icontains=variation)
+                        break
+                    except Machine.DoesNotExist:
+                        continue
+                else:
+                    return {
+                        'success': False,
+                        'error': f'Machine "{machine_name}" non trouvée'
+                    }
+        
+        return _generate_generic_recommendation(machine)
+    except Exception as e:
+        logger.error(f"Erreur recommandation générique nom {machine_name}: {e}")
+        return {
+            'success': False,
+            'error': f'Erreur lors du calcul de la recommandation: {str(e)}'
+        }
+
+
+def _generate_generic_recommendation(machine: Machine) -> Dict:
+    """
+    Génère une recommandation générique basée sur les caractéristiques de la machine
+    """
+    # Détecter le groupe musculaire principal
+    groupes_primaires = machine.groupes_musculaires_primaires.all()
+    groupe_principal = groupes_primaires.first() if groupes_primaires.exists() else None
+
+    # Poids de base selon le groupe musculaire (valeurs conservatives pour débutants)
+    if groupe_principal:
+        groupe_nom = groupe_principal.nom.lower()
+        if 'pectoraux' in groupe_nom or 'chest' in groupe_nom:
+            poids_base = 20.0
+            reps = 10
+            series = 3
+        elif 'dos' in groupe_nom or 'back' in groupe_nom:
+            poids_base = 18.0
+            reps = 10
+            series = 3
+        elif 'jambes' in groupe_nom or 'cuisses' in groupe_nom or 'leg' in groupe_nom:
+            poids_base = 30.0
+            reps = 12
+            series = 3
+        elif 'epaules' in groupe_nom or 'shoulder' in groupe_nom:
+            poids_base = 12.0
+            reps = 12
+            series = 3
+        elif 'bras' in groupe_nom or 'biceps' in groupe_nom or 'triceps' in groupe_nom:
+            poids_base = 8.0
+            reps = 12
+            series = 3
+        else:
+            poids_base = 15.0
+            reps = 10
+            series = 3
+    else:
+        # Valeurs par défaut
+        poids_base = 15.0
+        reps = 10
+        series = 3
+
+    # Vérifier si c'est une machine cardio
+    if machine.categorie and 'cardio' in machine.categorie.nom.lower():
+        poids_base = 0.0
+        reps = 20  # 20 minutes
+        series = 1
+
+    return {
+        'success': True,
+        'data': {
+            'machine_id': machine.id,
+            'machine_nom': machine.nom,
+            'poids_recommande': poids_base,
+            'series_recommandees': series,
+            'reps_recommandees': reps,
+            'repos_recommande': 90,
+            'objectif': 'DEBUTANT',
+            'peut_progresser': True,
+            'dernier_1rm': None,
+            'nombre_seances': 0,
+            'progression_totale': 0.0,
+            'taux_reussite': 0.0,
+            'derniere_progression': None,
+            'source': 'recommandation_generique',
+            'notes': f"Recommandation générique pour débutant • Technique d'abord • Progression graduelle",
+            'tempo_recommande': machine.tempo or "3-1-2"
+        }
+    }

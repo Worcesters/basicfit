@@ -55,12 +55,64 @@ fun CalendarScreen(
 
     // Ajout pour le bouton de vidage du calendrier
     var showClearDialog by remember { mutableStateOf(false) }
+    
+    // État pour la synchronisation avec la BDD
+    var isLoadingFromDB by remember { mutableStateOf(false) }
+    var lastSyncTime by remember { mutableStateOf(0L) }
 
     // State: mois actuellement affiché
     val currentMonth = remember { YearMonth.now() }
     val calendarState = rememberCalendarState(currentMonth)
 
     var draggedEntry by remember { mutableStateOf<WorkoutEntry?>(null) }
+
+    // Fonction pour synchroniser avec la BDD
+    fun syncWithDatabase() {
+        if (isLoadingFromDB) return
+        
+        coroutineScope.launch {
+            isLoadingFromDB = true
+            try {
+                val apiService = ApiService.getInstance()
+                apiService.initialize(context)
+                
+                if (apiService.isApiAvailable()) {
+                    val result = apiService.getCalendarHistory()
+                    result.onSuccess { dbHistory ->
+                        // Fusionner avec l'historique local (priorité aux données DB)
+                        val mergedHistory = (workoutHistory + dbHistory)
+                            .distinctBy { "${it.date}_${it.mode}_${it.duration}" }
+                            .sortedBy { it.date }
+                        
+                        onWorkoutHistoryChange(mergedHistory)
+                        lastSyncTime = System.currentTimeMillis()
+                        
+                        android.util.Log.d("CalendarSync", "✅ Synchronisation réussie: ${dbHistory.size} séances récupérées de la BDD")
+                        Toast.makeText(context, "✅ Calendrier synchronisé avec la base de données", Toast.LENGTH_SHORT).show()
+                    }.onFailure { error ->
+                        android.util.Log.e("CalendarSync", "❌ Erreur de synchronisation: ${error.message}")
+                        Toast.makeText(context, "❌ Erreur de synchronisation avec la BDD", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    android.util.Log.w("CalendarSync", "⚠️ API non disponible")
+                    Toast.makeText(context, "⚠️ Serveur non accessible", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("CalendarSync", "❌ Exception lors de la synchronisation: ${e.message}")
+                Toast.makeText(context, "❌ Erreur de synchronisation", Toast.LENGTH_SHORT).show()
+            } finally {
+                isLoadingFromDB = false
+            }
+        }
+    }
+
+    // Synchronisation automatique au démarrage et toutes les 5 minutes
+    LaunchedEffect(Unit) {
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastSyncTime > 5 * 60 * 1000) { // 5 minutes
+            syncWithDatabase()
+        }
+    }
 
     // Launcher CSV (inchangé)
     val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -90,16 +142,30 @@ fun CalendarScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Button(
+                onClick = { syncWithDatabase() },
+                enabled = !isLoadingFromDB,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
+            ) { 
+                if (isLoadingFromDB) {
+                    Text("🔄 Synchro...", color = Color.White)
+                } else {
+                    Text("🔄 Sync BDD", color = Color.White)
+                }
+            }
+
+            Spacer(Modifier.width(8.dp))
+
+            Button(
                 onClick = { csvLauncher.launch(arrayOf("text/*", "application/*", "*/*")) },
                 colors = ButtonDefaults.buttonColors(containerColor = Accent)
-            ) { Text("📂 Importer CSV", color = Color.White) }
+            ) { Text("📂 CSV", color = Color.White) }
 
             Spacer(Modifier.width(8.dp))
 
             Button(
                 onClick = { showClearDialog = true },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)) // rouge pour alerte
-            ) { Text("🗑️ Vider calendrier", color = Color.White) }
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
+            ) { Text("🗑️ Vider", color = Color.White) }
         }
 
         Spacer(Modifier.height(8.dp))

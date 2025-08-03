@@ -1,0 +1,51 @@
+INFO 2025-08-03 17:14:30,337 autoreload 9664 22728 Watching for file changes with StatReloader
+WARNING 2025-08-03 18:57:45,197 log 9664 26872 Unauthorized: /api/workouts/recommendation/id/1/
+WARNING 2025-08-03 18:57:45,197 basehttp 9664 26872 "GET /api/workouts/recommendation/id/1/ HTTP/1.1" 401 183
+INFO 2025-08-03 19:00:24,624 basehttp 9664 10260 "GET /api/workouts/machines/ HTTP/1.1" 200 1242
+WARNING 2025-08-03 19:00:24,645 log 9664 12688 Unauthorized: /api/workouts/recommendation/id/1/
+WARNING 2025-08-03 19:00:24,646 basehttp 9664 12688 "GET /api/workouts/recommendation/id/1/ HTTP/1.1" 401 58
+WARNING 2025-08-03 19:00:24,661 log 9664 23828 Unauthorized: /api/workouts/recommendation/name/Supine Press/
+WARNING 2025-08-03 19:00:24,662 basehttp 9664 23828 "GET /api/workouts/recommendation/name/Supine%20Press/ HTTP/1.1" 401 58
+INFO 2025-08-03 19:02:27,087 autoreload 9664 22728 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\simple_recommendation.py changed, reloading.
+INFO 2025-08-03 19:02:27,687 autoreload 18284 20872 Watching for file changes with StatReloader
+INFO 2025-08-03 20:40:12,329 basehttp 12756 10104 "GET /api/workouts/machines/ HTTP/1.1" 200 1242
+WARNING 2025-08-03 20:40:12,353 log 12756 7892 Unauthorized: /api/workouts/recommendation/id/1/
+WARNING 2025-08-03 20:40:12,354 basehttp 12756 7892 "GET /api/workouts/recommendation/id/1/ HTTP/1.1" 401 58
+WARNING 2025-08-03 20:40:12,369 log 12756 14848 Unauthorized: /api/workouts/recommendation/name/Supine Press/
+WARNING 2025-08-03 20:40:12,369 basehttp 12756 14848 "GET /api/workouts/recommendation/name/Supine%20Press/ HTTP/1.1" 401 58
+INFO 2025-08-03 21:12:39,287 basehttp 12756 19768 "GET /api/workouts/machines/ HTTP/1.1" 200 1242
+WARNING 2025-08-03 21:12:39,290 log 12756 17804 Unauthorized: /api/workouts/recommendation/id/1/
+WARNING 2025-08-03 21:12:39,290 basehttp 12756 17804 "GET /api/workouts/recommendation/id/1/ HTTP/1.1" 401 58
+WARNING 2025-08-03 21:12:39,293 log 12756 20064 Unauthorized: /api/workouts/recommendation/name/Supine Press/
+WARNING 2025-08-03 21:12:39,293 basehttp 12756 20064 "GET /api/workouts/recommendation/name/Supine%20Press/ HTTP/1.1" 401 58
+INFO 2025-08-03 21:14:20,695 autoreload 18284 20872 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\basicfit_project\settings\base.py changed, reloading.
+INFO 2025-08-03 21:14:21,307 autoreload 2500 22896 Watching for file changes with StatReloader
+INFO 2025-08-03 21:14:44,464 basehttp 12756 14768 "GET /api/workouts/machines/ HTTP/1.1" 200 1242
+WARNING 2025-08-03 21:14:44,467 log 12756 11944 Unauthorized: /api/workouts/recommendation/id/1/
+WARNING 2025-08-03 21:14:44,467 basehttp 12756 11944 "GET /api/workouts/recommendation/id/1/ HTTP/1.1" 401 58
+WARNING 2025-08-03 21:14:44,489 log 12756 9888 Unauthorized: /api/workouts/recommendation/name/Supine Press/
+WARNING 2025-08-03 21:14:44,489 basehttp 12756 9888 "GET /api/workouts/recommendation/name/Supine%20Press/ HTTP/1.1" 401 58
+INFO 2025-08-03 21:14:51,999 autoreload 2500 22896 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\basicfit_project\settings\base.py changed, reloading.
+INFO 2025-08-03 21:14:52,613 autoreload 27784 24408 Watching for file changes with StatReloader
+INFO 2025-08-03 21:28:04,979 views 14212 22096 Recommandation générique pour machine 1 (utilisateur non authentifié)
+INFO 2025-08-03 21:28:04,988 views 14212 22096 Recommandation générique pour machine Supine Press (utilisateur non authentifié)
+INFO 2025-08-03 21:28:23,326 autoreload 25604 22016 Watching for file changes with StatReloader
+INFO 2025-08-03 21:30:44,737 autoreload 27784 24408 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\views_simple.py changed, reloading.
+INFO 2025-08-03 21:30:45,286 autoreload 25604 22016 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\views_simple.py changed, reloading.
+INFO 2025-08-03 21:30:45,660 autoreload 20732 2032 Watching for file changes with StatReloader
+INFO 2025-08-03 21:30:46,187 autoreload 28216 15152 Watching for file changes with StatReloader
+INFO 2025-08-03 21:30:52,091 autoreload 20732 2032 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\views_simple.py changed, reloading.
+INFO 2025-08-03 21:30:52,633 autoreload 28216 15152 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\views_simple.py changed, reloading.
+INFO 2025-08-03 21:30:53,038 autoreload 14260 2712 Watching for file changes with StatReloader
+INFO 2025-08-03 21:30:53,604 autoreload 1592 18728 Watching for file changes with StatReloader
+INFO 2025-08-03 21:30:58,444 autoreload 14260 2712 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\views_simple.py changed, reloading.
+INFO 2025-08-03 21:30:58,964 autoreload 1592 18728 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\views_simple.py changed, reloading.
+INFO 2025-08-03 21:30:59,448 autoreload 19428 13164 Watching for file changes with StatReloader
+INFO 2025-08-03 21:30:59,916 autoreload 5032 8256 Watching for file changes with StatReloader
+INFO 2025-08-03 22:08:26,532 autoreload 28412 14580 Watching for file changes with StatReloader
+INFO 2025-08-03 22:13:33,398 autoreload 25316 4372 Watching for file changes with StatReloader
+INFO 2025-08-03 22:21:09,127 views_simple 25316 14352 Demande recommandation générique pour machine 1 (utilisateur anonyme)
+INFO 2025-08-03 22:21:09,133 basehttp 25316 14352 "GET /api/workouts/recommendation/id/1/ HTTP/1.1" 200 539
+INFO 2025-08-03 22:36:59,385 views_simple 25316 12904 Demande recommandation générique pour machine 'Supine Press' (utilisateur anonyme)
+INFO 2025-08-03 22:36:59,389 basehttp 25316 12904 "GET /api/workouts/recommendation/name/Supine%20Press/ HTTP/1.1" 200 532
+INFO 2025-08-03 22:39:19,743 basehttp 25316 8796 "GET /api/workouts/info/ HTTP/1.1" 200 130
