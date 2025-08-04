@@ -2,6 +2,8 @@ package com.basicfit.app
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -765,7 +767,7 @@ fun NextRecommendationsCard(
                         color = Color(0xFF2E2E2E),
                         modifier = Modifier.padding(vertical = 2.dp)
                     )
-                    
+
                     // DEBUG INFO - À afficher temporairement
                     Text(
                         text = "DEBUG: $debugInfo",

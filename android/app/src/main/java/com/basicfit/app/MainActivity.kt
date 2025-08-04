@@ -533,20 +533,44 @@ fun MainScreen() {
         }
     }
 
-    // Synchroniser automatiquement les données pour les utilisateurs connectés
+        // Synchroniser automatiquement les données pour les utilisateurs connectés
     LaunchedEffect(isLoggedIn, isOnline) {
         if (isLoggedIn && isOnline) {
-            val syncManager = SyncManager(context)
             try {
                 android.util.Log.d("CalendarSync", "🔄 Début synchronisation automatique calendrier")
-                // Récupérer l'historique depuis le serveur
-                val serverHistory = syncManager.syncWorkoutHistory()
-                serverHistory.onSuccess { history ->
-                    // Fusionner avec l'historique local
-                    val serverWorkoutHistory = convertServerHistoryToLocal(history)
-                    val newHistory = (workoutHistory + serverWorkoutHistory).distinctBy { 
-                        "${it.date}_${it.mode}_${it.duration}" 
+
+                val apiService = ApiService.getInstance()
+                apiService.initialize(context)
+
+                // Récupérer l'historique depuis l'API Railway
+                val response = apiService.getApi().getSeancesHistory()
+
+                if (response.success && response.data != null) {
+                    val serverHistory = response.data as List<SeanceHistoryDto>
+                    android.util.Log.d("CalendarSync", "✅ ${serverHistory.size} séances récupérées depuis l'API")
+
+                    // Convertir en format local
+                    val serverWorkoutHistory = serverHistory.map { seance ->
+                        WorkoutEntry(
+                            date = java.time.LocalDate.parse(seance.date_debut.substring(0, 10)),
+                            mode = seance.mode_entrainement,
+                            duration = seance.duree_totale ?: 0,
+                            exercises = seance.exercises.map { exercice ->
+                                Exercise(
+                                    name = exercice.machine_nom,
+                                    sets = exercice.series.size,
+                                    reps = exercice.series.firstOrNull()?.repetitions ?: 10,
+                                    weight = exercice.series.firstOrNull()?.poids ?: 0.0
+                                )
+                            }
+                        )
                     }
+
+                    // Fusionner avec l'historique local
+                    val newHistory = (workoutHistory + serverWorkoutHistory).distinctBy {
+                        "${it.date}_${it.mode}_${it.duration}"
+                    }
+
                     if (newHistory.size != workoutHistory.size) {
                         workoutHistory = newHistory
                         dataManager.saveWorkoutHistory(workoutHistory)
@@ -554,9 +578,8 @@ fun MainScreen() {
                     } else {
                         android.util.Log.d("CalendarSync", "ℹ️ Aucune nouvelle séance à synchroniser")
                     }
-                }
-                serverHistory.onFailure { error ->
-                    android.util.Log.w("CalendarSync", "⚠️ Échec synchronisation: ${error.message}")
+                } else {
+                    android.util.Log.w("CalendarSync", "⚠️ Échec récupération historique: ${response.message}")
                 }
             } catch (e: Exception) {
                 android.util.Log.e("CalendarSync", "❌ Erreur synchronisation calendrier: ${e.message}")
@@ -679,7 +702,7 @@ fun MainScreen() {
 
                 // Forcer la mise à jour des recommandations pour le prochain entraînement
                 // Les recommandations se mettront à jour automatiquement grâce au remember(workoutHistory)
-                
+
                 // AJOUT: Synchronisation de la séance terminée vers l'API
                 val syncManager = SyncManager(context)
                 kotlinx.coroutines.GlobalScope.launch {
@@ -691,7 +714,7 @@ fun MainScreen() {
                             dureeMinutes = newEntry.duration,
                             exercises = newEntry.exercises
                         )
-                        
+
                         if (result.isSuccess) {
                             android.util.Log.d("WorkoutSync", "✅ Séance terminée synchronisée avec la BDD")
                             kotlinx.coroutines.MainScope().launch {
@@ -761,30 +784,30 @@ fun MainScreen() {
                 val syncManager = SyncManager(context)
                 val apiService = ApiService.getInstance()
                 apiService.initialize(context)
-                
+
                 kotlinx.coroutines.GlobalScope.launch {
                     try {
                         var successCount = 0
                         var errorCount = 0
-                        
+
                         imported.forEach { importedEntry ->
                             android.util.Log.d("CsvImport", "🔍 Traitement séance: ${importedEntry.mode} du ${importedEntry.date}")
                             android.util.Log.d("CsvImport", "   Durée: ${importedEntry.duration} min")
                             android.util.Log.d("CsvImport", "   Exercices: ${importedEntry.exercises.size}")
-                            
+
                             try {
                                 // Pour les séances importées CSV (planifiées), utiliser planWorkout
                                 android.util.Log.d("CsvImport", "📤 Planification séance vers API...")
-                                
+
                                 val planRequest = PlanWorkoutRequest(
                                     nom = importedEntry.mode,
                                     date = "${importedEntry.date}T12:00:00Z",
                                     duree = if (importedEntry.exercises.isEmpty()) 45 else importedEntry.exercises.size * 5, // Estimation
                                     commentaire = "Importé depuis CSV - ${importedEntry.exercises.size} exercices"
                                 )
-                                
+
                                 val response = apiService.getApi().planWorkout(planRequest)
-                                
+
                                 if (response.success) {
                                     successCount++
                                     android.util.Log.d("CsvImport", "✅ Séance CSV planifiée: ${importedEntry.mode}")
@@ -798,11 +821,11 @@ fun MainScreen() {
                                 android.util.Log.e("CsvImport", "   Séance: ${importedEntry.mode}")
                             }
                         }
-                        
+
                         kotlinx.coroutines.MainScope().launch {
                             android.widget.Toast.makeText(context, "✅ Import CSV synchronisé avec la base de données", android.widget.Toast.LENGTH_LONG).show()
                         }
-                        
+
                     } catch (e: Exception) {
                         android.util.Log.e("CsvImport", "❌ Erreur synchronisation CSV: ${e.message}")
                         kotlinx.coroutines.MainScope().launch {
@@ -1801,7 +1824,7 @@ fun ProfileScreen(
         // BOUTON DE TEST - Forcer mise à jour des progressions (temporaire)
         item {
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             Button(
                 onClick = {
                     kotlinx.coroutines.GlobalScope.launch {
@@ -1809,7 +1832,7 @@ fun ProfileScreen(
                             val apiService = ApiService.getInstance()
                             apiService.initialize(context)
                             val response = apiService.getApi().forceProgressionUpdate()
-                            
+
                             kotlinx.coroutines.MainScope().launch {
                                 if (response.success) {
                                     android.widget.Toast.makeText(
@@ -1848,7 +1871,7 @@ fun ProfileScreen(
                 Text("🔧 FORCER MAJ RECOMMANDATIONS (TEST)")
             }
         }
-        
+
         /*
         // Bouton de déconnexion (désactivé pour l'instant ; code conservé à titre de référence)
         item {
@@ -1958,7 +1981,7 @@ fun MachinesScreen(
             Button(
                 onClick = {
                     // Créer le contenu de l'export avec les machines chargées
-                    val machinesToExport = if (machines.isNotEmpty()) machines else MachineData.machines
+                    val machinesToExport = machines // Utiliser seulement les machines de l'API
                     val exportContent = buildString {
                         appendLine("📋 LISTE COMPLÈTE DES MACHINES EN BASE DE DONNÉES")
                         appendLine("=".repeat(50))
@@ -2175,22 +2198,22 @@ fun MachineCard(machine: Machine) {
             isLoadingRecommendation = true
             try {
                 android.util.Log.d("MachineCard", "🔍 Chargement recommandation pour: ${machine.nom} (ID: ${machine.id})")
-                
+
                 // Vérifier si l'utilisateur est connecté
                 val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
                 val isLoggedIn = prefs.getBoolean("is_logged_in", false)
                 val token = prefs.getString("auth_token", null)
-                
+
                 android.util.Log.d("MachineCard", "🔐 État connexion - Connecté: $isLoggedIn, Token: ${token?.take(10)}...")
-                
+
                 if (!isLoggedIn || token.isNullOrBlank()) {
                     android.util.Log.w("MachineCard", "⚠️ Utilisateur non connecté - Pas de recommandation")
                     errorMessage = "Non connecté"
                     return@LaunchedEffect
                 }
-                
+
                 val rec = getRecommendationFromAPI(machine.id, context)
-                
+
                 if (rec != null) {
                     android.util.Log.d("MachineCard", "✅ Recommandation chargée: ${rec.weight}kg, ${rec.sets}x${rec.reps}")
                     recommendation = rec
@@ -2334,7 +2357,7 @@ fun MachineCard(machine: Machine) {
                             color = Accent
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        
+
                         if (isLoadingRecommendation) {
                             Text(
                                 text = "Chargement de la recommandation...",
@@ -2390,7 +2413,7 @@ fun WorkoutScreen(
 ) {
     var selectedMode by remember { mutableStateOf<String?>(null) }
     var selectedMachines by remember { mutableStateOf<List<Machine>>(emptyList()) }
-    var selectedPreset by remember { mutableStateOf<MachineData.WorkoutPreset?>(null) }
+                var selectedPreset by remember { mutableStateOf<WorkoutPreset?>(null) }
 
     LazyColumn(
         modifier = Modifier
@@ -2485,7 +2508,7 @@ fun WorkoutScreen(
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            items(MachineData.workoutPresets) { preset ->
+                            items(emptyList<WorkoutPreset>()) { preset ->
                                 Card(
                                     modifier = Modifier
                                         .width(200.dp)
@@ -2945,7 +2968,7 @@ fun WorkoutInProgressScreen(
                         else -> profileData.objectif
                     }
                     android.util.Log.d("Recommendation", "Recalcul des recommandations pour ${machine.nom} avec objectif: $goalObjective")
-                    
+
                     // Utiliser directement le calcul local pour l'instant (l'API sera utilisée en temps réel dans CurrentExerciseCard)
                     val recommendation = calculateWorkoutRecommendations(
                         machine = machine,
@@ -3485,7 +3508,7 @@ fun CurrentExerciseCard(
     var weight by remember { mutableStateOf("") }
     var reps by remember { mutableStateOf("") }
     var duration by remember { mutableStateOf("") }
-    
+
     // État pour la recommandation API
     var apiRecommendation by remember { mutableStateOf<ExerciseRecommendation?>(null) }
     var isLoadingRecommendation by remember { mutableStateOf(false) }
@@ -4303,7 +4326,18 @@ fun WorkoutEntry.toWorkoutSession(): WorkoutSession {
         workoutName = this.mode,
         exercises = this.exercises.map { exercise ->
             ExerciseSession(
-                machine = MachineData.machines.find { it.nom == exercise.name } ?: MachineData.machines.first(),
+                machine = Machine(
+                    id = 1,
+                    nom = exercise.name,
+                    description = "",
+                    instructions = "",
+                    categorie = "",
+                    imageGif = "",
+                    groupeMusculairePrimaire = "",
+                    incrementPoids = 2.5,
+                    poidsMinimum = 0.0,
+                    poidsMaximum = 200.0
+                ),
                 targetSets = exercise.sets,
                 targetReps = exercise.reps,
                 recommendedWeight = exercise.weight,
@@ -4312,6 +4346,8 @@ fun WorkoutEntry.toWorkoutSession(): WorkoutSession {
         }
     )
 }
+
+
 
 // Fonction pour rafraîchir les recommandations après une séance
 fun refreshRecommendations(context: Context) {
@@ -4395,15 +4431,15 @@ suspend fun getRecommendationFromAPI(machineId: Int, context: Context): Exercise
             if (response.message.isNotEmpty()) {
                 android.util.Log.e("RecommendationAPI", "   Message: ${response.message}")
             }
-            
+
             // Vérifier si c'est un problème d'authentification
-            if (response.message.contains("authentifié", ignoreCase = true) || 
+            if (response.message.contains("authentifié", ignoreCase = true) ||
                 response.message.contains("token", ignoreCase = true) ||
                 response.message.contains("force_logout", ignoreCase = true)) {
                 android.util.Log.w("RecommendationAPI", "🚪 Problème d'authentification détecté - Déconnexion nécessaire")
                 // TODO: Déclencher la déconnexion ici
             }
-            
+
             null
         }
     } catch (e: Exception) {
@@ -4506,7 +4542,9 @@ fun CalendarEntryDetailScreen(
                 machinesList = remoteMachines
             }
         } catch (e: Exception) {
-            machinesList = MachineData.machines
+            android.util.Log.e("MachinesAPI", "❌ Erreur chargement machines: ${e.message}")
+            // En cas d'erreur, utiliser une liste vide pour éviter les données locales
+            machinesList = emptyList()
         }
     }
 

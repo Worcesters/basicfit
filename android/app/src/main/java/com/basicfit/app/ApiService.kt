@@ -167,16 +167,16 @@ interface BasicFitApi {
     // Workouts
     @POST("workouts/save/")
     suspend fun saveWorkout(@Body request: WorkoutRequest): ApiResponse<Any>
-    
+
     // Nouveau: Planifier une séance (calendrier)
     @POST("workouts/calendar/plan/")
     suspend fun planWorkout(@Body request: PlanWorkoutRequest): ApiResponse<Any>
 
     @GET("workouts/seances/")
     suspend fun getWorkoutHistory(): ApiResponse<List<Any>>
-    
+
     // Historique complet pour le calendrier
-    @GET("workouts/history/")
+    @GET("workouts/seances/")
     suspend fun getSeancesHistory(): ApiResponse<List<SeanceHistoryDto>>
 
     // Machines
@@ -194,7 +194,7 @@ interface BasicFitApi {
 
     @GET("users/android/ping/")
     suspend fun ping(): retrofit2.Response<Void>
-    
+
     @POST("workouts/progressions/force-update/")
     suspend fun forceProgressionUpdate(): ApiResponse<Any>
 }
@@ -369,7 +369,7 @@ class ApiService private constructor() {
     private fun convertSeanceToWorkoutEntry(seance: SeanceHistoryDto): WorkoutEntry {
         val dateString = seance.date_debut.split("T")[0] // Récupérer juste la date
         val date = java.time.LocalDate.parse(dateString)
-        
+
         val exercises = seance.exercises.map { exercice ->
             // Calculer les moyennes des séries
             val totalReps = exercice.series.sumOf { it.repetitions }
