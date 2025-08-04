@@ -375,8 +375,7 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
                             name = machineName,
                             sets = sets,
                             reps = reps,
-                            weight = weight,
-                            totalWeight = weight * sets
+                            weight = weight
                         )
                         entriesByDate.getOrPut(date) { mutableListOf() }.add(record)
                     }
@@ -414,8 +413,7 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
                             name = machineName,
                             sets = serie,
                             reps = repetition,
-                            weight = utilisation,
-                            totalWeight = utilisation * serie
+                            weight = utilisation
                         )
                         entriesByDate.getOrPut(date) { mutableListOf() }.add(record)
                     }

@@ -113,3 +113,34 @@ INFO 2025-08-03 23:09:54,610 simple_recommendation 1140 25048 Progression trouvé
 INFO 2025-08-03 23:09:54,614 simple_recommendation 1140 25048 Trouvé 2 séances récentes
 INFO 2025-08-03 23:09:54,614 simple_recommendation 1140 25048 Base sur progression: 60.0kg
 INFO 2025-08-03 23:09:54,614 simple_recommendation 1140 25048 Recommandation générée pour test@example.com - Supine Press: 56.4kg
+INFO 2025-08-04 22:46:34,190 autoreload 7344 3180 Watching for file changes with StatReloader
+WARNING 2025-08-04 22:46:47,850 log 7344 7324 Unauthorized: /api/workouts/recommendations/session/
+WARNING 2025-08-04 22:46:47,850 basehttp 7344 7324 "GET /api/workouts/recommendations/session/?mode=FORCE&nb_machines=3 HTTP/1.1" 401 183
+WARNING 2025-08-04 22:47:08,050 log 7344 4360 Not Found: /api/auth/register/
+WARNING 2025-08-04 22:47:08,051 basehttp 7344 4360 "POST /api/auth/register/ HTTP/1.1" 404 2953
+WARNING 2025-08-04 22:47:08,055 log 7344 8540 Not Found: /api/auth/login/
+WARNING 2025-08-04 22:47:08,055 basehttp 7344 8540 "POST /api/auth/login/ HTTP/1.1" 404 2944
+WARNING 2025-08-04 22:47:30,074 log 7344 16160 Bad Request: /api/users/auth/register/
+WARNING 2025-08-04 22:47:30,075 basehttp 7344 16160 "POST /api/users/auth/register/ HTTP/1.1" 400 137
+WARNING 2025-08-04 22:47:30,077 log 7344 21028 Bad Request: /api/users/auth/login/
+WARNING 2025-08-04 22:47:30,077 basehttp 7344 21028 "POST /api/users/auth/login/ HTTP/1.1" 400 86
+WARNING 2025-08-04 22:47:39,232 log 7344 27768 Bad Request: /api/users/auth/register/
+WARNING 2025-08-04 22:47:39,233 basehttp 7344 27768 "POST /api/users/auth/register/ HTTP/1.1" 400 137
+WARNING 2025-08-04 22:47:39,236 log 7344 21768 Bad Request: /api/users/auth/login/
+WARNING 2025-08-04 22:47:39,236 basehttp 7344 21768 "POST /api/users/auth/login/ HTTP/1.1" 400 108
+WARNING 2025-08-04 22:47:54,854 log 7344 23060 Bad Request: /api/users/auth/login/
+WARNING 2025-08-04 22:47:54,855 basehttp 7344 23060 "POST /api/users/auth/login/ HTTP/1.1" 400 104
+WARNING 2025-08-04 22:48:09,503 log 7344 13308 Bad Request: /api/users/auth/login/
+WARNING 2025-08-04 22:48:09,503 basehttp 7344 13308 "POST /api/users/auth/login/ HTTP/1.1" 400 104
+WARNING 2025-08-04 22:48:14,750 log 7344 16408 Unauthorized: /api/workouts/recommendations/session/
+WARNING 2025-08-04 22:48:14,750 basehttp 7344 16408 "GET /api/workouts/recommendations/session/?mode=FORCE&nb_machines=3 HTTP/1.1" 401 58
+INFO 2025-08-04 22:51:56,763 autoreload 7344 3180 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\views.py changed, reloading.
+INFO 2025-08-04 22:51:57,338 autoreload 4056 21060 Watching for file changes with StatReloader
+INFO 2025-08-04 22:52:15,647 autoreload 4056 21060 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\views.py changed, reloading.
+INFO 2025-08-04 22:52:16,184 autoreload 2028 28640 Watching for file changes with StatReloader
+INFO 2025-08-04 22:53:04,563 autoreload 2028 28640 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\views.py changed, reloading.
+INFO 2025-08-04 22:53:05,121 autoreload 24672 5096 Watching for file changes with StatReloader
+INFO 2025-08-04 22:53:28,601 autoreload 24672 5096 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\models.py changed, reloading.
+INFO 2025-08-04 22:53:29,157 autoreload 22592 11432 Watching for file changes with StatReloader
+INFO 2025-08-04 22:53:51,625 autoreload 22592 11432 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\workout_service.py changed, reloading.
+INFO 2025-08-04 22:53:52,174 autoreload 24888 25216 Watching for file changes with StatReloader

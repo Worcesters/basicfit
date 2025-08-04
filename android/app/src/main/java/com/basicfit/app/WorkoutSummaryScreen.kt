@@ -1,6 +1,7 @@
 package com.basicfit.app
 
 import androidx.compose.foundation.Canvas
+import com.basicfit.app.ExerciseRecord
 import androidx.compose.foundation.background
 
 

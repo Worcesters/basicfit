@@ -3,7 +3,13 @@
     "allow": [
       "Bash(python test:*)",
       "Bash(del:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(curl:*)",
+      "Bash(rm:*)",
+      "Bash(.gradlew assembleDebug)",
+      "Bash(gradlew.bat assembleDebug:*)",
+      "Bash(build_apk.bat)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

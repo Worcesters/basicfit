@@ -21,10 +21,7 @@ from .serializers import (
     MachineSerializer
 )
 from apps.machines.models import Machine
-from .simple_recommendation import (
-    get_simple_recommendation, get_simple_recommendation_by_name,
-    get_generic_recommendation, get_generic_recommendation_by_name
-)
+from .new_recommendation_system import ProgressionBasedRecommendationSystem
 
 
 class SeanceEntrainementViewSet(viewsets.ModelViewSet):
@@ -152,7 +149,7 @@ def sauvegarder_seance_simple(request):
 
         # ------ Gestion date prévue ------
         raw_date = data.get('date') or data.get('date_prevue') or data.get('date_seance')
-        
+
         if isinstance(raw_date, str) and raw_date.strip():
             try:
                 # Essayer différents formats de date
@@ -162,7 +159,7 @@ def sauvegarder_seance_simple(request):
                     raw_date + 'T00:00:00' if 'T' not in raw_date else raw_date,  # Ajouter heure si manquante
                     raw_date.replace('Z', '+00:00'),  # Remplacer Z par +00:00
                 ]
-                
+
                 for date_format in formats_to_try:
                     try:
                         parsed = parse_datetime(date_format)
@@ -174,7 +171,7 @@ def sauvegarder_seance_simple(request):
                             break
                         except:
                             continue
-                
+
                 if parsed:
                     date_prevue = timezone.make_aware(parsed) if parsed.tzinfo is None else parsed
                 else:
@@ -186,23 +183,23 @@ def sauvegarder_seance_simple(request):
                 date_prevue = timezone.now()
         else:
             date_prevue = raw_date or timezone.now()
-        
+
         print(f"[DEBUG] Date prévue traitée: {date_prevue} (original: {raw_date})")
 
         # ------ DEDUPLICATION LOGIC IMPROVED ------
         # Check for exact duplicate sessions on the same date with same exercises
         workout_exercises = data.get('exercices', [])
-        
+
         # Look for duplicate sessions on the same date first
         existing_seances = SeanceEntrainement.objects.filter(
             utilisateur=user,
             date_prevue__date=date_prevue.date(),
             statut='TERMINEE'
         ).prefetch_related('exercices__machine', 'exercices__series')
-        
+
         for existing_seance in existing_seances:
             existing_exercises = list(existing_seance.exercices.all())
-            
+
             # Compare if exercises match (same machines and similar weights)
             if len(existing_exercises) == len(workout_exercises):
                 match_count = 0
@@ -212,7 +209,7 @@ def sauvegarder_seance_simple(request):
                             abs(float(existing_ex.poids_utilise or 0) - float(new_ex.get('poids', 0))) < 2.5):
                             match_count += 1
                             break
-                
+
                 # If 80% or more exercises match, consider it a duplicate
                 if match_count >= len(workout_exercises) * 0.8:
                     serializer = SeanceEntrainementSerializer(existing_seance)
@@ -226,7 +223,7 @@ def sauvegarder_seance_simple(request):
 
         # Déterminer le statut selon le type d'action
         est_planification = data.get('est_planification', False) or data.get('action') == 'planifier'
-        
+
         if est_planification:
             # Mode planification : séance future
             seance = SeanceEntrainement.objects.create(
@@ -252,7 +249,7 @@ def sauvegarder_seance_simple(request):
                 commentaire=data.get('commentaire', '')
             )
             print(f"[DEBUG] Séance TERMINEE sauvegardée")
-        
+
         # Les exercices ne sont ajoutés que pour les séances terminées
         if not est_planification:
             # Ajouter les exercices
@@ -386,7 +383,7 @@ def sauvegarder_seance_simple(request):
             except ProgressionMachine.DoesNotExist:
                 # Calculer le 1RM pour cette première séance
                 premier_1rm = exercice.calculer_1rm_brzycki() if not is_cardio else None
-                
+
                 # Créer la progression avec le poids de la séance comme base
                 progression = ProgressionMachine.objects.create(
                     utilisateur=user,
@@ -404,14 +401,14 @@ def sauvegarder_seance_simple(request):
                     seuil_progression=90.0,
                     derniere_progression=timezone.now(),
                 )
-                
+
                 # IMPORTANT: Pour la première séance, on démarre avec le poids utilisé
                 # La recommandation sera calculée après cette première séance
                 print(f"[DEBUG] Nouvelle progression créée pour {machine.nom}:")
                 print(f"  Poids première séance: {exercice.poids_utilise}kg")
                 print(f"  1RM calculé: {premier_1rm}kg")
                 print(f"  Poids de départ stocké: {progression.poids_actuel}kg")
-                
+
                 created = True
             if not created:
                 # Mise à jour des champs de progression
@@ -420,7 +417,7 @@ def sauvegarder_seance_simple(request):
                     nouveau_1rm = exercice.calculer_1rm_brzycki()
                     if nouveau_1rm and (not progression.dernier_1rm or nouveau_1rm > progression.dernier_1rm):
                         progression.dernier_1rm = nouveau_1rm
-                    
+
                     # Ajouter au tonnage total
                     progression.progression_poids_total += exercice.poids_utilise or exercice.poids_prevu or 0.0
                 else:
@@ -432,7 +429,7 @@ def sauvegarder_seance_simple(request):
                 progression.derniere_seance = seance
                 progression.nombre_seances_machine += 1
                 progression.derniere_progression = timezone.now()
-                
+
                 # CALCUL DU TAUX DE RÉUSSITE BASÉ SUR LES SÉRIES
                 series_reussies = 0
                 series_totales = exercice.series.count()
@@ -443,15 +440,15 @@ def sauvegarder_seance_simple(request):
                     progression.taux_reussite = (series_reussies / series_totales) * 100
                 else:
                     progression.taux_reussite = 100.0  # Par défaut si pas de séries détaillées
-                
+
                 # *** CALCUL DE LA NOUVELLE RECOMMANDATION POUR LA PROCHAINE SÉANCE ***
                 ancien_poids = progression.poids_actuel
-                
+
                 # Pour éviter de bloquer à 17kg, utilisons directement le poids de la séance
                 # si c'est supérieur à la recommandation actuelle
                 poids_seance = exercice.poids_utilise or exercice.poids_prevu or 0.0
                 nouvelle_recommandation = progression.calculer_recommandation_professionnelle()
-                
+
                 # Si le poids de la séance actuelle est supérieur à la recommandation,
                 # utiliser le poids de la séance comme base pour la prochaine fois
                 if poids_seance > nouvelle_recommandation:
@@ -460,7 +457,7 @@ def sauvegarder_seance_simple(request):
                     print(f"[DEBUG] Progression accélérée détectée - utilisation du poids séance: {poids_seance}kg")
                 else:
                     progression.poids_actuel = nouvelle_recommandation
-                
+
                 print(f"[DEBUG] Progression mise à jour pour {machine.nom}:")
                 print(f"  Ancien poids: {ancien_poids}kg")
                 print(f"  Poids de la séance: {poids_seance}kg")
@@ -468,7 +465,7 @@ def sauvegarder_seance_simple(request):
                 print(f"  Nouveau poids retenu: {progression.poids_actuel}kg")
                 print(f"  1RM: {progression.dernier_1rm}kg")
                 print(f"  Taux réussite: {progression.taux_reussite}%")
-                
+
                 progression.save()
 
         # Calculer les métriques
@@ -536,52 +533,167 @@ def seances_list(request):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
-def get_recommendation_by_id(request, machine_id):
-    """Endpoint pour obtenir la recommandation de poids basée sur le système professionnel"""
+@permission_classes([IsAuthenticated])
+def get_recommendation(request, machine_id):
+    """
+    Système de recommandation basé sur le nouveau système de progression
+    """
     try:
         user = request.user
         
+        # Récupérer la machine
+        try:
+            machine = Machine.objects.get(id=machine_id)
+        except Machine.DoesNotExist:
+            return Response({
+                'error': 'Machine non trouvée'
+            }, status=status.HTTP_404_NOT_FOUND)
+
         # Utiliser le nouveau système de recommandation
-        if user.is_authenticated:
-            # Utilisateur authentifié : recommandation personnalisée
-            recommendation_result = get_simple_recommendation(user, machine_id)
-        else:
-            # Utilisateur non authentifié : recommandation générique
-            logger.info(f"Recommandation générique pour machine {machine_id} (utilisateur non authentifié)")
-            recommendation_result = get_generic_recommendation(machine_id)
+        recommendation_system = ProgressionBasedRecommendationSystem()
+        recommendations = recommendation_system.get_recommendations_for_user(
+            user, 'PRISE_MASSE', nb_machines=10
+        )
         
-        if recommendation_result['success']:
-            return Response(recommendation_result['data'], status=status.HTTP_200_OK)
-        else:
-            return Response({'error': recommendation_result['error']}, status=status.HTTP_400_BAD_REQUEST)
+        # Chercher la recommandation pour cette machine spécifique
+        for rec in recommendations:
+            if rec['machine_id'] == machine_id:
+                return Response({
+                    'machine': {
+                        'id': machine.id,
+                        'nom': machine.nom,
+                        'description': machine.description
+                    },
+                    'recommendation': rec,
+                    'premiere_utilisation': rec['recommandation_source'] == 'premiere_utilisation'
+                }, status=status.HTTP_200_OK)
+        
+        # Si pas trouvé dans les recommandations, créer une recommandation par défaut
+        default_rec = {
+            'machine_id': machine.id,
+            'machine_nom': machine.nom,
+            'poids_recommande': machine.poids_minimum + machine.increment_poids,
+            'series_recommandees': 3,
+            'repetitions_recommandees': 10,
+            'repos_recommande': 90,
+            'notes': 'Recommandation par défaut - première utilisation',
+            'recommandation_source': 'defaut',
+            'progression_info': {
+                'poids_actuel': 0,
+                'taux_reussite': 0,
+                'nombre_seances': 0,
+                'dernier_1rm': None,
+                'progression_totale': 0
+            }
+        }
+        
+        return Response({
+            'machine': {
+                'id': machine.id,
+                'nom': machine.nom,
+                'description': machine.description
+            },
+            'recommendation': default_rec,
+            'premiere_utilisation': True
+        }, status=status.HTTP_200_OK)
 
     except Exception as e:
-        logger.error(f"Erreur endpoint recommandation ID {machine_id}: {e}")
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        logger.error(f"Erreur dans get_recommendation: {e}")
+        return Response({
+            'error': f'Erreur lors du calcul de la recommandation: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
-def get_recommendation(request, machine_name):
+def get_recommendation_by_name(request, machine_name):
     """Endpoint pour obtenir la recommandation de poids basée sur le système professionnel"""
     try:
         user = request.user
+
+        if not user.is_authenticated:
+            return Response({'error': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
         
-        # Utiliser le nouveau système de recommandation par nom
-        if user.is_authenticated:
-            # Utilisateur authentifié : recommandation personnalisée
-            recommendation_result = get_simple_recommendation_by_name(user, machine_name)
-        else:
-            # Utilisateur non authentifié : recommandation générique
-            logger.info(f"Recommandation générique pour machine {machine_name} (utilisateur non authentifié)")
-            recommendation_result = get_generic_recommendation_by_name(machine_name)
-        
-        if recommendation_result['success']:
-            return Response(recommendation_result['data'], status=status.HTTP_200_OK)
-        else:
-            return Response({'error': recommendation_result['error']}, status=status.HTTP_400_BAD_REQUEST)
+        # Utiliser le nouveau système de recommandation
+        recommendation_system = ProgressionBasedRecommendationSystem()
+        try:
+            # Chercher une machine spécifique par nom
+            machine = Machine.objects.filter(nom__icontains=machine_name).first()
+            if not machine:
+                return Response({'error': f'Machine "{machine_name}" non trouvée'}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Pour une machine spécifique, utiliser PRISE_MASSE par défaut
+            recommendations = recommendation_system.get_recommendations_for_user(
+                user, 'PRISE_MASSE', nb_machines=6
+            )
+            
+            # Chercher la recommandation pour cette machine spécifique
+            for rec in recommendations:
+                if rec['machine_nom'].lower() in machine_name.lower() or machine_name.lower() in rec['machine_nom'].lower():
+                    return Response(rec, status=status.HTTP_200_OK)
+            
+            # Si pas trouvé, retourner une recommandation générique pour cette machine
+            return Response({
+                'machine_id': machine.id,
+                'machine_nom': machine.nom,
+                'poids_recommande': machine.poids_minimum + machine.increment_poids,
+                'series_recommandees': 3,
+                'repetitions_recommandees': 10,
+                'repos_recommande': 90,
+                'notes': 'Recommandation par défaut - première utilisation',
+                'recommandation_source': 'defaut'
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"Erreur système recommandation: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     except Exception as e:
         logger.error(f"Erreur endpoint recommandation nom {machine_name}: {e}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_session_recommendations(request):
+    """
+    Nouveau endpoint pour obtenir des recommandations basées sur le mode d'entraînement
+    GET /api/workouts/recommendations/session/?mode=FORCE&nb_machines=6
+    """
+    try:
+        user = request.user
+        mode = request.GET.get('mode', 'PRISE_MASSE')  # Mode par défaut
+        nb_machines = int(request.GET.get('nb_machines', 6))  # 6 machines par défaut
+        
+        # Vérifier que le mode est valide
+        valid_modes = ['FORCE', 'PRISE_MASSE', 'ENDURANCE', 'SECHE']
+        if mode not in valid_modes:
+            return Response({
+                'error': f'Mode invalide. Modes supportés: {valid_modes}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Utiliser le nouveau système de recommandation
+        recommendation_system = ProgressionBasedRecommendationSystem()
+        recommendations = recommendation_system.get_recommendations_for_user(
+            user, mode, nb_machines
+        )
+        
+        response_data = {
+            'mode_entrainement': mode,
+            'nb_machines_demandees': nb_machines,
+            'nb_recommendations': len(recommendations),
+            'recommendations': recommendations,
+            'metadata': {
+                'timestamp': timezone.now().isoformat(),
+                'user_id': user.id,
+                'system_version': '2.0_progression_based'
+            }
+        }
+        
+        return Response(response_data, status=status.HTTP_200_OK)
+        
+    except ValueError as e:
+        return Response({'error': f'Paramètre invalide: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(f"Erreur dans get_session_recommendations: {e}")
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

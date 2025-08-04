@@ -23,7 +23,7 @@ from .serializers import (
 )
 from apps.machines.models import Machine
 from .workout_service import WorkoutSaveService, CalendarService
-from .recommendation_system import RecommendationManager
+from .new_recommendation_system import ProgressionBasedRecommendationSystem
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +162,16 @@ def save_workout_professional(request):
         # Utiliser le service professionnel
         save_service = WorkoutSaveService()
         session, created, message = save_service.save_workout(user, workout_data)
+        
+        # Mettre à jour les progressions si la séance est terminée
+        if session and session.statut == 'TERMINEE':
+            try:
+                progression_system = ProgressionBasedRecommendationSystem()
+                progression_system.update_progression_after_workout(session)
+                logger.info(f"Progressions mises à jour pour la séance {session.id}")
+            except Exception as e:
+                logger.warning(f"Erreur mise à jour progressions: {e}")
+                # Ne pas échouer la sauvegarde pour autant
         
         # Sérialiser la réponse
         try:

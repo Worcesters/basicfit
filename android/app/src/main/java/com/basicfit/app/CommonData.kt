@@ -47,6 +47,17 @@ data class Exercise(
     val totalWeight: Double = weight * sets
 )
 
+// Classe simple pour les enregistrements d'exercices
+data class ExerciseRecord(
+    val name: String,
+    val sets: Int,
+    val reps: Int,
+    val weight: Double
+) {
+    // Calculer le poids total comme propriété calculée
+    val totalWeight: Double get() = weight * sets
+}
+
 // Classe pour remplacer MachineData.WorkoutPreset
 data class WorkoutPreset(
     val id: Int,

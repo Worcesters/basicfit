@@ -105,8 +105,8 @@ deploy_api_quick.bat
 The Django settings are split across multiple files in `backend/basicfit_project/settings/`:
 - `base.py`: Common settings
 - `development.py`: Local development
-- `production.py`: Production on Railway
-- `railway.py`: Railway-specific configuration
+- `production.py`: Production settings
+- `flyio.py`: Fly.io-specific configuration
 
 Default development setting: `basicfit_project.settings.development`
 
@@ -115,7 +115,7 @@ Default development setting: `basicfit_project.settings.development`
 - JWT-based authentication required for most endpoints
 - Token obtained via `/api/auth/login/`
 - Android app stores tokens in secure storage
-- API base URL configured in Android's ApiClient.java
+- API base URL configured in Android's ApiService.kt
 
 ## Database Schema Highlights
 
@@ -128,9 +128,10 @@ Default development setting: `basicfit_project.settings.development`
 
 Several test scripts are available in the backend directory:
 - `test_systeme_complet.py`: End-to-end system testing
-- `test_api_railway.py`: Railway API testing
+- `test_api_production.py`: Production API testing
 - `test_authentification_android.py`: Android auth flow testing
-- `validation_complete.py`: Complete data validation
+- `test_nouveau_systeme_recommandation.py`: New recommendation system testing
+- Various recommendation and 1RM testing scripts
 
 ## File Upload & Media
 
@@ -140,7 +141,7 @@ Several test scripts are available in the backend directory:
 
 ## Deployment Notes
 
-- Railway deployment uses PostgreSQL
+- Fly.io deployment uses PostgreSQL
 - Android APK built via Gradle
 - CORS configured for cross-origin requests
 - WhiteNoise handles static files in production

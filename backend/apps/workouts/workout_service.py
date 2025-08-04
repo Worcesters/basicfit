@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 from .models import SeanceEntrainement, ExerciceSeance, SeriExercice, ProgressionMachine, ModeEntrainement
 from apps.machines.models import Machine, CategorieMachine
-from .recommendation_system import RecommendationManager
+# Ancien système de recommandation supprimé
 
 logger = logging.getLogger(__name__)
 

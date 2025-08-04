@@ -1,6 +1,7 @@
 package com.basicfit.app
 
 import android.content.Context
+import com.basicfit.app.ExerciseRecord
 import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -104,13 +105,7 @@ data class WorkoutEntry(
     val totalWeight: Double
 )
 
-data class ExerciseRecord(
-    val name: String,
-    val sets: Int,
-    val reps: Int,
-    val weight: Double,
-    val totalWeight: Double
-)
+
 
 data class ExerciseRecommendation(
     val sets: Int,
@@ -308,8 +303,7 @@ fun convertServerHistoryToLocal(serverHistory: List<Any>): List<WorkoutEntry> {
                             name = exoMap["machine__nom"] as? String ?: "Exercice",
                             sets = sets,
                             reps = (exoMap["repetitions_prevues"] as? Number)?.toInt() ?: 10,
-                            weight = weight,
-                            totalWeight = weight * sets
+                            weight = weight
                         )
                     } else null
                 } ?: emptyList()
@@ -562,13 +556,13 @@ fun MainScreen() {
                             exercises = seance.exercises.map { exercice ->
                                 val weight = exercice.series.firstOrNull()?.poids ?: 0.0
                                 val sets = exercice.series.size
-                                // Créer ExerciseRecord avec totalWeight calculé - FORCE RECOMPILE
+                                val reps = exercice.series.firstOrNull()?.repetitions ?: 10
+                                // FIXED: Créer ExerciseRecord avec totalWeight calculé
                                 ExerciseRecord(
                                     name = exercice.machine_nom,
                                     sets = sets,
-                                    reps = exercice.series.firstOrNull()?.repetitions ?: 10,
-                                    weight = weight,
-                                    totalWeight = weight * sets
+                                    reps = reps,
+                                    weight = weight
                                 )
                             }
                         )
@@ -3291,8 +3285,7 @@ fun WorkoutInProgressScreen(
                                         name = exercise.machine.nom,
                                         sets = sets,
                                         reps = bestSet.reps,
-                                        weight = weight,
-                                        totalWeight = weight * sets
+                                        weight = weight
                                     )
                                 }
 
