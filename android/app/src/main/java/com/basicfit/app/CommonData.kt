@@ -43,7 +43,8 @@ data class Exercise(
     val name: String,
     val sets: Int,
     val reps: Int,
-    val weight: Double
+    val weight: Double,
+    val totalWeight: Double = weight * sets
 )
 
 // Classe pour remplacer MachineData.WorkoutPreset
@@ -51,5 +52,7 @@ data class WorkoutPreset(
     val id: Int,
     val nom: String,
     val description: String,
-    val machines: List<Machine>
+    val machines: List<Machine>,
+    val emoji: String = "💪",
+    val focusMusculaire: String = "Musculation"
 )

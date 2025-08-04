@@ -55,7 +55,7 @@ fun CalendarScreen(
 
     // Ajout pour le bouton de vidage du calendrier
     var showClearDialog by remember { mutableStateOf(false) }
-    
+
     // État pour la synchronisation avec la BDD
     var isLoadingFromDB by remember { mutableStateOf(false) }
     var lastSyncTime by remember { mutableStateOf(0L) }
@@ -69,13 +69,13 @@ fun CalendarScreen(
     // Fonction pour synchroniser avec la BDD
     fun syncWithDatabase() {
         if (isLoadingFromDB) return
-        
+
         coroutineScope.launch {
             isLoadingFromDB = true
             try {
                 val apiService = ApiService.getInstance()
                 apiService.initialize(context)
-                
+
                 if (apiService.isApiAvailable()) {
                     val result = apiService.getCalendarHistory()
                     result.onSuccess { dbHistory ->
@@ -83,10 +83,10 @@ fun CalendarScreen(
                         val mergedHistory = (workoutHistory + dbHistory)
                             .distinctBy { "${it.date}_${it.mode}_${it.duration}" }
                             .sortedBy { it.date }
-                        
+
                         onWorkoutHistoryChange(mergedHistory)
                         lastSyncTime = System.currentTimeMillis()
-                        
+
                         android.util.Log.d("CalendarSync", "✅ Synchronisation réussie: ${dbHistory.size} séances récupérées de la BDD")
                         Toast.makeText(context, "✅ Calendrier synchronisé avec la base de données", Toast.LENGTH_SHORT).show()
                     }.onFailure { error ->
@@ -145,7 +145,7 @@ fun CalendarScreen(
                 onClick = { syncWithDatabase() },
                 enabled = !isLoadingFromDB,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
-            ) { 
+            ) {
                 if (isLoadingFromDB) {
                     Text("🔄 Synchro...", color = Color.White)
                 } else {
@@ -375,7 +375,8 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
                             name = machineName,
                             sets = sets,
                             reps = reps,
-                            weight = weight
+                            weight = weight,
+                            totalWeight = weight * sets
                         )
                         entriesByDate.getOrPut(date) { mutableListOf() }.add(record)
                     }
@@ -413,7 +414,8 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
                             name = machineName,
                             sets = serie,
                             reps = repetition,
-                            weight = utilisation
+                            weight = utilisation,
+                            totalWeight = utilisation * serie
                         )
                         entriesByDate.getOrPut(date) { mutableListOf() }.add(record)
                     }

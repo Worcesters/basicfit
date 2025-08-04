@@ -377,11 +377,13 @@ class ApiService private constructor() {
             val avgReps = if (exercice.series.isNotEmpty()) totalReps / exercice.series.size else 0
             val avgWeight = if (exercice.series.isNotEmpty()) totalWeight / exercice.series.size else 0.0
 
+            val sets = exercice.series.size
             ExerciseRecord(
                 name = exercice.machine_nom,
-                sets = exercice.series.size,
+                sets = sets,
                 reps = avgReps,
-                weight = avgWeight
+                weight = avgWeight,
+                totalWeight = avgWeight * sets
             )
         }
 

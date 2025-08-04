@@ -108,7 +108,8 @@ data class ExerciseRecord(
     val name: String,
     val sets: Int,
     val reps: Int,
-    val weight: Double
+    val weight: Double,
+    val totalWeight: Double
 )
 
 data class ExerciseRecommendation(
@@ -301,11 +302,14 @@ fun convertServerHistoryToLocal(serverHistory: List<Any>): List<WorkoutEntry> {
                 val exercices = (entry["exercices"] as? List<*>)?.mapNotNull { exo ->
                     val exoMap = exo as? Map<*, *>
                     if (exoMap != null) {
+                        val weight = (exoMap["poids_utilise"] as? Number)?.toDouble() ?: 0.0
+                        val sets = (exoMap["nombre_series"] as? Number)?.toInt() ?: 3
                         ExerciseRecord(
                             name = exoMap["machine__nom"] as? String ?: "Exercice",
-                            sets = (exoMap["nombre_series"] as? Number)?.toInt() ?: 3,
+                            sets = sets,
                             reps = (exoMap["repetitions_prevues"] as? Number)?.toInt() ?: 10,
-                            weight = (exoMap["poids_utilise"] as? Number)?.toDouble() ?: 0.0
+                            weight = weight,
+                            totalWeight = weight * sets
                         )
                     } else null
                 } ?: emptyList()
@@ -556,11 +560,15 @@ fun MainScreen() {
                             mode = seance.mode_entrainement,
                             duration = seance.duree_totale ?: 0,
                             exercises = seance.exercises.map { exercice ->
-                                Exercise(
+                                val weight = exercice.series.firstOrNull()?.poids ?: 0.0
+                                val sets = exercice.series.size
+                                // Créer ExerciseRecord avec totalWeight calculé - FORCE RECOMPILE
+                                ExerciseRecord(
                                     name = exercice.machine_nom,
-                                    sets = exercice.series.size,
+                                    sets = sets,
                                     reps = exercice.series.firstOrNull()?.repetitions ?: 10,
-                                    weight = exercice.series.firstOrNull()?.poids ?: 0.0
+                                    weight = weight,
+                                    totalWeight = weight * sets
                                 )
                             }
                         )
@@ -3277,11 +3285,14 @@ fun WorkoutInProgressScreen(
                                 val duration = ((System.currentTimeMillis() - currentWorkoutSession.startTime) / 60000).toInt()
                                 val exercisesCompleted = currentWorkoutSession.exercises.map { exercise ->
                                     val bestSet = exercise.sets.maxByOrNull { it.weight * it.reps } ?: exercise.sets.last()
+                                    val weight = bestSet.weight
+                                    val sets = exercise.sets.size
                                     ExerciseRecord(
                                         name = exercise.machine.nom,
-                                        sets = exercise.sets.size,
+                                        sets = sets,
                                         reps = bestSet.reps,
-                                        weight = bestSet.weight
+                                        weight = weight,
+                                        totalWeight = weight * sets
                                     )
                                 }
 
@@ -4331,7 +4342,7 @@ fun WorkoutEntry.toWorkoutSession(): WorkoutSession {
                     nom = exercise.name,
                     description = "",
                     instructions = "",
-                    categorie = "",
+                    categorie = CategorieMachine.MUSCULATION,
                     imageGif = "",
                     groupeMusculairePrimaire = "",
                     incrementPoids = 2.5,
