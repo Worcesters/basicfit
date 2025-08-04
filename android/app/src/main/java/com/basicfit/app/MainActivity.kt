@@ -549,23 +549,25 @@ fun MainScreen() {
 
                     // Convertir en format local
                     val serverWorkoutHistory = serverHistory.map { seance ->
+                        val exercisesList = seance.exercises.map { exercice ->
+                            val weight = exercice.series.firstOrNull()?.poids ?: 0.0
+                            val sets = exercice.series.size
+                            val reps = exercice.series.firstOrNull()?.repetitions ?: 10
+                            // FIXED: Créer ExerciseRecord - totalWeight est calculé automatiquement
+                            ExerciseRecord(
+                                name = exercice.machine_nom,
+                                sets = sets,
+                                reps = reps,
+                                weight = weight
+                            )
+                        }
+                        
                         WorkoutEntry(
                             date = java.time.LocalDate.parse(seance.date_debut.substring(0, 10)),
                             mode = seance.mode_entrainement,
                             duration = seance.duree_totale ?: 0,
-                            exercises = seance.exercises.map { exercice ->
-                                val weight = exercice.series.firstOrNull()?.poids ?: 0.0
-                                val sets = exercice.series.size
-                                val reps = exercice.series.firstOrNull()?.repetitions ?: 10
-                                // FIXED: Créer ExerciseRecord avec totalWeight calculé
-                                ExerciseRecord(
-                                    name = exercice.machine_nom,
-                                    sets = sets,
-                                    reps = reps,
-                                    weight = weight,
-                                    totalWeight = weight * sets * reps
-                                )
-                            }
+                            exercises = exercisesList,
+                            totalWeight = exercisesList.sumOf { it.weight * it.reps * it.sets }
                         )
                     }
 
