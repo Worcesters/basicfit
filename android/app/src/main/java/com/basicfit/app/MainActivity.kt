@@ -562,7 +562,8 @@ fun MainScreen() {
                                     name = exercice.machine_nom,
                                     sets = sets,
                                     reps = reps,
-                                    weight = weight
+                                    weight = weight,
+                                    totalWeight = weight * sets * reps
                                 )
                             }
                         )
