@@ -191,10 +191,10 @@ interface BasicFitApi {
 
 
 
-    @GET("workouts/recommendation/id/{machine_id}/")
+    @GET("workouts/recommendations/{machine_id}/")
     suspend fun getRecommendation(@Path("machine_id") machineId: Int): ApiResponse<RecommendationResponse>
 
-    @GET("workouts/recommendation/name/{machine_name}/")
+    @GET("workouts/recommendations/name/{machine_name}/")
     suspend fun getRecommendationByName(@Path("machine_name") machineName: String): ApiResponse<RecommendationResponse>
 
     @GET("users/android/ping/")
