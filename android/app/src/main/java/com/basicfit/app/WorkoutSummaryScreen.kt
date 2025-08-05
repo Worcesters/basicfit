@@ -657,17 +657,11 @@ fun NextRecommendationsCard(
                                 }
                             }
 
-                            // Si l'API échoue après tous les retries, utiliser le fallback local
+                            // Si l'API échoue après tous les retries
                             if (apiRecommendation == null) {
-                                debugInfo = "⚠️ API échouée, calcul local"
-                                android.util.Log.w("WorkoutSummary", "⚠️ API échouée après ${maxRetries} tentatives, utilisation calcul local")
-                                recommendation = calculateWorkoutRecommendations(
-                                    machine = machine,
-                                    workoutHistory = workoutHistory.map { it.toWorkoutSession() },
-                                    profileData = profileData
-                                )
-                                debugInfo = "📊 Calcul local: ${recommendation?.weight}kg"
-                                android.util.Log.d("WorkoutSummary", "📊 Calcul local: ${recommendation?.weight}kg")
+                                debugInfo = "❌ API indisponible"
+                                android.util.Log.w("WorkoutSummary", "❌ API indisponible après ${maxRetries} tentatives")
+                                recommendation = null
                             }
                         } catch (e: Exception) {
                             android.util.Log.e("WorkoutSummary", "Erreur lors du chargement: ${e.message}")
@@ -694,60 +688,25 @@ fun NextRecommendationsCard(
                             android.util.Log.d("WorkoutSummary", "🔍 DEBUG: recommendation.reps = ${rec?.reps}")
                             rec
                         } else {
-                            // Fallback intelligent basé sur l'historique
-                            val machine = machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) }
-                            val suggestedWeight = if (machine != null) {
-                                calculateStartingWeight(machine, profileData)
-                            } else {
-                                0.0
-                            }
-
-                            // Utiliser le poids suggéré ou une valeur par défaut plus intelligente
-                            val fallbackWeight = if (suggestedWeight > 0) suggestedWeight else {
-                                // Calculer basé sur le type d'exercice
-                                when {
-                                    exercise.name.contains("Développé", ignoreCase = true) -> 30.0
-                                    exercise.name.contains("Squat", ignoreCase = true) -> 40.0
-                                    exercise.name.contains("Traction", ignoreCase = true) -> 0.0 // Poids du corps
-                                    exercise.name.contains("Presse", ignoreCase = true) -> 25.0
-                                    else -> 20.0
-                                }
-                            }
-
-                            ExerciseRecommendation(
-                        sets = 3,
-                        reps = 10,
-                                weight = fallbackWeight,
-                        restTime = 90,
-                                notes = "💪 Recommandation basée sur l'historique (API non disponible)"
-                            )
+                            // Pas de recommandation disponible
+                            null
                         }
 
                         android.util.Log.d("WorkoutSummary", "🎯 Recommandation finale pour ${exercise.name}: ${reco?.weight}kg")
                         android.util.Log.d("WorkoutSummary", "🔍 DEBUG FINAL: reco.weight = ${reco?.weight}, reco.sets = ${reco?.sets}, reco.reps = ${reco?.reps}")
                         android.util.Log.d("WorkoutSummary", "🔍 DEBUG FINAL: recommendation était null? ${recommendation == null}")
-                        if (reco?.weight == 20.0 && recommendation == null) {
-                            android.util.Log.w("WorkoutSummary", "⚠️ FALBACK 20kg utilisé pour ${exercise.name} - API non disponible")
-                        }
 
                         val poids = if (reco?.weight != null && reco.weight > 0) {
-                            val source = if (recommendation != null) "API" else "LOCAL"
-                            debugInfo = "🚀 FINAL: ${reco.weight.toInt()}kg ($source)"
-                            android.util.Log.d("WorkoutSummary", "🚀 AFFICHAGE FINAL: ${reco.weight.toInt()}kg pour ${exercise.name} (source: $source)")
+                            debugInfo = "🚀 FINAL: ${reco.weight.toInt()}kg (API)"
+                            android.util.Log.d("WorkoutSummary", "🚀 AFFICHAGE FINAL: ${reco.weight.toInt()}kg pour ${exercise.name} (API)")
                             "${reco.weight.toInt()}kg"
                         } else {
-                            // Calculer une suggestion de poids de départ
-                            val machine = machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) }
-                            if (machine != null) {
-                            val suggestedWeight = calculateStartingWeight(machine, profileData)
-                            if (suggestedWeight > 0) "${suggestedWeight.toInt()}kg (suggestion)" else "À déterminer"
-                            } else {
-                                "À déterminer"
+                            debugInfo = "❌ Aucune recommandation"
+                            "Non disponible"
                         }
-                    }
-                        val reps = reco?.reps ?: 10
-                        val sets = reco?.sets ?: 3
-                        val rest = reco?.restTime ?: 90
+                        val reps = reco?.reps ?: 0
+                        val sets = reco?.sets ?: 0
+                        val rest = reco?.restTime ?: 0
 
                     // Affichage du GIF si présent
                         val machine = machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) }

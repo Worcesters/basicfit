@@ -517,17 +517,16 @@ fun MainScreen() {
         }
     }
 
-    // Vérifier la connectivité au démarrage
+    // Initialiser l'API au démarrage
     LaunchedEffect(Unit) {
         try {
             val apiService = ApiService.getInstance()
             apiService.initialize(context)
-            val serverReachable = apiService.isServerReachable()
-            isOnline = serverReachable
-            connectionStatus = if (serverReachable) "🟢 Connecté au serveur" else "🔴 Mode hors ligne"
+            isOnline = apiService.isApiAvailable()
+            connectionStatus = if (isOnline) "🟢 API initialisée" else "🔴 Service indisponible"
         } catch (e: Exception) {
             isOnline = false
-            connectionStatus = "🔴 Mode hors ligne"
+            connectionStatus = "🔴 Erreur d'initialisation"
         }
     }
 
@@ -4377,7 +4376,7 @@ suspend fun getRecommendationFromAPI(machineId: Int, context: Context): Exercise
         android.util.Log.d("RecommendationAPI", "🌐 État API - Disponible: $isApiAvailable")
 
         if (!isApiAvailable) {
-            android.util.Log.w("RecommendationAPI", "⚠️ API non disponible - Utilisation du fallback local")
+            android.util.Log.w("RecommendationAPI", "⚠️ API non disponible")
             return null
         }
 

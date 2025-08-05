@@ -312,25 +312,6 @@ class ApiService private constructor() {
         }
     }
 
-    // Méthode synchrone pour tester rapidement la connectivité
-    fun isServerReachable(): Boolean {
-        return try {
-            if (!isInitialized) return false
-
-            // Test rapide de connectivité réseau
-            val url = java.net.URL(BASE_URL)
-            val connection = url.openConnection() as java.net.HttpURLConnection
-            connection.connectTimeout = 3000 // 3 secondes
-            connection.readTimeout = 3000
-            connection.requestMethod = "HEAD"
-            val responseCode = connection.responseCode
-            connection.disconnect()
-
-            responseCode in 200..299 || responseCode == 404 // 404 est OK (endpoint existe mais pas cette route)
-        } catch (e: Exception) {
-            false
-        }
-    }
 
     // Méthodes utilitaires
     fun saveAuthToken(context: Context, token: String) {
@@ -415,86 +396,33 @@ class AuthManager(private val context: Context) {
 
     suspend fun login(email: String, password: String): Result<AuthResponse> {
         return try {
-            // Toujours essayer l'API d'abord si elle est initialisée
-            if (apiService.isApiAvailable()) {
-                val request = LoginRequest(email, password)
-                val response = apiService.getApi().login(request)
-
-                if (response.success && response.token != null) {
-                    // Sauvegarder le token
-                    apiService.saveAuthToken(context, response.token)
-
-                    // Sauvegarder les infos utilisateur
-                    response.user?.let { user ->
-                        val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
-                        prefs.edit().apply {
-                            putString("user_email", user.email)
-                            putString("user_nom", user.nom)
-                            putString("user_prenom", user.prenom)
-                            putBoolean("is_logged_in", true)
-                            putBoolean("is_offline_mode", false)
-                            apply()
-                        }
-                    }
-                }
-
-                return Result.success(response)
+            if (!apiService.isApiAvailable()) {
+                return Result.failure(Exception("❌ Service non disponible. Vérifiez votre connexion internet."))
             }
 
-            // Si l'API n'est pas disponible, mode hors ligne
-            val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
-            prefs.edit().apply {
-                putString("user_email", email)
-                putString("user_nom", "Utilisateur")
-                putString("user_prenom", "Local")
-                putBoolean("is_logged_in", true)
-                putBoolean("is_offline_mode", true)
-                apply()
-            }
+            val request = LoginRequest(email, password)
+            val response = apiService.getApi().login(request)
 
-            Result.success(AuthResponse(
-                success = true,
-                message = "📱 Mode hors ligne activé",
-                user = UserResponse(
-                    id = 1,
-                    email = email,
-                    nom = "Utilisateur",
-                    prenom = "Local"
-                ),
-                token = "offline_token"
-            ))
-        } catch (e: Exception) {
-            // En cas d'erreur réseau, proposer le mode hors ligne
-            when {
-                e.message?.contains("404") == true -> {
-                    Result.failure(Exception("❌ Serveur non disponible. Connexion en mode hors ligne possible."))
-                }
-                e.message?.contains("timeout") == true || e.message?.contains("Unable to resolve host") == true -> {
-                    // Mode hors ligne automatique en cas de problème réseau
+            if (response.success && response.token != null) {
+                // Sauvegarder le token
+                apiService.saveAuthToken(context, response.token)
+
+                // Sauvegarder les infos utilisateur
+                response.user?.let { user ->
                     val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
                     prefs.edit().apply {
-                        putString("user_email", email)
-                        putString("user_nom", "Utilisateur")
-                        putString("user_prenom", "Local")
+                        putString("user_email", user.email)
+                        putString("user_nom", user.nom)
+                        putString("user_prenom", user.prenom)
                         putBoolean("is_logged_in", true)
-                        putBoolean("is_offline_mode", true)
                         apply()
                     }
-
-                    Result.success(AuthResponse(
-                        success = true,
-                        message = "📱 Mode hors ligne activé",
-                        user = UserResponse(
-                            id = 1,
-                            email = email,
-                            nom = "Utilisateur",
-                            prenom = "Local"
-                        ),
-                        token = "offline_token"
-                    ))
                 }
-                else -> Result.failure(Exception("❌ Erreur de connexion: ${e.message}"))
             }
+
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(Exception("❌ Erreur de connexion: ${e.message}"))
         }
     }
 
@@ -511,9 +439,11 @@ class AuthManager(private val context: Context) {
         niveauExperience: String? = null
     ): Result<AuthResponse> {
         return try {
-            // Toujours essayer l'API d'abord si elle est initialisée
-            if (apiService.isApiAvailable()) {
-                val request = RegisterRequest(
+            if (!apiService.isApiAvailable()) {
+                return Result.failure(Exception("❌ Service non disponible. Vérifiez votre connexion internet."))
+            }
+
+            val request = RegisterRequest(
                 email = email,
                 password = password,
                 nom = nom,
@@ -524,105 +454,30 @@ class AuthManager(private val context: Context) {
                 genre = genre,
                 objectif_sportif = objectifSportif,
                 niveau_experience = niveauExperience
-                )
-                val response = apiService.getApi().register(request)
+            )
+            val response = apiService.getApi().register(request)
 
-                if (response.success && response.token != null) {
-                    // Sauvegarder le token
-                    apiService.saveAuthToken(context, response.token)
+            if (response.success && response.token != null) {
+                // Sauvegarder le token
+                apiService.saveAuthToken(context, response.token)
 
-                    // Sauvegarder les infos utilisateur
-                    response.user?.let { user ->
-                        val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
-                        prefs.edit().apply {
-                            putString("user_email", user.email)
-                            putString("user_nom", user.nom)
-                            putString("user_prenom", user.prenom)
-                            putBoolean("is_logged_in", true)
-                            putBoolean("is_offline_mode", false)
-                            apply()
-                        }
+                // Sauvegarder les infos utilisateur
+                response.user?.let { user ->
+                    val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
+                    prefs.edit().apply {
+                        putString("user_email", user.email)
+                        putString("user_nom", user.nom)
+                        putString("user_prenom", user.prenom)
+                        putBoolean("is_logged_in", true)
+                        apply()
                     }
                 }
-
-                return Result.success(response)
             }
 
-            // Si l'API n'est pas disponible, mode hors ligne
-            val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
-            prefs.edit().apply {
-                putString("user_email", email)
-                putString("user_nom", nom)
-                putString("user_prenom", prenom)
-                putBoolean("is_logged_in", true)
-                putBoolean("is_offline_mode", true)
-                apply()
-            }
-
-            Result.success(AuthResponse(
-                success = true,
-                message = "📱 Inscription en mode hors ligne",
-                user = UserResponse(
-                    id = 1,
-                    email = email,
-                    nom = nom,
-                    prenom = prenom
-                ),
-                token = "offline_token"
-            ))
+            Result.success(response)
         } catch (e: Exception) {
-            // En cas d'erreur réseau, créer le compte en mode hors ligne
-            when {
-                e.message?.contains("404") == true -> {
-                    // Créer automatiquement le compte en mode hors ligne
-                    val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
-                    prefs.edit().apply {
-                        putString("user_email", email)
-                        putString("user_nom", nom)
-                        putString("user_prenom", prenom)
-                        putBoolean("is_logged_in", true)
-                        putBoolean("is_offline_mode", true)
-                        apply()
-                    }
-
-                    Result.success(AuthResponse(
-                        success = true,
-                        message = "✅ Compte créé en mode hors ligne",
-                        user = UserResponse(
-                            id = 1,
-                            email = email,
-                            nom = nom,
-                            prenom = prenom
-                        ),
-                        token = "offline_token"
-                    ))
-                }
-                e.message?.contains("timeout") == true || e.message?.contains("Unable to resolve host") == true -> {
-                    // Mode hors ligne automatique
-                    val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
-                    prefs.edit().apply {
-                        putString("user_email", email)
-                        putString("user_nom", nom)
-                        putString("user_prenom", prenom)
-                        putBoolean("is_logged_in", true)
-                        putBoolean("is_offline_mode", true)
-                        apply()
-                    }
-
-                    Result.success(AuthResponse(
-                        success = true,
-                        message = "📱 Compte créé en mode hors ligne",
-                        user = UserResponse(
-                            id = 1,
-                            email = email,
-                            nom = nom,
-                            prenom = prenom
-                        ),
-                        token = "offline_token"
-                    ))
-                }
-                else -> Result.failure(Exception("❌ Erreur d'inscription: ${e.message}"))
-            }
+            // En cas d'erreur réseau
+            Result.failure(Exception("❌ Erreur lors de l'inscription: ${e.message}"))
         }
     }
 
