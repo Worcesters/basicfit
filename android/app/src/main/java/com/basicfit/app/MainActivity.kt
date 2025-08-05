@@ -1928,10 +1928,10 @@ fun MachinesScreen(
     LaunchedEffect(Unit) {
         try {
             val api = ApiService.getInstance().apply { initialize(context) }.getApi()
-            val fetched = api.getMachines()
-            if (fetched.isNotEmpty()) {
+            val response = api.getMachines()
+            if (response.results.isNotEmpty()) {
                 // Mapper MachineDto vers Machine du côté app (en conservant les champs principaux)
-                val remoteMachines = fetched.mapNotNull { dto ->
+                val remoteMachines = response.results.mapNotNull { dto ->
                     try {
                         // Debug: afficher les données reçues
                         android.util.Log.d("MachineDebug", "Machine: ${dto.nom}, Instructions: '${dto.instructions}'")
@@ -2661,9 +2661,9 @@ fun ManualWorkoutSelection(
     LaunchedEffect(Unit) {
         try {
             val api = ApiService.getInstance().apply { initialize(context) }.getApi()
-            val fetched = api.getMachines()
-            if (fetched.isNotEmpty()) {
-                val remote = fetched.map { dto ->
+            val response = api.getMachines()
+            if (response.results.isNotEmpty()) {
+                val remote = response.results.map { dto ->
                     Machine(
                         id = dto.id,
                         nom = dto.nom,
@@ -4382,8 +4382,8 @@ suspend fun getRecommendationFromAPI(machineId: Int, context: Context): Exercise
         }
 
         // Récupérer les machines depuis l'API
-        val machines = apiService.getApi().getMachines()
-        val machine = machines.find { it.id == machineId }
+        val machinesResponse = apiService.getApi().getMachines()
+        val machine = machinesResponse.results.find { it.id == machineId }
         if (machine == null) {
             android.util.Log.e("RecommendationAPI", "❌ Machine avec ID $machineId non trouvée dans l'API")
             return null
@@ -4527,9 +4527,9 @@ fun CalendarEntryDetailScreen(
     LaunchedEffect(Unit) {
         try {
             val api = ApiService.getInstance().apply { initialize(context) }.getApi()
-            val fetched = api.getMachines()
-            if (fetched.isNotEmpty()) {
-                val remoteMachines = fetched.mapNotNull { dto ->
+            val response = api.getMachines()
+            if (response.results.isNotEmpty()) {
+                val remoteMachines = response.results.mapNotNull { dto ->
                     try {
                         Machine(
                             id = dto.id,

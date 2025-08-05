@@ -589,8 +589,8 @@ fun NextRecommendationsCard(
                             // Charger les machines depuis l'API
                             val apiService = ApiService.getInstance()
                             apiService.initialize(context)
-                            val machines = apiService.getApi().getMachines()
-                            machinesList = machines.map { machineDto ->
+                            val response = apiService.getApi().getMachines()
+                            machinesList = response.results.map { machineDto ->
                                         Machine(
                                     id = machineDto.id,
                                     nom = machineDto.nom,

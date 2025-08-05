@@ -9,7 +9,12 @@
       "Bash(.gradlew assembleDebug)",
       "Bash(gradlew.bat assembleDebug:*)",
       "Bash(build_apk.bat)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(fly deploy:*)",
+      "Bash(gradlew:*)",
+      "Bash(git commit:*)",
+      "Bash(./gradlew:*)"
     ],
     "deny": []
   }

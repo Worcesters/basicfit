@@ -1,8 +1,0 @@
-C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\java\com\basicfit\app\WorkoutSummaryScreen.kt
-C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\java\com\basicfit\app\CommonData.kt
-C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\java\com\basicfit\app\MainActivity.kt
-C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\java\com\basicfit\app\ApiService.kt
-C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\java\com\basicfit\app\StatisticsScreen.kt
-C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\java\com\basicfit\app\data\AuthManager.kt
-C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\java\com\basicfit\app\ProfileUtils.kt
-C:\Users\jerem\OneDrive\Documents\Basicfitv2\android\app\src\main\java\com\basicfit\app\CalendarScreen.kt

@@ -83,6 +83,11 @@ data class MachineDto(
     val groupe_musculaire_primaires: List<Map<String, String>>? = null // Ajout pour les groupes musculaires
 )
 
+data class MachinesResponse(
+    val results: List<MachineDto>,
+    val count: Int
+)
+
 // Nouvelles classes pour la progression
 data class CompleteWorkoutRequest(
     val nom: String,
@@ -180,9 +185,9 @@ interface BasicFitApi {
     suspend fun getSeancesHistory(): ApiResponse<List<SeanceHistoryDto>>
 
     // Machines
-    // Retourne directement la liste sans wrapper JSON
-    @GET("workouts/machines/")
-    suspend fun getMachines(): List<MachineDto>
+    // Retourne les machines avec leur wrapper de réponse
+    @GET("machines/")
+    suspend fun getMachines(): MachinesResponse
 
 
 
