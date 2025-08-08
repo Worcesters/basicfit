@@ -28,7 +28,8 @@
       "Bash(call build_apk.bat)",
       "Bash(./build_apk.bat)",
       "Bash(git reset:*)",
-      "Bash(./deploy_flyio.bat)"
+      "Bash(./deploy_flyio.bat)",
+      "Bash(deploy_flyio.bat)"
     ],
     "deny": []
   }
