@@ -66,7 +66,37 @@ fun CalendarScreen(
 
     var draggedEntry by remember { mutableStateOf<WorkoutEntry?>(null) }
 
-    // Fonction pour synchroniser avec la BDD
+    // Fonction pour diagnostiquer les problèmes de sync
+    fun runHealthCheck() {
+        coroutineScope.launch {
+            try {
+                val apiService = ApiService.getInstance()
+                apiService.initialize(context)
+                
+                android.util.Log.d("CalendarSync", "🔍 Démarrage health check...")
+                
+                if (apiService.isApiAvailable()) {
+                    // Test de l'endpoint health
+                    val healthResult = apiService.getApi().getCalendarHealth()
+                    if (healthResult.success) {
+                        android.util.Log.d("CalendarSync", "✅ Health check OK: ${healthResult.message}")
+                        Toast.makeText(context, "🔍 Health check: API OK", Toast.LENGTH_SHORT).show()
+                    } else {
+                        android.util.Log.w("CalendarSync", "⚠️ Health check échoué: ${healthResult.message}")
+                        Toast.makeText(context, "⚠️ Health check: ${healthResult.message}", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    android.util.Log.w("CalendarSync", "❌ API non disponible pour health check")
+                    Toast.makeText(context, "❌ Health check: API non disponible", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("CalendarSync", "❌ Exception health check: ${e.message}")
+                Toast.makeText(context, "❌ Health check échoué: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // Fonction pour synchroniser avec la BDD (améliorée)
     fun syncWithDatabase() {
         if (isLoadingFromDB) return
 
@@ -76,30 +106,39 @@ fun CalendarScreen(
                 val apiService = ApiService.getInstance()
                 apiService.initialize(context)
 
+                android.util.Log.d("CalendarSync", "🔄 Démarrage synchronisation calendrier...")
+
                 if (apiService.isApiAvailable()) {
                     val result = apiService.getCalendarHistory()
                     result.onSuccess { dbHistory ->
+                        android.util.Log.d("CalendarSync", "📊 Données reçues de l'API: ${dbHistory.size} séances")
+                        
+                        // Log des premières entrées pour debug
+                        dbHistory.take(3).forEachIndexed { index, entry ->
+                            android.util.Log.d("CalendarSync", "  [$index] Date: ${entry.date}, Mode: ${entry.mode}, Exercices: ${entry.exercises.size}")
+                        }
+
                         // Fusionner avec l'historique local (priorité aux données DB)
                         val mergedHistory = (workoutHistory + dbHistory)
                             .distinctBy { "${it.date}_${it.mode}_${it.duration}" }
-                            .sortedBy { it.date }
+                            .sortedByDescending { it.date }
 
                         onWorkoutHistoryChange(mergedHistory)
                         lastSyncTime = System.currentTimeMillis()
 
-                        android.util.Log.d("CalendarSync", "✅ Synchronisation réussie: ${dbHistory.size} séances récupérées de la BDD")
-                        Toast.makeText(context, "✅ Calendrier synchronisé avec la base de données", Toast.LENGTH_SHORT).show()
+                        android.util.Log.d("CalendarSync", "✅ Synchronisation réussie: ${dbHistory.size} séances de la BDD, ${mergedHistory.size} total après fusion")
+                        Toast.makeText(context, "✅ Calendrier synchronisé (${dbHistory.size} séances)", Toast.LENGTH_SHORT).show()
                     }.onFailure { error ->
-                        android.util.Log.e("CalendarSync", "❌ Erreur de synchronisation: ${error.message}")
-                        Toast.makeText(context, "❌ Erreur de synchronisation avec la BDD", Toast.LENGTH_SHORT).show()
+                        android.util.Log.e("CalendarSync", "❌ Erreur de synchronisation: ${error.message}", error)
+                        Toast.makeText(context, "❌ Erreur sync: ${error.message}", Toast.LENGTH_LONG).show()
                     }
                 } else {
                     android.util.Log.w("CalendarSync", "⚠️ API non disponible")
                     Toast.makeText(context, "⚠️ Serveur non accessible", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                android.util.Log.e("CalendarSync", "❌ Exception lors de la synchronisation: ${e.message}")
-                Toast.makeText(context, "❌ Erreur de synchronisation", Toast.LENGTH_SHORT).show()
+                android.util.Log.e("CalendarSync", "❌ Exception lors de la synchronisation: ${e.message}", e)
+                Toast.makeText(context, "❌ Exception sync: ${e.message}", Toast.LENGTH_LONG).show()
             } finally {
                 isLoadingFromDB = false
             }
@@ -114,18 +153,28 @@ fun CalendarScreen(
         }
     }
 
-    // Launcher CSV (inchangé)
+    // Launcher CSV avec logs détaillés
     val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
+            AppLogger.csv("CSV_LAUNCHER", "📂 Sélection fichier CSV: $uri")
             coroutineScope.launch {
-                val imported = parseCsv(context, uri)
-                if (imported.isNotEmpty()) {
-                    onCsvImported(imported)
-                    Toast.makeText(context, "Import réussi : ${imported.size} séances ajoutées", Toast.LENGTH_LONG).show()
-                } else {
-                    Toast.makeText(context, "Aucune donnée trouvée dans le fichier CSV", Toast.LENGTH_LONG).show()
+                try {
+                    val imported = parseCsv(context, uri)
+                    if (imported.isNotEmpty()) {
+                        AppLogger.success("CSV_LAUNCHER", "✅ Import CSV terminé: ${imported.size} séances")
+                        onCsvImported(imported)
+                        Toast.makeText(context, "Import réussi : ${imported.size} séances ajoutées", Toast.LENGTH_LONG).show()
+                    } else {
+                        AppLogger.w("CSV_LAUNCHER", "⚠️ Aucune données dans le fichier CSV")
+                        Toast.makeText(context, "Aucune donnée trouvée dans le fichier CSV", Toast.LENGTH_LONG).show()
+                    }
+                } catch (e: Exception) {
+                    AppLogger.e("CSV_LAUNCHER", "❌ Erreur lors de l'import CSV", e)
+                    Toast.makeText(context, "Erreur lors de l'import: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
+        } else {
+            AppLogger.w("CSV_LAUNCHER", "⚠️ Aucun fichier sélectionné")
         }
     }
 
@@ -338,19 +387,45 @@ private fun DayCell(
 
 // Fonction utilitaire pour parser le CSV et retourner une liste de WorkoutEntry
 private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<WorkoutEntry> = withContext(Dispatchers.IO) {
+    AppLogger.csv("CSV_IMPORT", "🚀 Début de l'import CSV depuis URI: $uri")
     val entriesByDate = mutableMapOf<LocalDate, MutableList<ExerciseRecord>>()
+    var totalLines = 0
+    var processedLines = 0
+    var errorLines = 0
 
-    context.contentResolver.openInputStream(uri)?.bufferedReader()?.useLines { lines ->
-        lines.drop(1).forEach { line ->
-            val parts = line.split(';', ',').map { it.trim() }
+    try {
+        context.contentResolver.openInputStream(uri)?.bufferedReader()?.useLines { lines ->
+            val linesList = lines.toList()
+            totalLines = linesList.size
+            AppLogger.csv("CSV_IMPORT", "📊 Fichier CSV lu: $totalLines lignes (header inclus)")
+            
+            if (totalLines < 2) {
+                AppLogger.w("CSV_IMPORT", "⚠️ Fichier CSV vide ou sans données (seulement header)")
+                return@useLines
+            }
+            
+            linesList.drop(1).forEachIndexed { index, line ->
+                totalLines--
+                AppLogger.d("CSV_IMPORT", "🔍 Ligne ${index + 2}: '$line'")
+                
+                if (line.trim().isEmpty()) {
+                    AppLogger.w("CSV_IMPORT", "⚠️ Ligne ${index + 2} vide, ignorée")
+                    return@forEachIndexed
+                }
+                
+                val parts = line.split(';', ',').map { it.trim() }
+                AppLogger.d("CSV_IMPORT", "📝 Parsage ligne ${index + 2}: ${parts.size} colonnes = $parts")
 
             // Support des formats : Machine;Date;Type OU Machine;Date;Répétitions;Séries;Poids
             when (parts.size) {
                 3 -> {
+                    AppLogger.csv("CSV_IMPORT", "📋 Format 3 colonnes détecté: Machine;Date;Type")
                     // Format simplifié : Machine;Date;Type
                     val machineName = parts[0]
                     val dateStr = parts[1]
                     val typeStr = parts[2]
+
+                    AppLogger.d("CSV_IMPORT", "   Machine: '$machineName', Date: '$dateStr', Type: '$typeStr'")
 
                     // Parsing flexible de la date
                     val dateFormats = listOf(
@@ -362,31 +437,45 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
                         runCatching { LocalDate.parse(dateStr, fmt) }.getOrNull()
                     }
 
-                    parsedDate?.let { date ->
-                        // Déterminer les valeurs par défaut selon le type
-                        val (sets, reps, weight) = when (typeStr.lowercase()) {
-                            "cardio", "tapis", "vélo", "rameur" -> Triple(1, 30, 0.0) // 30 min cardio
-                            "musculation", "force" -> Triple(3, 10, 50.0) // 3 séries de 10 reps
-                            "gainage", "plank", "core" -> Triple(1, 60, 0.0) // 1 min gainage
-                            else -> Triple(3, 10, 0.0) // Valeurs par défaut
-                        }
-
-                        val record = ExerciseRecord(
-                            name = machineName,
-                            sets = sets,
-                            reps = reps,
-                            weight = weight
-                        )
-                        entriesByDate.getOrPut(date) { mutableListOf() }.add(record)
+                    if (parsedDate == null) {
+                        AppLogger.e("CSV_IMPORT", "❌ Impossible de parser la date '$dateStr' ligne ${index + 2}")
+                        errorLines++
+                        return@forEachIndexed
                     }
+
+                    AppLogger.d("CSV_IMPORT", "   Date parsée: $parsedDate")
+
+                    // Déterminer les valeurs par défaut selon le type
+                    val (sets, reps, weight) = when (typeStr.lowercase()) {
+                        "cardio", "tapis", "vélo", "rameur" -> Triple(1, 30, 0.0) // 30 min cardio
+                        "musculation", "force" -> Triple(3, 10, 50.0) // 3 séries de 10 reps
+                        "gainage", "plank", "core" -> Triple(1, 60, 0.0) // 1 min gainage
+                        else -> Triple(3, 10, 0.0) // Valeurs par défaut
+                    }
+
+                    AppLogger.d("CSV_IMPORT", "   Valeurs: ${sets}x${reps} @ ${weight}kg")
+
+                    val record = ExerciseRecord(
+                        name = machineName,
+                        sets = sets,
+                        reps = reps,
+                        weight = weight
+                    )
+                    entriesByDate.getOrPut(parsedDate) { mutableListOf() }.add(record)
+                    processedLines++
+                    AppLogger.success("CSV_IMPORT", "✅ Ligne ${index + 2} traitée avec succès")
                 }
                 4, 5 -> {
+                    AppLogger.csv("CSV_IMPORT", "📋 Format ${parts.size} colonnes détecté: Machine;Date;Répétitions;Séries;Poids")
                     // Format étendu : Machine;Date;Répétitions;Séries;Poids(optionnel)
                     val machineName = parts[0]
                     val dateStr = parts[1]
                     val repetitionStr = parts[2]
                     val serieStr = parts[3]
                     val utilisationStr = if (parts.size == 5) parts[4] else "0"
+
+                    AppLogger.d("CSV_IMPORT", "   Machine: '$machineName', Date: '$dateStr'")
+                    AppLogger.d("CSV_IMPORT", "   Reps: '$repetitionStr', Sets: '$serieStr', Weight: '$utilisationStr'")
 
                     val utilisation = utilisationStr.toDoubleOrNull() ?: 0.0
 
@@ -398,6 +487,12 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
 
                     val serie = serieStr.toIntOrNull() ?: 0
 
+                    if (repetition <= 0 || serie <= 0) {
+                        AppLogger.e("CSV_IMPORT", "❌ Valeurs invalides ligne ${index + 2}: reps=$repetition, sets=$serie")
+                        errorLines++
+                        return@forEachIndexed
+                    }
+
                     // Parsing flexible de la date
                     val dateFormats = listOf(
                         DateTimeFormatter.ISO_LOCAL_DATE,
@@ -408,22 +503,34 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
                         runCatching { LocalDate.parse(dateStr, fmt) }.getOrNull()
                     }
 
-                    parsedDate?.let { date ->
-                        val record = ExerciseRecord(
-                            name = machineName,
-                            sets = serie,
-                            reps = repetition,
-                            weight = utilisation
-                        )
-                        entriesByDate.getOrPut(date) { mutableListOf() }.add(record)
+                    if (parsedDate == null) {
+                        AppLogger.e("CSV_IMPORT", "❌ Impossible de parser la date '$dateStr' ligne ${index + 2}")
+                        errorLines++
+                        return@forEachIndexed
                     }
+
+                    AppLogger.d("CSV_IMPORT", "   Valeurs parsées: ${serie}x${repetition} @ ${utilisation}kg")
+
+                    val record = ExerciseRecord(
+                        name = machineName,
+                        sets = serie,
+                        reps = repetition,
+                        weight = utilisation
+                    )
+                    entriesByDate.getOrPut(parsedDate) { mutableListOf() }.add(record)
+                    processedLines++
+                    AppLogger.success("CSV_IMPORT", "✅ Ligne ${index + 2} traitée avec succès")
                 }
-                else -> return@forEach // format inconnu
+                else -> {
+                    AppLogger.e("CSV_IMPORT", "❌ Format inconnu ligne ${index + 2}: ${parts.size} colonnes")
+                    errorLines++
+                }
             }
         }
     }
-
-    return@withContext entriesByDate.map { (date, records) ->
+    
+    // Résumé du traitement
+    val workoutEntries = entriesByDate.map { (date, records) ->
         WorkoutEntry(
             date = date,
             mode = "Import CSV",
@@ -431,5 +538,18 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
             duration = 0, // Durée 0 = séance planifiée (non terminée)
             totalWeight = records.sumOf { it.weight * it.reps }
         )
+    }
+    
+    AppLogger.success("CSV_IMPORT", "📊 Résumé import CSV:")
+    AppLogger.i("CSV_IMPORT", "   • ${processedLines} lignes traitées avec succès")
+    AppLogger.i("CSV_IMPORT", "   • ${errorLines} lignes avec erreurs")
+    AppLogger.i("CSV_IMPORT", "   • ${entriesByDate.size} séances créées")
+    AppLogger.i("CSV_IMPORT", "   • ${entriesByDate.values.sumOf { it.size }} exercices au total")
+    
+    return@withContext workoutEntries
+    
+    } catch (e: Exception) {
+        AppLogger.e("CSV_IMPORT", "❌ Erreur fatale lors du parsing CSV: ${e.message}", e)
+        return@withContext emptyList()
     }
 }

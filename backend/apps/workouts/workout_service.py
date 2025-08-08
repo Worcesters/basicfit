@@ -485,7 +485,7 @@ class CalendarService:
     
     @staticmethod
     def get_calendar_sessions(user, start_date=None, end_date=None) -> List[Dict]:
-        """Récupère les séances pour le calendrier"""
+        """Récupère les séances pour le calendrier - Format compatible Android"""
         query = SeanceEntrainement.objects.filter(utilisateur=user)
         
         if start_date:
@@ -493,21 +493,45 @@ class CalendarService:
         if end_date:
             query = query.filter(date_prevue__lte=end_date)
         
-        sessions = query.order_by('date_prevue')[:100]  # Limite de sécurité
+        sessions = query.prefetch_related('exercices__machine', 'exercices__series').order_by('date_prevue')[:100]
         
-        return [
-            {
+        result = []
+        for session in sessions:
+            # Récupérer les exercices avec leurs détails
+            exercices = []
+            for exercice in session.exercices.all():
+                # Calculer moyennes des séries
+                series_data = exercice.series.all()
+                avg_reps = sum(serie.repetitions for serie in series_data) / len(series_data) if series_data else 0
+                avg_poids = sum(serie.poids for serie in series_data) / len(series_data) if series_data else 0
+                
+                exercices.append({
+                    'nom': exercice.machine.nom if exercice.machine else 'Exercice',
+                    'machine_nom': exercice.machine.nom if exercice.machine else 'Exercice',  
+                    'series': len(series_data),
+                    'repetitions': int(avg_reps),
+                    'reps': int(avg_reps),
+                    'poids': float(avg_poids),
+                    'weight': float(avg_poids)
+                })
+            
+            result.append({
                 'id': session.id,
+                'nom': session.nom,
                 'title': session.nom,
-                'date': session.date_prevue.isoformat(),
+                'date': session.date_prevue.date().isoformat(),
+                'date_debut': session.date_prevue.isoformat(),
                 'status': session.statut,
-                'duration': session.duree_reelle or session.duree_prevue,
-                'exercises_count': session.nombre_exercices,
+                'duree': session.duree_reelle or session.duree_prevue or 0,
+                'duree_totale': session.duree_reelle or session.duree_prevue or 0,
+                'duration': session.duree_reelle or session.duree_prevue or 0,
+                'exercices': exercices,
+                'exercises_count': len(exercices),
                 'note': session.note_ressenti,
                 'comment': session.commentaire
-            }
-            for session in sessions
-        ]
+            })
+        
+        return result
     
     @staticmethod
     def plan_session(user, session_data: Dict) -> SeanceEntrainement:

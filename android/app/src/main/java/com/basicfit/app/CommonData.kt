@@ -58,12 +58,3 @@ data class ExerciseRecord(
     val totalWeight: Double get() = weight * sets
 }
 
-// Classe pour remplacer MachineData.WorkoutPreset
-data class WorkoutPreset(
-    val id: Int,
-    val nom: String,
-    val description: String,
-    val machines: List<Machine>,
-    val emoji: String = "💪",
-    val focusMusculaire: String = "Musculation"
-)

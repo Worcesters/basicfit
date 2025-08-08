@@ -12,6 +12,10 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.google.gson.annotations.SerializedName
 import java.util.concurrent.TimeUnit
+import com.basicfit.app.data.*
+import com.google.gson.*
+import java.lang.reflect.Type
+import java.time.LocalDate
 
 // ==============================================
 // DATA CLASSES POUR LES RÉPONSES API
@@ -35,6 +39,16 @@ data class RegisterRequest(
     val niveau_experience: String? = null
 )
 
+data class UpdateProfileRequest(
+    val nom: String? = null,
+    val prenom: String? = null,
+    val date_naissance: String? = null,
+    val poids: Double? = null,
+    val taille: Double? = null,
+    val objectif_sportif: String? = null,
+    val niveau_experience: String? = null
+)
+
 data class AuthResponse(
     val success: Boolean,
     val message: String,
@@ -47,10 +61,20 @@ data class UserResponse(
     val email: String,
     val nom: String,
     val prenom: String,
+    val poids: Double? = null,
+    val taille: Double? = null,
+    @SerializedName("date_naissance")
+    val dateNaissance: String? = null,
+    @SerializedName("objectif_sportif")
+    val objectifSportif: String? = null,
+    @SerializedName("niveau_experience")
+    val niveauExperience: String? = null,
     @SerializedName("date_inscription")
     val dateInscription: String? = null,
     @SerializedName("total_seances")
-    val totalSeances: Int? = null
+    val totalSeances: Int? = null,
+    @SerializedName("est_premium")
+    val estPremium: Boolean? = null
 )
 
 data class WorkoutRequest(
@@ -88,6 +112,24 @@ data class MachinesResponse(
     val count: Int
 )
 
+// Classe pour les statistiques utilisateur du backend
+data class UserStatsDto(
+    @SerializedName("seances_cette_semaine")
+    val seancesCetteSemaine: Int,
+    @SerializedName("total_seances")
+    val totalSeances: Int,
+    @SerializedName("derniere_seance")
+    val derniereSeance: String?,
+    @SerializedName("membre_depuis")
+    val membreDepuis: String?,
+    @SerializedName("est_premium")
+    val estPremium: Boolean,
+    @SerializedName("objectif_sportif")
+    val objectifSportif: String?,
+    @SerializedName("niveau_experience")
+    val niveauExperience: String?
+)
+
 // Nouvelles classes pour la progression
 data class CompleteWorkoutRequest(
     val nom: String,
@@ -112,46 +154,12 @@ data class PlanWorkoutRequest(
     val commentaire: String? = null
 )
 
-data class RecommendationResponse(
-    val machine_id: Int,
-    val machine_nom: String,
-    val poids_recommande: Double,
-    val series_recommandees: Int,
-    val reps_recommandees: Int,
-    val repos_recommande: Int,
-    val objectif: String,
-    val peut_progresser: Boolean,
-    val dernier_1rm: Double?,
-    val nombre_seances: Int,
-    val progression_totale: Double,
-    val taux_reussite: Double,
-    val derniere_progression: String?,
-    val source: String,
-    val notes: String = "",
-    val tempo_recommande: String = "3-1-2"  // Nouveau champ pour le tempo
+// Nouvelle classe pour l'import CSV
+data class CsvImportRequest(
+    val csv_data: String
 )
 
-// DTO pour l'historique des séances
-data class SeanceHistoryDto(
-    val id: Int,
-    val date_debut: String,
-    val date_fin: String?,
-    val mode_entrainement: String,
-    val duree_totale: Int?, // en minutes
-    val exercises: List<ExerciceHistoryDto>
-)
 
-data class ExerciceHistoryDto(
-    val machine_nom: String,
-    val series: List<SerieHistoryDto>
-)
-
-data class SerieHistoryDto(
-    val repetitions: Int,
-    val poids: Double,
-    val duree_repos: Int?,
-    val ordre: Int
-)
 
 // ==============================================
 // INTERFACE API RETROFIT
@@ -169,6 +177,12 @@ interface BasicFitApi {
     @GET("users/android/profile/")
     suspend fun getProfile(): AuthResponse
 
+    @GET("users/profile/stats/")
+    suspend fun getUserStats(): ApiResponse<UserStatsDto>
+
+    @PUT("users/android/profile/update/")
+    suspend fun updateProfile(@Body request: UpdateProfileRequest): AuthResponse
+
     // Workouts
     @POST("workouts/save/")
     suspend fun saveWorkout(@Body request: WorkoutRequest): ApiResponse<Any>
@@ -177,12 +191,14 @@ interface BasicFitApi {
     @POST("workouts/calendar/plan/")
     suspend fun planWorkout(@Body request: PlanWorkoutRequest): ApiResponse<Any>
 
-    @GET("workouts/seances/")
+    // NOUVEAU ENDPOINT CALENDRIER SIMPLIFIÉ
+    @GET("workouts/history/")
     suspend fun getWorkoutHistory(): ApiResponse<List<Any>>
+    
+    // Endpoint health check pour debug
+    @GET("workouts/calendar/health/")
+    suspend fun getCalendarHealth(): ApiResponse<Any>
 
-    // Historique complet pour le calendrier
-    @GET("workouts/seances/")
-    suspend fun getSeancesHistory(): ApiResponse<List<SeanceHistoryDto>>
 
     // Machines
     // Retourne les machines avec leur wrapper de réponse
@@ -191,17 +207,30 @@ interface BasicFitApi {
 
 
 
-    @GET("workouts/recommendations/{machine_id}/")
-    suspend fun getRecommendation(@Path("machine_id") machineId: Int): ApiResponse<RecommendationResponse>
-
-    @GET("workouts/recommendations/name/{machine_name}/")
-    suspend fun getRecommendationByName(@Path("machine_name") machineName: String): ApiResponse<RecommendationResponse>
 
     @GET("users/android/ping/")
     suspend fun ping(): retrofit2.Response<Void>
 
     @POST("workouts/progressions/force-update/")
     suspend fun forceProgressionUpdate(): ApiResponse<Any>
+
+    // ========== NOUVELLES APIs SEANCES SIMPLES ==========
+    
+    // Récupérer toutes les séances simples
+    @GET("workouts/simple/")
+    suspend fun getSimpleSessions(): SimpleSessionResponse
+
+    // Importer des séances depuis CSV
+    @POST("workouts/simple/import/")
+    suspend fun importCsvSessions(@Body request: CsvImportRequest): CsvImportResponse
+
+    // Supprimer toutes les séances de l'utilisateur
+    @DELETE("workouts/simple/delete-all/")
+    suspend fun deleteAllSessions(): DeleteAllResponse
+
+    // Récupérer le résumé calendrier
+    @GET("workouts/simple/summary/")
+    suspend fun getCalendarSummary(): CalendarSummaryResponse
 }
 
 // ==============================================
@@ -271,10 +300,23 @@ class ApiService private constructor() {
                 .writeTimeout(10, TimeUnit.SECONDS)
                 .build()
 
+            // Gson avec support pour LocalDate
+            val gson = GsonBuilder()
+                .registerTypeAdapter(LocalDate::class.java, object : JsonDeserializer<LocalDate>, JsonSerializer<LocalDate> {
+                    override fun deserialize(json: JsonElement?, typeOfT: Type?, context: JsonDeserializationContext?): LocalDate {
+                        return LocalDate.parse(json?.asString ?: "1970-01-01")
+                    }
+                    
+                    override fun serialize(src: LocalDate?, typeOfSrc: Type?, context: JsonSerializationContext?): JsonElement {
+                        return JsonPrimitive(src?.toString())
+                    }
+                })
+                .create()
+
             val retrofit = Retrofit.Builder()
                 .baseUrl(BASE_URL)
                 .client(client)
-                .addConverterFactory(GsonConverterFactory.create())
+                .addConverterFactory(GsonConverterFactory.create(gson))
                 .build()
 
             api = retrofit.create(BasicFitApi::class.java)
@@ -336,10 +378,11 @@ class ApiService private constructor() {
                 return Result.failure(Exception("ApiService non initialisé"))
             }
 
-            val response = api.getSeancesHistory()
+            // Utiliser getWorkoutHistory() qui fonctionne avec le backend existant
+            val response = api.getWorkoutHistory()
             if (response.success && response.data != null) {
-                val workoutEntries = response.data.map { seance ->
-                    convertSeanceToWorkoutEntry(seance)
+                val workoutEntries = response.data.mapNotNull { workoutData ->
+                    convertWorkoutToWorkoutEntry(workoutData)
                 }
                 Result.success(workoutEntries)
             } else {
@@ -351,34 +394,233 @@ class ApiService private constructor() {
         }
     }
 
-    // Convertir une séance DTO en WorkoutEntry
-    private fun convertSeanceToWorkoutEntry(seance: SeanceHistoryDto): WorkoutEntry {
-        val dateString = seance.date_debut.split("T")[0] // Récupérer juste la date
-        val date = java.time.LocalDate.parse(dateString)
+    // Convertir les données de workout backend en WorkoutEntry
+    private fun convertWorkoutToWorkoutEntry(workoutData: Any): WorkoutEntry? {
+        return try {
+            // Le backend retourne des Map<String, Any> pour les données de workout
+            val workout = workoutData as? Map<String, Any> ?: return null
+            
+            // Parser la date - essayer différents formats
+            val dateStr = workout["date"]?.toString() ?: workout["date_debut"]?.toString() ?: return null
+            val date = try {
+                when {
+                    dateStr.contains("T") -> java.time.LocalDate.parse(dateStr.split("T")[0])
+                    else -> java.time.LocalDate.parse(dateStr)
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("ApiService", "Erreur parsing date: $dateStr")
+                return null
+            }
 
-        val exercises = seance.exercises.map { exercice ->
-            // Calculer les moyennes des séries
-            val totalReps = exercice.series.sumOf { it.repetitions }
-            val totalWeight = exercice.series.sumOf { it.poids }
-            val avgReps = if (exercice.series.isNotEmpty()) totalReps / exercice.series.size else 0
-            val avgWeight = if (exercice.series.isNotEmpty()) totalWeight / exercice.series.size else 0.0
+            // Récupérer les informations de base
+            val nom = workout["nom"]?.toString() ?: "Séance"
+            val duree = (workout["duree"]?.toString()?.toIntOrNull()) ?: 
+                       (workout["duree_totale"]?.toString()?.toIntOrNull()) ?: 0
+            
+            // Récupérer les exercices s'ils existent
+            val exercicesData = workout["exercices"] as? List<Any> ?: emptyList()
+            val exercises = exercicesData.mapNotNull { exerciceData ->
+                val exercice = exerciceData as? Map<String, Any> ?: return@mapNotNull null
+                try {
+                    ExerciseRecord(
+                        name = exercice["nom"]?.toString() ?: exercice["machine_nom"]?.toString() ?: "Exercice",
+                        sets = exercice["series"]?.toString()?.toIntOrNull() ?: 1,
+                        reps = exercice["repetitions"]?.toString()?.toIntOrNull() ?: 
+                              exercice["reps"]?.toString()?.toIntOrNull() ?: 0,
+                        weight = exercice["poids"]?.toString()?.toDoubleOrNull() ?: 
+                               exercice["weight"]?.toString()?.toDoubleOrNull() ?: 0.0
+                    )
+                } catch (e: Exception) {
+                    null
+                }
+            }
 
-            val sets = exercice.series.size
-                                    ExerciseRecord(
-                            name = exercice.machine_nom,
-                            sets = sets,
-                            reps = avgReps,
-                            weight = avgWeight
-                        )
+            WorkoutEntry(
+                date = date,
+                mode = nom,
+                exercises = exercises,
+                duration = duree,
+                totalWeight = exercises.sumOf { it.weight * it.reps }
+            )
+        } catch (e: Exception) {
+            android.util.Log.w("ApiService", "Erreur conversion workout: ${e.message}")
+            null
+        }
+    }
+
+    // Convertir UserResponse en ProfileData pour l'Android
+    fun convertUserResponseToProfileData(user: UserResponse): ProfileData {
+        // Mapper objectif_sportif vers les valeurs Android
+        val objectifAndroid = when (user.objectifSportif?.uppercase()) {
+            "PRISE_MASSE" -> "Prise de masse"
+            "PERTE_POIDS", "SECHE" -> "Perte de poids"
+            "REMISE_FORME" -> "Remise en forme"
+            "FORCE" -> "Force"
+            "ENDURANCE" -> "Endurance"
+            "MAINTENIR", "MAINTIEN" -> "Maintenir"
+            else -> "Maintenir"
         }
 
-        return WorkoutEntry(
-            date = date,
-            mode = seance.mode_entrainement,
-            exercises = exercises,
-            duration = seance.duree_totale ?: 0, // 0 si pas terminé
-            totalWeight = exercises.sumOf { it.weight * it.reps }
+        // Mapper niveau_experience vers niveauActivite Android
+        val niveauActiviteAndroid = when (user.niveauExperience?.uppercase()) {
+            "DEBUTANT" -> "Débutant"
+            "INTERMEDIAIRE" -> "Modéré"
+            "AVANCE", "EXPERT" -> "Intensif"
+            else -> "Modéré"
+        }
+
+        return ProfileData(
+            nom = "${user.prenom} ${user.nom}".trim(),
+            email = user.email,
+            dateNaissance = user.dateNaissance ?: "1990-01-01",
+            poids = user.poids ?: 70.0,
+            taille = user.taille?.toInt() ?: 170,
+            genre = "Homme", // Valeur par défaut - à améliorer si le backend ajoute ce champ
+            niveauActivite = niveauActiviteAndroid,
+            objectif = objectifAndroid
         )
+    }
+
+    // Récupérer les statistiques utilisateur depuis le backend
+    suspend fun getUserStatistics(): Result<UserStatsDto> {
+        return try {
+            if (!isInitialized) {
+                return Result.failure(Exception("ApiService non initialisé"))
+            }
+
+            val response = api.getUserStats()
+            if (response.success && response.data != null) {
+                Result.success(response.data)
+            } else {
+                Result.failure(Exception(response.message ?: "Erreur lors de la récupération des statistiques"))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ApiService", "Erreur getUserStatistics: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    // Mettre à jour le profil utilisateur vers le backend
+    suspend fun updateUserProfile(profileData: ProfileData): Result<UserResponse> {
+        return try {
+            if (!isInitialized) {
+                return Result.failure(Exception("ApiService non initialisé"))
+            }
+
+            // Mapper ProfileData Android vers le format backend
+            val objectifBackend = when (profileData.objectif) {
+                "Prise de masse" -> "PRISE_MASSE"
+                "Perte de poids" -> "SECHE"
+                "Remise en forme" -> "REMISE_FORME"
+                "Force" -> "FORCE"
+                "Endurance" -> "ENDURANCE"
+                "Maintenir" -> "REMISE_FORME"
+                else -> "REMISE_FORME"
+            }
+
+            val niveauBackend = when (profileData.niveauActivite) {
+                "Débutant" -> "DEBUTANT"
+                "Modéré" -> "INTERMEDIAIRE"
+                "Intensif" -> "AVANCE"
+                else -> "INTERMEDIAIRE"
+            }
+
+            // Séparer nom et prénom
+            val nomComplets = profileData.nom.split(" ", limit = 2)
+            val prenom = if (nomComplets.size > 1) nomComplets[0] else ""
+            val nom = if (nomComplets.size > 1) nomComplets[1] else nomComplets[0]
+
+            val request = UpdateProfileRequest(
+                nom = nom,
+                prenom = prenom,
+                date_naissance = profileData.dateNaissance,
+                poids = profileData.poids,
+                taille = profileData.taille.toDouble(),
+                objectif_sportif = objectifBackend,
+                niveau_experience = niveauBackend
+            )
+
+            val response = api.updateProfile(request)
+            if (response.success && response.user != null) {
+                Result.success(response.user)
+            } else {
+                Result.failure(Exception(response.message ?: "Erreur lors de la mise à jour du profil"))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ApiService", "Erreur updateUserProfile: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    // ========== NOUVELLES METHODES SEANCES SIMPLES ==========
+    
+    // Récupérer toutes les séances simples
+    suspend fun getSimpleSessions(): Result<List<SimpleSession>> {
+        return try {
+            if (!isInitialized) {
+                return Result.failure(Exception("ApiService non initialisé"))
+            }
+
+            val response = api.getSimpleSessions()
+            if (response.success) {
+                Result.success(response.data)
+            } else {
+                Result.failure(Exception(response.message))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ApiService", "Erreur getSimpleSessions: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    // Importer des séances depuis CSV
+    suspend fun importCsvSessions(csvData: String): Result<CsvImportResponse> {
+        return try {
+            if (!isInitialized) {
+                return Result.failure(Exception("ApiService non initialisé"))
+            }
+
+            val request = CsvImportRequest(csv_data = csvData)
+            val response = api.importCsvSessions(request)
+            Result.success(response)
+        } catch (e: Exception) {
+            android.util.Log.e("ApiService", "Erreur importCsvSessions: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    // Supprimer toutes les séances
+    suspend fun deleteAllSessions(): Result<DeleteAllResponse> {
+        return try {
+            if (!isInitialized) {
+                return Result.failure(Exception("ApiService non initialisé"))
+            }
+
+            val response = api.deleteAllSessions()
+            Result.success(response)
+        } catch (e: Exception) {
+            android.util.Log.e("ApiService", "Erreur deleteAllSessions: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    // Récupérer le résumé calendrier
+    suspend fun getCalendarSummary(): Result<CalendarSummary> {
+        return try {
+            if (!isInitialized) {
+                return Result.failure(Exception("ApiService non initialisé"))
+            }
+
+            val response = api.getCalendarSummary()
+            if (response.success) {
+                Result.success(response.data)
+            } else {
+                Result.failure(Exception(response.message))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ApiService", "Erreur getCalendarSummary: ${e.message}")
+            Result.failure(e)
+        }
     }
 }
 
@@ -407,7 +649,29 @@ class AuthManager(private val context: Context) {
                 // Sauvegarder le token
                 apiService.saveAuthToken(context, response.token)
 
-                // Sauvegarder les infos utilisateur
+                // Récupérer le profil complet après connexion réussie
+                try {
+                    val profileResponse = apiService.getApi().getProfile()
+                    if (profileResponse.success && profileResponse.user != null) {
+                        // Utiliser les données complètes du profil
+                        val completeUser = profileResponse.user
+                        val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
+                        prefs.edit().apply {
+                            putString("user_email", completeUser.email)
+                            putString("user_nom", completeUser.nom)
+                            putString("user_prenom", completeUser.prenom)
+                            putBoolean("is_logged_in", true)
+                            apply()
+                        }
+                        
+                        // Retourner la réponse avec les données complètes du profil
+                        return Result.success(response.copy(user = completeUser))
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.w("AuthManager", "Erreur récupération profil: ${e.message}")
+                }
+
+                // Fallback : utiliser les données de base de login
                 response.user?.let { user ->
                     val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
                     prefs.edit().apply {

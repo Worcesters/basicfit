@@ -331,16 +331,19 @@ def get_calendar_sessions_professional(request):
         # Utiliser le service calendrier
         sessions = CalendarService.get_calendar_sessions(user, parsed_start, parsed_end)
         
+        # Format compatible avec ApiResponse attendu par Android
         return Response({
-            'sessions': sessions,
-            'count': len(sessions),
+            'success': True,
+            'data': sessions,
             'message': 'Séances récupérées avec succès'
         }, status=status.HTTP_200_OK)
         
     except Exception as e:
         logger.error(f"Erreur endpoint calendrier: {e}")
         return Response({
-            'error': 'Erreur récupération du calendrier'
+            'success': False,
+            'data': [],
+            'message': f'Erreur récupération du calendrier: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

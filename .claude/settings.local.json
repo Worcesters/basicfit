@@ -14,7 +14,19 @@
       "Bash(fly deploy:*)",
       "Bash(gradlew:*)",
       "Bash(git commit:*)",
-      "Bash(./gradlew:*)"
+      "Bash(./gradlew:*)",
+      "Bash(chcp:*)",
+      "Bash(androidbuild_apk.bat)",
+      "Bash(fly status:*)",
+      "Bash(fly machine start:*)",
+      "Bash(fly logs:*)",
+      "Bash(mv:*)",
+      "Bash(cp:*)",
+      "Bash(fly machine destroy:*)",
+      "Bash(grep:*)",
+      "Bash(android/build_apk.bat)",
+      "Bash(call build_apk.bat)",
+      "Bash(./build_apk.bat)"
     ],
     "deny": []
   }

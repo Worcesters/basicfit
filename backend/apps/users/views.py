@@ -420,12 +420,21 @@ def android_login(request):
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def android_register(request):
-    """Inscription simplifiée pour l'application Android"""
+    """Inscription complète pour l'application Android avec profil"""
     try:
+        # Champs obligatoires
         email = request.data.get('email')
         password = request.data.get('password')
         nom = request.data.get('nom', '')
         prenom = request.data.get('prenom', '')
+        
+        # Champs de profil optionnels
+        date_naissance = request.data.get('date_naissance')
+        poids = request.data.get('poids')
+        taille = request.data.get('taille')
+        objectif_sportif = request.data.get('objectif_sportif', 'REMISE_FORME')
+        niveau_experience = request.data.get('niveau_experience', 'DEBUTANT')
+        genre = request.data.get('genre')  # Non utilisé pour le moment mais préparé
 
         if not email or not password:
             return Response({
@@ -440,14 +449,49 @@ def android_register(request):
                 'message': 'Un compte avec cet email existe déjà'
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Créer l'utilisateur
-        user = User.objects.create_user(
-            username=email,  # Utiliser email comme username
-            email=email,
-            password=password,
-            nom=nom,
-            prenom=prenom
-        )
+        # Préparer les données utilisateur
+        user_data = {
+            'username': email,
+            'email': email,
+            'password': password,
+            'nom': nom,
+            'prenom': prenom,
+            'objectif_sportif': objectif_sportif,
+            'niveau_experience': niveau_experience,
+        }
+
+        # Ajouter les champs optionnels s'ils sont fournis
+        if date_naissance:
+            try:
+                # Convertir la date string en objet date
+                from datetime import datetime
+                user_data['date_naissance'] = datetime.strptime(date_naissance, '%Y-%m-%d').date()
+            except ValueError:
+                return Response({
+                    'success': False,
+                    'message': 'Format de date invalide. Utilisez YYYY-MM-DD'
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if poids:
+            try:
+                user_data['poids'] = float(poids)
+            except ValueError:
+                return Response({
+                    'success': False,
+                    'message': 'Poids invalide'
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+        if taille:
+            try:
+                user_data['taille'] = float(taille)
+            except ValueError:
+                return Response({
+                    'success': False,
+                    'message': 'Taille invalide'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Créer l'utilisateur avec toutes les données
+        user = User.objects.create_user(**user_data)
 
         # Générer un token JWT
         refresh = RefreshToken.for_user(user)
@@ -459,7 +503,12 @@ def android_register(request):
                 'id': user.id,
                 'email': user.email,
                 'nom': user.nom,
-                'prenom': user.prenom
+                'prenom': user.prenom,
+                'poids': user.poids,
+                'taille': user.taille,
+                'objectif_sportif': user.objectif_sportif,
+                'niveau_experience': user.niveau_experience,
+                'date_naissance': user.date_naissance.isoformat() if user.date_naissance else None,
             },
             'token': str(refresh.access_token)
         }, status=status.HTTP_201_CREATED)
@@ -497,6 +546,100 @@ def android_profile(request):
         return Response({
             'success': False,
             'message': f'Erreur lors de la récupération du profil: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['PUT'])
+@permission_classes([permissions.IsAuthenticated])
+def android_update_profile(request):
+    """
+    API pour mettre à jour le profil utilisateur depuis Android
+    """
+    try:
+        user = request.user
+        
+        # Champs modifiables
+        nom = request.data.get('nom')
+        prenom = request.data.get('prenom')
+        date_naissance = request.data.get('date_naissance')
+        poids = request.data.get('poids')
+        taille = request.data.get('taille')
+        objectif_sportif = request.data.get('objectif_sportif')
+        niveau_experience = request.data.get('niveau_experience')
+
+        # Mettre à jour les champs fournis
+        if nom is not None:
+            user.nom = nom
+        if prenom is not None:
+            user.prenom = prenom
+        if objectif_sportif is not None:
+            user.objectif_sportif = objectif_sportif
+        if niveau_experience is not None:
+            user.niveau_experience = niveau_experience
+            
+        # Gérer la date de naissance
+        if date_naissance is not None:
+            if date_naissance:  # Si non vide
+                try:
+                    from datetime import datetime
+                    user.date_naissance = datetime.strptime(date_naissance, '%Y-%m-%d').date()
+                except ValueError:
+                    return Response({
+                        'success': False,
+                        'message': 'Format de date invalide. Utilisez YYYY-MM-DD'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                user.date_naissance = None
+                
+        # Gérer le poids
+        if poids is not None:
+            if poids:  # Si non vide
+                try:
+                    user.poids = float(poids)
+                except ValueError:
+                    return Response({
+                        'success': False,
+                        'message': 'Poids invalide'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                user.poids = None
+                
+        # Gérer la taille
+        if taille is not None:
+            if taille:  # Si non vide
+                try:
+                    user.taille = float(taille)
+                except ValueError:
+                    return Response({
+                        'success': False,
+                        'message': 'Taille invalide'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                user.taille = None
+
+        # Sauvegarder les modifications
+        user.save()
+
+        return Response({
+            'success': True,
+            'message': 'Profil mis à jour avec succès',
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'nom': user.nom,
+                'prenom': user.prenom,
+                'poids': user.poids,
+                'taille': user.taille,
+                'objectif_sportif': user.objectif_sportif,
+                'niveau_experience': user.niveau_experience,
+                'date_naissance': user.date_naissance.isoformat() if user.date_naissance else None,
+            }
+        })
+
+    except Exception as e:
+        return Response({
+            'success': False,
+            'message': f'Erreur: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

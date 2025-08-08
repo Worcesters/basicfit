@@ -107,14 +107,6 @@ data class WorkoutEntry(
 
 
 
-data class ExerciseRecommendation(
-    val sets: Int,
-    val reps: Int,
-    val weight: Double,
-    val restTime: Int,
-    val notes: String,
-    val tempo: String = "3-1-2"  // Nouveau champ pour le tempo
-)
 
 // Data classes pour l'entraînement avancé
 data class WorkoutSession(
@@ -539,36 +531,11 @@ fun MainScreen() {
                 val apiService = ApiService.getInstance()
                 apiService.initialize(context)
 
-                // Récupérer l'historique depuis l'API Railway
-                val response = apiService.getApi().getSeancesHistory()
-
-                if (response.success && response.data != null) {
-                    val serverHistory = response.data as List<SeanceHistoryDto>
-                    android.util.Log.d("CalendarSync", "✅ ${serverHistory.size} séances récupérées depuis l'API")
-
-                    // Convertir en format local
-                    val serverWorkoutHistory = serverHistory.map { seance ->
-                        val exercisesList = seance.exercises.map { exercice ->
-                            val weight = exercice.series.firstOrNull()?.poids ?: 0.0
-                            val sets = exercice.series.size
-                            val reps = exercice.series.firstOrNull()?.repetitions ?: 10
-                            // FIXED: Créer ExerciseRecord - totalWeight est calculé automatiquement
-                            ExerciseRecord(
-                                name = exercice.machine_nom,
-                                sets = sets,
-                                reps = reps,
-                                weight = weight
-                            )
-                        }
-                        
-                        WorkoutEntry(
-                            date = java.time.LocalDate.parse(seance.date_debut.substring(0, 10)),
-                            mode = seance.mode_entrainement,
-                            duration = seance.duree_totale ?: 0,
-                            exercises = exercisesList,
-                            totalWeight = exercisesList.sumOf { it.weight * it.reps * it.sets }
-                        )
-                    }
+                // Utiliser la nouvelle méthode simplifiée
+                val result = apiService.getCalendarHistory()
+                
+                result.onSuccess { serverWorkoutHistory ->
+                    android.util.Log.d("CalendarSync", "✅ ${serverWorkoutHistory.size} séances récupérées depuis l'API")
 
                     // Fusionner avec l'historique local
                     val newHistory = (workoutHistory + serverWorkoutHistory).distinctBy {
@@ -582,8 +549,8 @@ fun MainScreen() {
                     } else {
                         android.util.Log.d("CalendarSync", "ℹ️ Aucune nouvelle séance à synchroniser")
                     }
-                } else {
-                    android.util.Log.w("CalendarSync", "⚠️ Échec récupération historique: ${response.message}")
+                }.onFailure { error ->
+                    android.util.Log.w("CalendarSync", "⚠️ Échec récupération historique: ${error.message}")
                 }
             } catch (e: Exception) {
                 android.util.Log.e("CalendarSync", "❌ Erreur synchronisation calendrier: ${e.message}")
@@ -757,6 +724,24 @@ fun MainScreen() {
             onProfileUpdate = { newProfile ->
                 profileData = newProfile
                 dataManager.saveProfileData(newProfile)
+                
+                // Sauvegarder aussi vers le backend
+                GlobalScope.launch {
+                    try {
+                        val apiService = ApiService.getInstance()
+                        apiService.initialize(context)
+                        val result = apiService.updateUserProfile(newProfile)
+                        
+                        result.onSuccess { updatedUser ->
+                            android.util.Log.d("ProfileUpdate", "✅ Profil sauvegardé vers le backend: ${updatedUser.nom}")
+                        }.onFailure { error ->
+                            android.util.Log.w("ProfileUpdate", "⚠️ Erreur sauvegarde backend: ${error.message}")
+                            // Pas d'erreur affichée à l'utilisateur car les données sont sauvées localement
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("ProfileUpdate", "❌ Exception sauvegarde backend: ${e.message}")
+                    }
+                }
             },
             onStartWorkout = { machines, workoutName ->
                 currentWorkoutMachines = machines
@@ -785,6 +770,7 @@ fun MainScreen() {
                 dataManager.saveWorkoutHistory(workoutHistory)
 
                 // AJOUT: Envoi des séances importées par CSV vers l'API
+                AppLogger.api("CSV_SYNC", "🔄 Début synchronisation CSV avec API: ${imported.size} séances")
                 val syncManager = SyncManager(context)
                 val apiService = ApiService.getInstance()
                 apiService.initialize(context)
@@ -795,13 +781,13 @@ fun MainScreen() {
                         var errorCount = 0
 
                         imported.forEach { importedEntry ->
-                            android.util.Log.d("CsvImport", "🔍 Traitement séance: ${importedEntry.mode} du ${importedEntry.date}")
-                            android.util.Log.d("CsvImport", "   Durée: ${importedEntry.duration} min")
-                            android.util.Log.d("CsvImport", "   Exercices: ${importedEntry.exercises.size}")
+                            AppLogger.d("CSV_SYNC", "🔍 Traitement séance: ${importedEntry.mode} du ${importedEntry.date}")
+                            AppLogger.d("CSV_SYNC", "   Durée: ${importedEntry.duration} min")
+                            AppLogger.d("CSV_SYNC", "   Exercices: ${importedEntry.exercises.size}")
 
                             try {
                                 // Pour les séances importées CSV (planifiées), utiliser planWorkout
-                                android.util.Log.d("CsvImport", "📤 Planification séance vers API...")
+                                AppLogger.api("CSV_SYNC", "📤 Planification séance vers API: ${importedEntry.mode}")
 
                                 val planRequest = PlanWorkoutRequest(
                                     nom = importedEntry.mode,
@@ -810,28 +796,32 @@ fun MainScreen() {
                                     commentaire = "Importé depuis CSV - ${importedEntry.exercises.size} exercices"
                                 )
 
+                                AppLogger.d("CSV_SYNC", "   Request: nom='${planRequest.nom}', date='${planRequest.date}', duree=${planRequest.duree}")
+
                                 val response = apiService.getApi().planWorkout(planRequest)
 
                                 if (response.success) {
                                     successCount++
-                                    android.util.Log.d("CsvImport", "✅ Séance CSV planifiée: ${importedEntry.mode}")
+                                    AppLogger.success("CSV_SYNC", "✅ Séance CSV planifiée: ${importedEntry.mode}")
                                 } else {
                                     errorCount++
-                                    android.util.Log.e("CsvImport", "❌ Erreur planification CSV: ${response.message}")
+                                    AppLogger.e("CSV_SYNC", "❌ Erreur planification CSV: ${response.message}")
                                 }
                             } catch (e: Exception) {
                                 errorCount++
-                                android.util.Log.e("CsvImport", "❌ Exception planification CSV: ${e.message}")
-                                android.util.Log.e("CsvImport", "   Séance: ${importedEntry.mode}")
+                                AppLogger.e("CSV_SYNC", "❌ Exception planification CSV: ${e.message}")
+                                AppLogger.e("CSV_SYNC", "   Séance: ${importedEntry.mode}")
                             }
                         }
 
+                        AppLogger.success("CSV_SYNC", "📊 Synchronisation CSV terminée: ${successCount} succès, ${errorCount} erreurs")
+                        
                         kotlinx.coroutines.MainScope().launch {
                             android.widget.Toast.makeText(context, "✅ Import CSV synchronisé avec la base de données", android.widget.Toast.LENGTH_LONG).show()
                         }
 
                     } catch (e: Exception) {
-                        android.util.Log.e("CsvImport", "❌ Erreur synchronisation CSV: ${e.message}")
+                        AppLogger.e("CSV_SYNC", "❌ Erreur synchronisation CSV: ${e.message}", e)
                         kotlinx.coroutines.MainScope().launch {
                             android.widget.Toast.makeText(context, "⚠️ Import local réussi, erreur synchronisation serveur", android.widget.Toast.LENGTH_LONG).show()
                         }
@@ -899,17 +889,22 @@ fun AuthScreen(
                         MainScope().launch {
                             result.onSuccess { response ->
                                 if (response.success) {
-                                    // Créer le ProfileData avec les données de l'utilisateur
-                                    val userProfile = ProfileData(
-                                        nom = response.user?.nom ?: "",
-                                        email = response.user?.email ?: email,
-                                        dateNaissance = "1990-01-01", // Valeur par défaut
-                                        poids = 70.0,
-                                        taille = 170,
-                                        genre = "Homme",
-                                        niveauActivite = "Modéré",
-                                        objectif = "Maintenir"
-                                    )
+                                    // Créer le ProfileData avec les vraies données du backend
+                                    val userProfile = if (response.user != null) {
+                                        ApiService.getInstance().convertUserResponseToProfileData(response.user)
+                                    } else {
+                                        // Fallback si pas de données utilisateur
+                                        ProfileData(
+                                            nom = "",
+                                            email = email,
+                                            dateNaissance = "1990-01-01",
+                                            poids = 70.0,
+                                            taille = 170,
+                                            genre = "Homme",
+                                            niveauActivite = "Modéré",
+                                            objectif = "Maintenir"
+                                        )
+                                    }
                                     onLoginSuccess(userProfile)
                                 } else {
                                     errorMessage = if (response.message.contains("Invalid", ignoreCase = true) ||
@@ -950,32 +945,56 @@ fun AuthScreen(
                 // Lancer la requête d'inscription avec une coroutine
                 GlobalScope.launch {
                     try {
+                        // Mapper les valeurs Android vers les valeurs backend
+                        val objectifBackend = when (objectif) {
+                            "Prise de masse" -> "PRISE_MASSE"
+                            "Perte de poids" -> "SECHE" 
+                            "Remise en forme" -> "REMISE_FORME"
+                            "Force" -> "FORCE"
+                            "Endurance" -> "ENDURANCE"
+                            "Maintenir" -> "REMISE_FORME"
+                            else -> "REMISE_FORME"
+                        }
+                        
+                        val niveauBackend = when (niveauActivite) {
+                            "Débutant" -> "DEBUTANT"
+                            "Modéré" -> "INTERMEDIAIRE"
+                            "Intensif" -> "AVANCE"
+                            else -> "INTERMEDIAIRE"
+                        }
+
                         val result = authManager.register(
                             email = email,
                             password = password,
                             nom = nom,
                             prenom = nom.split(" ").firstOrNull() ?: nom,
-                            dateNaissance = dateNaissance.ifBlank { "1990-01-01" },
-                            poids = poids.toDoubleOrNull() ?: 70.0,
-                            taille = taille.toIntOrNull() ?: 170,
+                            dateNaissance = if (dateNaissance.isBlank()) null else dateNaissance,
+                            poids = poids.toDoubleOrNull(),
+                            taille = taille.toIntOrNull(),
                             genre = genre,
-                            objectifSportif = objectif,
-                            niveauExperience = niveauActivite
+                            objectifSportif = objectifBackend,
+                            niveauExperience = niveauBackend
                         )
                         MainScope().launch {
                             result.onSuccess { response ->
                                 if (response.success) {
-                                    // Créer le ProfileData avec les données de l'utilisateur
-                                    val userProfile = ProfileData(
-                                        nom = response.user?.nom ?: nom,
-                                        email = response.user?.email ?: email,
-                                        dateNaissance = dateNaissance.ifBlank { "1990-01-01" },
-                                        poids = poids.toDoubleOrNull() ?: 70.0,
-                                        taille = taille.toIntOrNull() ?: 170,
-                                        genre = genre,
-                                        niveauActivite = niveauActivite,
-                                        objectif = objectif
-                                    )
+                                    // Créer le ProfileData avec les données backend ou les données saisies
+                                    val userProfile = if (response.user != null) {
+                                        // Si le backend retourne des données complètes, les utiliser
+                                        ApiService.getInstance().convertUserResponseToProfileData(response.user)
+                                    } else {
+                                        // Sinon, utiliser les données saisies par l'utilisateur
+                                        ProfileData(
+                                            nom = nom,
+                                            email = email,
+                                            dateNaissance = dateNaissance.ifBlank { "1990-01-01" },
+                                            poids = poids.toDoubleOrNull() ?: 70.0,
+                                            taille = taille.toIntOrNull() ?: 170,
+                                            genre = genre,
+                                            niveauActivite = niveauActivite,
+                                            objectif = objectif
+                                        )
+                                    }
                                     onLoginSuccess(userProfile)
                                 } else {
                                     errorMessage = response.message
@@ -1336,7 +1355,8 @@ fun AppMainInterface(
         NavigationItem("Profil", Icons.Default.Person),
         NavigationItem("Machines", Icons.Default.FitnessCenter),
         NavigationItem("Entraînement", Icons.Default.PlayArrow),
-        NavigationItem("Calendrier", Icons.Default.DateRange)
+        NavigationItem("Calendrier", Icons.Default.DateRange),
+        NavigationItem("Logs", Icons.Default.List)
     )
 
     Column(
@@ -1382,15 +1402,8 @@ fun AppMainInterface(
                     workoutHistory = workoutHistory,
                     onStartWorkout = onStartWorkout
                 )
-                3 -> CalendarScreen(
-                    workoutHistory = workoutHistory,
-                    onWorkoutHistoryChange = onWorkoutHistoryChange,
-                    onCsvImported = onCsvImported,
-                                    onEntryClick = { entry ->
-                    onCalendarEntrySelect(entry)
-                },
-                    onGoToWorkout = { onTabChange(2) }
-                )
+                3 -> SimpleCalendarScreen()
+                4 -> LogsScreen()
             }
         }
 
@@ -1876,8 +1889,7 @@ fun ProfileScreen(
             }
         }
 
-        /*
-        // Bouton de déconnexion (désactivé pour l'instant ; code conservé à titre de référence)
+        // Bouton de déconnexion
         item {
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -1910,7 +1922,6 @@ fun ProfileScreen(
                 }
             }
         }
-        */
     }
 }
 
@@ -1926,8 +1937,11 @@ fun MachinesScreen(
     // Charger depuis l'API à la première composition
     LaunchedEffect(Unit) {
         try {
+            android.util.Log.d("MachineDebug", "🚀 Début chargement machines depuis API")
             val api = ApiService.getInstance().apply { initialize(context) }.getApi()
+            android.util.Log.d("MachineDebug", "📡 Appel API getMachines()...")
             val response = api.getMachines()
+            android.util.Log.d("MachineDebug", "✅ Réponse API reçue: ${response.results.size} machines")
             if (response.results.isNotEmpty()) {
                 // Mapper MachineDto vers Machine du côté app (en conservant les champs principaux)
                 val remoteMachines = response.results.mapNotNull { dto ->
@@ -1940,7 +1954,7 @@ fun MachinesScreen(
                             nom = dto.nom,
                             description = dto.description ?: "",
                             instructions = dto.instructions ?: "",
-                            categorie = CategorieMachine.values().find { it.name.equals(dto.categorie ?: "", true) }
+                            categorie = CategorieMachine.values().find { it.displayName.equals(dto.categorie ?: "", true) }
                                 ?: CategorieMachine.MUSCULATION,
                             groupeMusculairePrimaire = dto.groupe_musculaire_primaires?.firstOrNull()?.get("nom") ?: "",
                             incrementPoids = 2.5,
@@ -1950,11 +1964,13 @@ fun MachinesScreen(
                         )
                     } catch (_: Exception) { null }
                 }
+                android.util.Log.d("MachineDebug", "🎯 Machines assignées: ${remoteMachines.size} machines converties")
                 machines = remoteMachines
             }
         } catch (e: Exception) {
             // Garde la liste locale en cas d'erreur réseau
-            android.util.Log.e("MachineDebug", "Erreur API: ${e.message}")
+            android.util.Log.e("MachineDebug", "❌ Erreur API: ${e.message}")
+            android.util.Log.e("MachineDebug", "❌ Stack trace: ", e)
         }
     }
 
@@ -2191,50 +2207,7 @@ fun MachinesScreen(
 @Composable
 fun MachineCard(machine: Machine) {
     var expanded by remember { mutableStateOf(false) }
-    var recommendation by remember { mutableStateOf<ExerciseRecommendation?>(null) }
-    var isLoadingRecommendation by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
-
-    // Charger la recommandation quand la carte est développée
-    LaunchedEffect(expanded) {
-        if (expanded && recommendation == null && !isLoadingRecommendation) {
-            isLoadingRecommendation = true
-            try {
-                android.util.Log.d("MachineCard", "🔍 Chargement recommandation pour: ${machine.nom} (ID: ${machine.id})")
-
-                // Vérifier si l'utilisateur est connecté
-                val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
-                val isLoggedIn = prefs.getBoolean("is_logged_in", false)
-                val token = prefs.getString("auth_token", null)
-
-                android.util.Log.d("MachineCard", "🔐 État connexion - Connecté: $isLoggedIn, Token: ${token?.take(10)}...")
-
-                if (!isLoggedIn || token.isNullOrBlank()) {
-                    android.util.Log.w("MachineCard", "⚠️ Utilisateur non connecté - Pas de recommandation")
-                    errorMessage = "Non connecté"
-                    return@LaunchedEffect
-                }
-
-                val rec = getRecommendationFromAPI(machine.id, context)
-
-                if (rec != null) {
-                    android.util.Log.d("MachineCard", "✅ Recommandation chargée: ${rec.weight}kg, ${rec.sets}x${rec.reps}")
-                    recommendation = rec
-                    errorMessage = null
-                } else {
-                    android.util.Log.w("MachineCard", "⚠️ getRecommendationFromAPI a retourné null")
-                    errorMessage = "Aucune recommandation trouvée"
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("MachineCard", "❌ Erreur recommandation: ${e.message}")
-                android.util.Log.e("MachineCard", "❌ Stack trace: ${e.stackTrace.contentToString()}")
-                errorMessage = "Erreur: ${e.message?.take(50)}"
-            } finally {
-                isLoadingRecommendation = false
-            }
-        }
-    }
 
     Card(
         modifier = Modifier
@@ -2346,64 +2319,6 @@ fun MachineCard(machine: Machine) {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Recommandation
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = "🎯 Recommandation",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Accent
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        if (isLoadingRecommendation) {
-                            Text(
-                                text = "Chargement de la recommandation...",
-                                fontSize = 12.sp,
-                                color = Color.Gray
-                            )
-                        } else if (recommendation != null) {
-                            Text(
-                                text = "Poids: ${recommendation!!.weight.toInt()}kg",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1976D2)
-                            )
-                            Text(
-                                text = "Séries: ${recommendation!!.sets} | Répétitions: ${recommendation!!.reps} | Repos: ${recommendation!!.restTime}s",
-                                fontSize = 12.sp,
-                                color = Color(0xFF666666)
-                            )
-                            Text(
-                                text = "Tempo recommandé: ${recommendation!!.tempo}",
-                                fontSize = 12.sp,
-                                color = Color(0xFF2E7D32),
-                                fontWeight = FontWeight.Medium
-                            )
-                            if (recommendation!!.notes.isNotBlank()) {
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = recommendation!!.notes,
-                                    fontSize = 11.sp,
-                                    color = Color(0xFF888888),
-                                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                                )
-                            }
-                        } else {
-                            Text(
-                                text = errorMessage ?: "Recommandation non disponible",
-                                fontSize = 12.sp,
-                                color = Color.Red
-                            )
-                        }
-                    }
-                }
             }
         }
     }
@@ -2415,9 +2330,7 @@ fun WorkoutScreen(
     workoutHistory: List<WorkoutEntry>,
     onStartWorkout: (List<Machine>, String) -> Unit
 ) {
-    var selectedMode by remember { mutableStateOf<String?>(null) }
     var selectedMachines by remember { mutableStateOf<List<Machine>>(emptyList()) }
-                var selectedPreset by remember { mutableStateOf<WorkoutPreset?>(null) }
 
     LazyColumn(
         modifier = Modifier
@@ -2434,185 +2347,22 @@ fun WorkoutScreen(
             )
         }
 
+
+
         item {
-            // Choix du type d'entraînement
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = "Type d'entraînement",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Accent,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Button(
-                            onClick = { selectedMode = "manuel" },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (selectedMode == "manuel") Mint else LightBackground,
-                                contentColor = if (selectedMode == "manuel") Color.White else Color(0xFF666666)
-                            )
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text("⚙️", fontSize = 20.sp)
-                                Text("Sélection manuelle", fontSize = 12.sp, textAlign = TextAlign.Center)
-                            }
-                        }
-
-                        Button(
-                            onClick = { selectedMode = "preset" },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (selectedMode == "preset") Mint else LightBackground,
-                                contentColor = if (selectedMode == "preset") Color.White else Color(0xFF666666)
-                            )
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text("🎯", fontSize = 20.sp)
-                                Text("Presets coach", fontSize = 12.sp, textAlign = TextAlign.Center)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Contenu selon le mode sélectionné
-        if (selectedMode == "preset") {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        Text(
-                            text = "Programmes prêts",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Accent,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
-
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(emptyList<WorkoutPreset>()) { preset ->
-                                Card(
-                                    modifier = Modifier
-                                        .width(200.dp)
-                                        .clickable { selectedPreset = preset },
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = if (selectedPreset == preset) Accent else Color(0xFFF8F9FA)
-                                    )
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(16.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Text(
-                                            text = preset.emoji,
-                                            fontSize = 32.sp
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            text = preset.nom,
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (selectedPreset == preset) Color.White else Color(0xFF2E2E2E)
-                                        )
-                                        Text(
-                                            text = preset.focusMusculaire,
-                                            fontSize = 12.sp,
-                                            color = if (selectedPreset == preset) Color(0x80FFFFFF) else Color.Gray,
-                                            textAlign = TextAlign.Center
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            text = "${preset.machines.size} exercices",
-                                            fontSize = 12.sp,
-                                            color = if (selectedPreset == preset) Color.White else Accent
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (selectedPreset != null) {
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8))
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Text(
-                                text = "Aperçu du programme",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Accent,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-
-                            selectedPreset!!.machines.forEach { machine ->
-                                Text(
-                                    text = "• ${machine.nom} (${machine.groupeMusculairePrimaire})",
-                                    fontSize = 14.sp,
-                                    color = Color(0xFF2E2E2E),
-                                    modifier = Modifier.padding(vertical = 2.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if (selectedMode == "manuel") {
-            item {
-                ManualWorkoutSelection(
-                    selectedMachines = selectedMachines,
-                    onMachinesUpdate = { selectedMachines = it }
-                )
-            }
+            ManualWorkoutSelection(
+                selectedMachines = selectedMachines,
+                onMachinesUpdate = { selectedMachines = it }
+            )
         }
 
         // Bouton de démarrage
-        if ((selectedMode == "preset" && selectedPreset != null) ||
-            (selectedMode == "manuel" && selectedMachines.isNotEmpty())) {
+        if (selectedMachines.isNotEmpty()) {
             item {
                 Button(
                     onClick = {
-                        val machines = if (selectedMode == "preset") {
-                            selectedPreset!!.machines
-                        } else {
-                            selectedMachines
-                        }
-                        val workoutName = if (selectedMode == "preset") {
-                            "Preset: ${selectedPreset!!.nom}"
-                        } else {
-                            "Manuel (${selectedMachines.size} exercices)"
-                        }
-                        onStartWorkout(machines, workoutName)
+                        val workoutName = "Manuel (${selectedMachines.size} exercices)"
+                        onStartWorkout(selectedMachines, workoutName)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -2971,20 +2721,23 @@ fun WorkoutInProgressScreen(
                         "Endurance" -> "Endurance"
                         else -> profileData.objectif
                     }
-                    android.util.Log.d("Recommendation", "Recalcul des recommandations pour ${machine.nom} avec objectif: $goalObjective")
-
-                    // Utiliser directement le calcul local pour l'instant (l'API sera utilisée en temps réel dans CurrentExerciseCard)
-                    val recommendation = calculateWorkoutRecommendations(
-                        machine = machine,
-                        workoutHistory = workoutHistory.map { it.toWorkoutSession() },
-                        profileData = profileData.copy(objectif = goalObjective)
-                    )
+                    // Utiliser des valeurs par défaut pour les exercices
+                    val (targetSets, targetReps, restTime) = when (goalObjective) {
+                        "Force", "Puissance" -> Triple(4, 5, 180)
+                        "Prise de masse", "Volume" -> Triple(4, 10, 90)
+                        "Endurance" -> Triple(3, 15, 60)
+                        "Sèche" -> Triple(4, 12, 75)
+                        else -> Triple(3, 10, 90)
+                    }
+                    
+                    val recommendedWeight = calculateStartingWeight(machine, profileData.copy(objectif = goalObjective))
+                    
                     ExerciseSession(
                         machine = machine,
-                        targetSets = recommendation.sets,
-                        targetReps = recommendation.reps,
-                        recommendedWeight = recommendation.weight,
-                        restTime = recommendation.restTime
+                        targetSets = targetSets,
+                        targetReps = targetReps,
+                        recommendedWeight = recommendedWeight,
+                        restTime = restTime
                     )
                 }
             )
@@ -3515,53 +3268,22 @@ fun CurrentExerciseCard(
     var reps by remember { mutableStateOf("") }
     var duration by remember { mutableStateOf("") }
 
-    // État pour la recommandation API
-    var apiRecommendation by remember { mutableStateOf<ExerciseRecommendation?>(null) }
-    var isLoadingRecommendation by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    // Charger la recommandation depuis l'API
-    LaunchedEffect(exerciseSession.machine.id) {
-        isLoadingRecommendation = true
-        try {
-            android.util.Log.d("CurrentExercise", "🔄 Chargement recommandation API pour: ${exerciseSession.machine.nom}")
-            val rec = getRecommendationFromAPI(exerciseSession.machine.id, context)
-            if (rec != null) {
-                apiRecommendation = rec
-                android.util.Log.d("CurrentExercise", "✅ Recommandation API chargée: ${rec.weight}kg")
-            } else {
-                android.util.Log.w("CurrentExercise", "⚠️ Pas de recommandation API disponible")
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("CurrentExercise", "❌ Erreur recommandation API: ${e.message}")
-        } finally {
-            isLoadingRecommendation = false
-        }
-    }
-
     // Préremplissage selon la progression des séries
-    LaunchedEffect(exerciseSession.sets.size, apiRecommendation) {
+    LaunchedEffect(exerciseSession.sets.size) {
         if (exerciseSession.sets.isNotEmpty()) {
             val last = exerciseSession.sets.last()
             weight = String.format(java.util.Locale.US, "%.1f", last.weight).trimEnd('0').trimEnd('.')
             reps = last.reps.toString()
         } else {
-            // Utiliser l'API en priorité, sinon la valeur par défaut
-            val recommendedWeight = apiRecommendation?.weight ?: exerciseSession.recommendedWeight
+            // Utiliser la valeur par défaut
+            val recommendedWeight = exerciseSession.recommendedWeight
             weight = String.format(java.util.Locale.US, "%.1f", recommendedWeight).trimEnd('0').trimEnd('.')
-            reps = (apiRecommendation?.reps ?: exerciseSession.targetReps).toString()
+            reps = exerciseSession.targetReps.toString()
         }
     }
 
-    // Utiliser la recommandation API si disponible, sinon les valeurs par défaut
-    val recommendation = apiRecommendation ?: ExerciseRecommendation(
-        sets = exerciseSession.targetSets,
-        reps = exerciseSession.targetReps,
-        weight = exerciseSession.recommendedWeight,
-        restTime = exerciseSession.restTime,
-        notes = "💪 Recommandation personnalisée • Technique contrôlée • Progression adaptée",
-        tempo = exerciseSession.machine.tempo ?: "3-1-2"
-    )
 
     // Vérifier si c'est une machine cardio ou un exercice basé sur le temps
     val isCardioMachine = exerciseSession.machine.categorie == CategorieMachine.CARDIO ||
@@ -3576,13 +3298,10 @@ fun CurrentExerciseCard(
         exerciseSession.machine.nom.contains("Push-up", ignoreCase = true) ||
         exerciseSession.machine.nom.contains("Pompe", ignoreCase = true)
 
-    // Afficher un message si pas de poids recommandé (utiliser API en priorité)
-    val actualRecommendedWeight = apiRecommendation?.weight ?: exerciseSession.recommendedWeight
+    // Afficher un message si pas de poids recommandé
+    val actualRecommendedWeight = exerciseSession.recommendedWeight
     val weightDisplay = when {
-        actualRecommendedWeight > 0 -> {
-            val source = if (apiRecommendation != null) "API" else "local"
-            "${actualRecommendedWeight.toInt()} kg ${if (isLoadingRecommendation) "(chargement...)" else "($source)"}"
-        }
+        actualRecommendedWeight > 0 -> "${actualRecommendedWeight.toInt()} kg"
         actualRecommendedWeight == 0.0 -> {
             // Calculer une suggestion de poids de départ
             val suggestedWeight = calculateStartingWeight(exerciseSession.machine, profileData)
@@ -3942,215 +3661,6 @@ fun UpcomingExerciseCard(
 }
 
 // Fonction pour calculer les recommandations d'entraînement
-fun calculateWorkoutRecommendations(
-    machine: Machine,
-    workoutHistory: List<WorkoutSession>,
-    profileData: ProfileData
-): ExerciseRecommendation {
-    android.util.Log.d("Recommendation", "=== DÉBUT CALCUL RECOMMANDATION ===")
-    android.util.Log.d("Recommendation", "Machine: ${machine.nom}")
-    android.util.Log.d("Recommendation", "Objectif: ${profileData.objectif}")
-    android.util.Log.d("Recommendation", "Historique total: ${workoutHistory.size} séances")
-
-    // Diagnostic pour identifier les problèmes
-    diagnoseRecommendationIssue(machine, workoutHistory, profileData)
-
-    val age = calculateAge(profileData.dateNaissance)
-    val objectif = profileData.objectif
-
-    // 1) ANALYSE DE L'HISTORIQUE
-    val exerciseRecords = workoutHistory.flatMap { it.exercises }
-        .filter { it.machine.nom.equals(machine.nom, ignoreCase = true) }
-
-    val historyCount = exerciseRecords.size
-    val recentRecords = exerciseRecords.takeLast(5)
-
-    android.util.Log.d("Recommendation", "Exercices trouvés pour ${machine.nom}: $historyCount")
-    android.util.Log.d("Recommendation", "Séances récentes analysées: ${recentRecords.size}")
-
-    // Extraire les poids réels des séries effectuées
-    val actualWeights = recentRecords.flatMap { exerciseSession ->
-        exerciseSession.sets.map { set -> set.weight }
-    }.filter { it > 0 } // Filtrer les poids valides
-
-    android.util.Log.d("Recommendation", "Poids réels extraits: ${actualWeights.size} valeurs")
-    if (actualWeights.isNotEmpty()) {
-        android.util.Log.d("Recommendation", "Poids trouvés: ${actualWeights.joinToString(", ")} kg")
-    }
-
-    // 2) DÉTERMINATION DU NIVEAU D'EXPÉRIENCE
-    val experienceLevel = when {
-        historyCount < 3 -> "Débutant"
-        historyCount < 10 -> "Intermédiaire"
-        historyCount < 25 -> "Avancé"
-        else -> "Expert"
-    }
-
-    android.util.Log.d("Recommendation", "Niveau: $experienceLevel")
-
-    // 3) CALCUL DES RÉPÉTITIONS SELON L'OBJECTIF
-    val (targetReps, intensityPercentage) = when (objectif) {
-        "Force", "Puissance" -> {
-            when (experienceLevel) {
-                "Débutant" -> Pair(5, 75.0)
-                "Intermédiaire" -> Pair(4, 80.0)
-                "Avancé" -> Pair(3, 85.0)
-                else -> Pair(2, 90.0)
-            }
-        }
-        "Prise de masse", "Volume" -> {
-            when (experienceLevel) {
-                "Débutant" -> Pair(12, 65.0)
-                "Intermédiaire" -> Pair(10, 70.0)
-                "Avancé" -> Pair(8, 75.0)
-                else -> Pair(6, 80.0)
-            }
-        }
-        "Endurance" -> {
-            when (experienceLevel) {
-                "Débutant" -> Pair(15, 55.0)
-                "Intermédiaire" -> Pair(20, 60.0)
-                "Avancé" -> Pair(25, 65.0)
-                else -> Pair(30, 70.0)
-            }
-        }
-        "Sèche" -> {
-            when (experienceLevel) {
-                "Débutant" -> Pair(12, 60.0)
-                "Intermédiaire" -> Pair(15, 65.0)
-                "Avancé" -> Pair(18, 70.0)
-                else -> Pair(20, 75.0)
-            }
-        }
-        else -> {
-            // Objectif par défaut - Prise de masse
-            when (experienceLevel) {
-                "Débutant" -> Pair(12, 65.0)
-                "Intermédiaire" -> Pair(10, 70.0)
-                "Avancé" -> Pair(8, 75.0)
-                else -> Pair(6, 80.0)
-            }
-        }
-    }
-
-    android.util.Log.d("Recommendation", "Reps cibles: $targetReps")
-    android.util.Log.d("Recommendation", "Intensité: ${intensityPercentage}%")
-
-    // 4) CALCUL DU POIDS RECOMMANDÉ
-    val recommendedWeight = if (actualWeights.isNotEmpty()) {
-        val avgWeight = actualWeights.average()
-        val maxWeight = actualWeights.maxOrNull() ?: avgWeight
-        android.util.Log.d("Recommendation", "Poids moyens: $avgWeight kg")
-        android.util.Log.d("Recommendation", "Poids max: $maxWeight kg")
-
-        // Calculer le 1RM estimé avec la formule de Brzycki
-        val estimated1RM = maxWeight * (36 / (37 - targetReps.toDouble()))
-        android.util.Log.d("Recommendation", "1RM estimé: $estimated1RM kg")
-
-        // Recommander un poids basé sur l'intensité du 1RM
-        val recommendedWeightFrom1RM = estimated1RM * (intensityPercentage / 100.0)
-        android.util.Log.d("Recommendation", "Poids recommandé (1RM): $recommendedWeightFrom1RM kg")
-
-        recommendedWeightFrom1RM
-    } else {
-        android.util.Log.d("Recommendation", "❌ PAS D'HISTORIQUE - Utilisation du poids de départ")
-        val startingWeight = calculateStartingWeight(machine, profileData)
-        android.util.Log.d("Recommendation", "Poids de départ calculé: $startingWeight kg")
-
-        // Vérifier si c'est un poids par défaut problématique
-        if (startingWeight == 20.0 || startingWeight == 15.0) {
-            android.util.Log.w("Recommendation", "⚠️ ATTENTION: Poids par défaut détecté ($startingWeight kg)")
-            android.util.Log.w("Recommendation", "   Machine: ${machine.nom}")
-            android.util.Log.w("Recommendation", "   Genre: ${profileData.genre}")
-            android.util.Log.w("Recommendation", "   Objectif: $objectif")
-            android.util.Log.w("Recommendation", "   Âge: $age")
-        }
-
-        startingWeight
-    }
-
-    // 5) CALCUL DES SÉRIES ET REPOS
-    val (sets, restTime) = when (objectif) {
-        "Force", "Puissance" -> {
-            when (experienceLevel) {
-                "Débutant" -> Pair(3, 180)
-                "Intermédiaire" -> Pair(4, 180)
-                "Avancé" -> Pair(5, 180)
-                else -> Pair(6, 180)
-            }
-        }
-        "Prise de masse", "Volume" -> {
-            when (experienceLevel) {
-                "Débutant" -> Pair(3, 90)
-                "Intermédiaire" -> Pair(4, 90)
-                "Avancé" -> Pair(5, 90)
-                else -> Pair(6, 90)
-            }
-        }
-        "Endurance" -> {
-            when (experienceLevel) {
-                "Débutant" -> Pair(3, 60)
-                "Intermédiaire" -> Pair(4, 60)
-                "Avancé" -> Pair(5, 60)
-                else -> Pair(6, 60)
-            }
-        }
-        "Sèche" -> {
-            when (experienceLevel) {
-                "Débutant" -> Pair(4, 75)
-                "Intermédiaire" -> Pair(5, 75)
-                "Avancé" -> Pair(6, 75)
-                else -> Pair(7, 75)
-            }
-        }
-        else -> {
-            // Objectif par défaut
-            when (experienceLevel) {
-                "Débutant" -> Pair(3, 90)
-                "Intermédiaire" -> Pair(4, 90)
-                "Avancé" -> Pair(5, 90)
-                else -> Pair(6, 90)
-            }
-        }
-    }
-
-    // 6) ADAPTATION POUR LES EXERCICES CARDIO
-    val finalTargetReps = when {
-        machine.categorie == CategorieMachine.CARDIO -> targetReps * 60 // Convertir en secondes
-        machine.nom.contains("Tapis", ignoreCase = true) ||
-        machine.nom.contains("Vélo", ignoreCase = true) ||
-        machine.nom.contains("Rameur", ignoreCase = true) ||
-        machine.nom.contains("Elliptique", ignoreCase = true) -> targetReps * 60 // Convertir en secondes
-        else -> targetReps
-    }
-
-    // 7) NOTES DE RECOMMANDATION AMÉLIORÉES
-    val notes = when (objectif) {
-        "Force", "Puissance" -> "💪 Intensité: ${intensityPercentage.toInt()}% • Technique parfaite obligatoire • Repos complet"
-        "Prise de masse", "Volume" -> "📈 Volume optimal: ${targetReps} reps • Tempo contrôlé • Tension musculaire maximale"
-        "Endurance" -> "🏃 Rythme soutenu: ${targetReps} reps • Repos court • Respiration régulière"
-        "Sèche" -> "🔥 Brûlage intensif • Repos court • Superset recommandé"
-        else -> "💪 Recommandation personnalisée • Technique contrôlée • Progression adaptée"
-    }
-
-    val result = ExerciseRecommendation(
-        sets = sets,
-        reps = finalTargetReps,
-        weight = recommendedWeight,
-        restTime = restTime,
-        notes = notes,
-        tempo = machine.tempo ?: "3-1-2"
-    )
-
-    android.util.Log.d("Recommendation", "=== RÉSULTAT FINAL ===")
-    android.util.Log.d("Recommendation", "Sets: ${result.sets}")
-    android.util.Log.d("Recommendation", "Reps: ${result.reps}")
-    android.util.Log.d("Recommendation", "Poids: ${result.weight} kg")
-    android.util.Log.d("Recommendation", "Repos: ${result.restTime} sec")
-    android.util.Log.d("Recommendation", "Notes: ${result.notes}")
-
-    return result
-}
 
 // CALCUL DU POIDS DE DÉPART POUR DÉBUTANTS - AMÉLIORÉ
 fun calculateStartingWeight(machine: Machine, profileData: ProfileData): Double {
@@ -4327,28 +3837,24 @@ fun AnimatedGifImage(
 }
 
 // Extension function pour convertir WorkoutEntry en WorkoutSession
-fun WorkoutEntry.toWorkoutSession(): WorkoutSession {
+fun WorkoutEntry.toWorkoutSession(machinesList: List<Machine> = emptyList()): WorkoutSession {
     return WorkoutSession(
         workoutName = this.mode,
-        exercises = this.exercises.map { exercise ->
-            ExerciseSession(
-                machine = Machine(
-                    id = 1,
-                    nom = exercise.name,
-                    description = "",
-                    instructions = "",
-                    categorie = CategorieMachine.MUSCULATION,
-                    imageGif = "",
-                    groupeMusculairePrimaire = "",
-                    incrementPoids = 2.5,
-                    poidsMinimum = 0.0,
-                    poidsMaximum = 200.0
-                ),
-                targetSets = exercise.sets,
-                targetReps = exercise.reps,
-                recommendedWeight = exercise.weight,
-                restTime = 60
-            )
+        exercises = this.exercises.mapNotNull { exercise ->
+            // Only include exercises where we can find the actual machine
+            val machine = machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) }
+            if (machine != null) {
+                ExerciseSession(
+                    machine = machine,
+                    targetSets = exercise.sets,
+                    targetReps = exercise.reps,
+                    recommendedWeight = exercise.weight,
+                    restTime = 60
+                )
+            } else {
+                android.util.Log.w("WorkoutEntry", "Machine not found for exercise: ${exercise.name}")
+                null
+            }
         }
     )
 }
@@ -4363,98 +3869,6 @@ fun refreshRecommendations(context: Context) {
 }
 
 // Fonction pour récupérer la recommandation depuis l'API Django
-suspend fun getRecommendationFromAPI(machineId: Int, context: Context): ExerciseRecommendation? {
-    return try {
-        android.util.Log.d("RecommendationAPI", "🔍 Début getRecommendationFromAPI pour machineId: $machineId")
-
-        val apiService = ApiService.getInstance()
-        apiService.initialize(context)
-
-        // Vérifier si l'API est disponible
-        val isApiAvailable = apiService.isApiAvailable()
-
-        android.util.Log.d("RecommendationAPI", "🌐 État API - Disponible: $isApiAvailable")
-
-        if (!isApiAvailable) {
-            android.util.Log.w("RecommendationAPI", "⚠️ API non disponible")
-            return null
-        }
-
-        // Récupérer les machines depuis l'API
-        val machinesResponse = apiService.getApi().getMachines()
-        val machine = machinesResponse.results.find { it.id == machineId }
-        if (machine == null) {
-            android.util.Log.e("RecommendationAPI", "❌ Machine avec ID $machineId non trouvée dans l'API")
-            return null
-        }
-
-        android.util.Log.d("RecommendationAPI", "✅ Machine trouvée depuis API: ${machine.nom}")
-        android.util.Log.d("RecommendationAPI", "🌐 Tentative de connexion à l'API...")
-
-        // Utiliser le nom de la machine depuis l'API
-        val response = apiService.getApi().getRecommendationByName(machine.nom)
-
-        android.util.Log.d("RecommendationAPI", "📡 Réponse API reçue")
-        android.util.Log.d("RecommendationAPI", "   Success: ${response.success}")
-        android.util.Log.d("RecommendationAPI", "   Data: ${response.data}")
-
-        if (response.success && response.data != null) {
-            val recommendation = response.data as RecommendationResponse
-
-            android.util.Log.d("RecommendationAPI", "✅ Recommandation extraite:")
-            android.util.Log.d("RecommendationAPI", "   Poids recommandé: ${recommendation.poids_recommande}kg")
-            android.util.Log.d("RecommendationAPI", "   Séries: ${recommendation.series_recommandees}")
-            android.util.Log.d("RecommendationAPI", "   Reps: ${recommendation.reps_recommandees}")
-            android.util.Log.d("RecommendationAPI", "🎯 SUCCÈS API - Retour ExerciseRecommendation avec ${recommendation.poids_recommande}kg")
-
-            // Construire des notes détaillées incluant le type d'exercice
-            val notes = buildString {
-                append("Recommandation basée sur votre progression")
-                if (recommendation.notes.isNotEmpty()) {
-                    append(" • ${recommendation.notes}")
-                }
-                append(" • Objectif: ${recommendation.objectif}")
-                append(" • ${recommendation.series_recommandees} séries x ${recommendation.reps_recommandees} reps")
-                append(" • Repos: ${recommendation.repos_recommande}s")
-                append(" • Tempo: ${recommendation.tempo_recommande}")
-            }
-
-            val exerciseRecommendation = ExerciseRecommendation(
-                sets = recommendation.series_recommandees,
-                reps = recommendation.reps_recommandees,
-                weight = recommendation.poids_recommande,
-                restTime = recommendation.repos_recommande,
-                notes = notes,
-                tempo = recommendation.tempo_recommande
-            )
-
-            android.util.Log.d("RecommendationAPI", "🎯 Recommandation finale créée: ${exerciseRecommendation.weight}kg")
-            exerciseRecommendation
-        } else {
-            android.util.Log.e("RecommendationAPI", "❌ Réponse API invalide ou échec")
-            android.util.Log.e("RecommendationAPI", "   Success: ${response.success}")
-            android.util.Log.e("RecommendationAPI", "   Data null: ${response.data == null}")
-            if (response.message.isNotEmpty()) {
-                android.util.Log.e("RecommendationAPI", "   Message: ${response.message}")
-            }
-
-            // Vérifier si c'est un problème d'authentification
-            if (response.message.contains("authentifié", ignoreCase = true) ||
-                response.message.contains("token", ignoreCase = true) ||
-                response.message.contains("force_logout", ignoreCase = true)) {
-                android.util.Log.w("RecommendationAPI", "🚪 Problème d'authentification détecté - Déconnexion nécessaire")
-                // TODO: Déclencher la déconnexion ici
-            }
-
-            null
-        }
-    } catch (e: Exception) {
-        android.util.Log.e("RecommendationAPI", "❌ Exception lors de la récupération: ${e.message}")
-        android.util.Log.e("RecommendationAPI", "   Type d'erreur: ${e.javaClass.simpleName}")
-        android.util.Log.e("RecommendationAPI", "   Stack trace: ${e.stackTraceToString()}")
-        null
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -4535,7 +3949,7 @@ fun CalendarEntryDetailScreen(
                             nom = dto.nom,
                             description = dto.description ?: "",
                             instructions = dto.instructions ?: "",
-                            categorie = CategorieMachine.values().find { it.name.equals(dto.categorie ?: "", true) }
+                            categorie = CategorieMachine.values().find { it.displayName.equals(dto.categorie ?: "", true) }
                                 ?: CategorieMachine.MUSCULATION,
                             groupeMusculairePrimaire = dto.groupe_musculaire_primaires?.firstOrNull()?.get("nom") ?: "",
                             incrementPoids = 2.5,
@@ -4653,17 +4067,7 @@ fun CalendarEntryDetailScreen(
 
             // Liste des exercices avec GIFs
             items(currentEntry.exercises) { exercise ->
-                val machine = machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) } ?: Machine(
-                    id = 0,
-                    nom = exercise.name,
-                    description = "",
-                    instructions = "",
-                    categorie = CategorieMachine.MUSCULATION,
-                    groupeMusculairePrimaire = "",
-                    incrementPoids = 2.5,
-                    poidsMinimum = 0.0,
-                    poidsMaximum = 200.0
-                )
+                val machine = machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) }
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -4678,34 +4082,36 @@ fun CalendarEntryDetailScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = machine.nom,
+                                text = machine?.nom ?: exercise.name,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Accent,
                                 modifier = Modifier.weight(1f)
                             )
 
-                            // Icône de remplacement
-                            IconButton(
-                                onClick = {
-                                    currentExerciseToReplace = exercise
-                                    alternativeExercises = findAlternativeExercises(exercise)
-                                    showExerciseReplacementDialog = true
+                            // Icône de remplacement (seulement si machine trouvée)
+                            if (machine != null) {
+                                IconButton(
+                                    onClick = {
+                                        currentExerciseToReplace = exercise
+                                        alternativeExercises = findAlternativeExercises(exercise)
+                                        showExerciseReplacementDialog = true
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.SwapHoriz,
+                                        contentDescription = "Remplacer cet exercice",
+                                        tint = Accent,
+                                        modifier = Modifier.size(24.dp)
+                                    )
                                 }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.SwapHoriz,
-                                    contentDescription = "Remplacer cet exercice",
-                                    tint = Accent,
-                                    modifier = Modifier.size(24.dp)
-                                )
                             }
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
 
                         // Affichage du GIF si présent
-                        if (!machine.imageGif.isNullOrBlank()) {
+                        if (machine != null && !machine.imageGif.isNullOrBlank()) {
                             AnimatedGifImage(
                                 imageUrl = machine.imageGif,
                                 contentDescription = "Démonstration GIF",
@@ -4718,12 +4124,12 @@ fun CalendarEntryDetailScreen(
 
                         // Déterminer le type d'exercice basé sur la machine
                         val exerciseType = when {
-                            machine.nom.contains("Tapis", ignoreCase = true) -> "Cardio"
-                            machine.nom.contains("Vélo", ignoreCase = true) -> "Cardio"
-                            machine.nom.contains("Rameur", ignoreCase = true) -> "Cardio"
-                            machine.nom.contains("Elliptique", ignoreCase = true) -> "Cardio"
-                            machine.categorie == CategorieMachine.MUSCULATION -> "Musculation"
-                            machine.categorie == CategorieMachine.CARDIO -> "Cardio"
+                            machine?.nom?.contains("Tapis", ignoreCase = true) == true -> "Cardio"
+                            machine?.nom?.contains("Vélo", ignoreCase = true) == true -> "Cardio"
+                            machine?.nom?.contains("Rameur", ignoreCase = true) == true -> "Cardio"
+                            machine?.nom?.contains("Elliptique", ignoreCase = true) == true -> "Cardio"
+                            machine?.categorie == CategorieMachine.MUSCULATION -> "Musculation"
+                            machine?.categorie == CategorieMachine.CARDIO -> "Cardio"
                             else -> "Autre"
                         }
 
@@ -4733,10 +4139,10 @@ fun CalendarEntryDetailScreen(
                             color = Color(0xFF666666)
                         )
 
-                        if (!machine.instructions.isNullOrBlank()) {
+                        if (!machine?.instructions.isNullOrBlank()) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Instructions: ${machine.instructions}",
+                                text = "Instructions: ${machine?.instructions}",
                                 fontSize = 12.sp,
                                 color = Color(0xFF888888),
                                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
@@ -4766,18 +4172,8 @@ fun CalendarEntryDetailScreen(
 
                 Button(
                     onClick = {
-                        val machines = currentEntry.exercises.map { exercise ->
-                            machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) } ?: Machine(
-                                id = 0,
-                                nom = exercise.name,
-                                description = "",
-                                instructions = "",
-                                categorie = CategorieMachine.MUSCULATION,
-                                groupeMusculairePrimaire = "",
-                                incrementPoids = 2.5,
-                                poidsMinimum = 0.0,
-                                poidsMaximum = 200.0
-                            )
+                        val machines = currentEntry.exercises.mapNotNull { exercise ->
+                            machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) }
                         }
                         val workoutName = when {
                             isCompleted -> "Reprise ${currentEntry.date}"
@@ -4872,67 +4268,5 @@ fun CalendarEntryDetailScreen(
     }
 }
 
+
 // Fonction de diagnostic pour analyser les recommandations
-fun diagnoseRecommendationIssue(
-    machine: Machine,
-    workoutHistory: List<WorkoutSession>,
-    profileData: ProfileData
-) {
-    android.util.Log.d("Diagnostic", "=== DIAGNOSTIC RECOMMANDATION ===")
-    android.util.Log.d("Diagnostic", "Machine: ${machine.nom}")
-    android.util.Log.d("Diagnostic", "Genre: ${profileData.genre}")
-    android.util.Log.d("Diagnostic", "Objectif: ${profileData.objectif}")
-    android.util.Log.d("Diagnostic", "Âge: ${calculateAge(profileData.dateNaissance)}")
-    android.util.Log.d("Diagnostic", "Historique total: ${workoutHistory.size} séances")
-
-    // Analyser l'historique pour cette machine
-    val exerciseRecords = workoutHistory.flatMap { it.exercises }
-        .filter { it.machine.nom.equals(machine.nom, ignoreCase = true) }
-
-    android.util.Log.d("Diagnostic", "Séances trouvées pour ${machine.nom}: ${exerciseRecords.size}")
-
-    if (exerciseRecords.isEmpty()) {
-        android.util.Log.w("Diagnostic", "❌ AUCUN HISTORIQUE TROUVÉ")
-        android.util.Log.w("Diagnostic", "   Raison possible: Pas encore d'entraînement sur cette machine")
-        android.util.Log.w("Diagnostic", "   Solution: Effectuer quelques séances pour créer un historique")
-    } else {
-        android.util.Log.d("Diagnostic", "✅ HISTORIQUE TROUVÉ")
-
-        // Analyser les poids utilisés
-        val allWeights = exerciseRecords.flatMap { exerciseSession ->
-            exerciseSession.sets.map { set -> set.weight }
-        }.filter { it > 0 }
-
-        android.util.Log.d("Diagnostic", "Poids utilisés: ${allWeights.joinToString(", ")} kg")
-
-        if (allWeights.isEmpty()) {
-            android.util.Log.w("Diagnostic", "⚠️ AUCUN POIDS VALIDE TROUVÉ")
-            android.util.Log.w("Diagnostic", "   Raison possible: Séances sans poids enregistré")
-        } else {
-            val maxWeight = allWeights.maxOrNull() ?: 0.0
-            val avgWeight = allWeights.average()
-            android.util.Log.d("Diagnostic", "Poids max: $maxWeight kg")
-            android.util.Log.d("Diagnostic", "Poids moyen: $avgWeight kg")
-        }
-    }
-
-    // Tester le calcul de poids de départ
-    val startingWeight = calculateStartingWeight(machine, profileData)
-    android.util.Log.d("Diagnostic", "Poids de départ calculé: $startingWeight kg")
-
-    // Vérifier si c'est le poids par défaut problématique
-    if (startingWeight == 20.0 || startingWeight == 15.0) {
-        android.util.Log.w("Diagnostic", "⚠️ POIDS PAR DÉFAUT DÉTECTÉ")
-        android.util.Log.w("Diagnostic", "   Machine: ${machine.nom}")
-        android.util.Log.w("Diagnostic", "   Poids: $startingWeight kg")
-        android.util.Log.w("Diagnostic", "   Raison: Aucun pattern spécifique trouvé pour cette machine")
-
-        // Suggérer des améliorations
-        android.util.Log.d("Diagnostic", "💡 SUGGESTIONS D'AMÉLIORATION:")
-        android.util.Log.d("Diagnostic", "   1. Ajouter des patterns spécifiques pour ${machine.nom}")
-        android.util.Log.d("Diagnostic", "   2. Effectuer quelques séances pour créer un historique")
-        android.util.Log.d("Diagnostic", "   3. Vérifier la synchronisation avec la BDD")
-    }
-
-    android.util.Log.d("Diagnostic", "=== FIN DIAGNOSTIC ===")
-}

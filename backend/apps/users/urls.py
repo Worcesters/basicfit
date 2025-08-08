@@ -31,6 +31,7 @@ api_urlpatterns = [
     path('android/login/', views.android_login, name='android-login'),
     path('android/register/', views.android_register, name='android-register'),
     path('android/profile/', views.android_profile, name='android-profile'),
+    path('android/profile/update/', views.android_update_profile, name='android-update-profile'),
     path('android/ping/', views.android_ping, name='android-ping'),
 ]
 

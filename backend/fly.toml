@@ -46,7 +46,7 @@ primary_region = "cdg"  # Paris (plus proche de la France)
 #   timeout = "10s"
 
 [processes]
-  web = "gunicorn basicfit_project.wsgi:application --bind 0.0.0.0:8000 --workers 1 --timeout 300 --max-requests 1000 --log-level info"
+  web = "bash -c 'python manage.py migrate && python manage.py collectstatic --noinput && gunicorn basicfit_project.wsgi:application --bind 0.0.0.0:8000 --workers 1'"
 
 # Configuration des machines
 [[vm]]

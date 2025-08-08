@@ -77,7 +77,11 @@ class UserAdmin(BaseUserAdmin):
     readonly_fields = ['derniere_connexion_app', 'last_login', 'date_joined']
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('mode_entrainement_prefere')
+        qs = super().get_queryset(request).select_related('mode_entrainement_prefere')
+        # Filtrage automatique : utilisateurs non-superuser ne voient que leur propre profil
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(id=request.user.id)
 
 
 @admin.register(ProfilUtilisateur)
@@ -110,4 +114,8 @@ class ProfilUtilisateurAdmin(admin.ModelAdmin):
     )
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('utilisateur')
+        qs = super().get_queryset(request).select_related('utilisateur')
+        # Filtrage automatique : utilisateurs non-superuser ne voient que leur propre profil
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(utilisateur=request.user)

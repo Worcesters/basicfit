@@ -5,7 +5,10 @@ from django.urls import path, include
 from . import views, views_refactored
 
 urlpatterns = [
-    # Endpoints pour les séances d'entraînement
+    # NOUVEAUX ENDPOINTS CALENDRIER SIMPLIFIÉS
+    path('', include('apps.workouts.calendar_urls')),
+    
+    # Endpoints pour les séances d'entraînement (ANCIENS - Compatibilité)
     path('seances/', views_refactored.get_calendar_sessions_professional, name='get_seances'),
     path('seances/sauvegarder/', views_refactored.save_workout_professional, name='save_workout'),
 

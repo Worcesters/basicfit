@@ -5,6 +5,7 @@ from django.contrib import admin
 from .models import (
     SeanceEntrainement, ExerciceSeance, SeriExercice, ProgressionMachine
 )
+from .models_simple import SeanceSimple
 
 
 class SeriExerciceInline(admin.TabularInline):
@@ -86,20 +87,24 @@ class SeanceEntrainementAdmin(admin.ModelAdmin):
     ]
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related(
+        qs = super().get_queryset(request).select_related(
             'utilisateur', 'mode_entrainement'
         )
+        # Filtrage automatique par utilisateur si l'utilisateur n'est pas superuser
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(utilisateur=request.user)
 
 
 @admin.register(ExerciceSeance)
 class ExerciceSeanceAdmin(admin.ModelAdmin):
     list_display = [
-        'seance', 'machine', 'ordre_dans_seance', 'series_prevues',
+        'seance_user', 'seance', 'machine', 'ordre_dans_seance', 'series_prevues',
         'poids_prevu', 'statut', 'nombre_series', 'volume_total'
     ]
     list_filter = [
         'statut', 'machine__categorie', 'seance__mode_entrainement',
-        'created_at'
+        'seance__utilisateur', 'created_at'
     ]
     list_editable = ['statut']
     search_fields = [
@@ -108,6 +113,21 @@ class ExerciceSeanceAdmin(admin.ModelAdmin):
     ]
     ordering = ['seance__date_prevue', 'ordre_dans_seance']
     inlines = [SeriExerciceInline]
+    
+    # Filtrage automatique par utilisateur si l'utilisateur n'est pas superuser
+    def get_queryset(self, request):
+        qs = super().get_queryset(request).select_related(
+            'seance', 'machine', 'variante', 'seance__utilisateur'
+        )
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(seance__utilisateur=request.user)
+    
+    def seance_user(self, obj):
+        """Affiche l'utilisateur de la séance"""
+        return obj.seance.utilisateur.email
+    seance_user.short_description = 'Utilisateur'
+    seance_user.admin_order_field = 'seance__utilisateur__email'
 
     fieldsets = (
         ('Configuration', {
@@ -150,12 +170,13 @@ class ExerciceSeanceAdmin(admin.ModelAdmin):
 @admin.register(SeriExercice)
 class SeriExerciceAdmin(admin.ModelAdmin):
     list_display = [
-        'exercice', 'numero_serie', 'repetitions_prevues', 'duree_prevue',
+        'serie_user', 'exercice', 'numero_serie', 'repetitions_prevues', 'duree_prevue',
         'poids_prevu', 'repetitions_realisees', 'duree_realisee',
         'poids_utilise', 'statut', 'note_effort'
     ]
     list_filter = [
-        'statut', 'note_effort', 'exercice__machine__categorie', 'created_at'
+        'statut', 'note_effort', 'exercice__machine__categorie', 
+        'exercice__seance__utilisateur', 'created_at'
     ]
     list_editable = ['statut']
     search_fields = [
@@ -163,6 +184,12 @@ class SeriExerciceAdmin(admin.ModelAdmin):
         'exercice__seance__utilisateur__email', 'commentaire'
     ]
     ordering = ['exercice__seance__date_prevue', 'exercice__ordre_dans_seance', 'numero_serie']
+    
+    def serie_user(self, obj):
+        """Affiche l'utilisateur de la série"""
+        return obj.exercice.seance.utilisateur.email
+    serie_user.short_description = 'Utilisateur'
+    serie_user.admin_order_field = 'exercice__seance__utilisateur__email'
 
     fieldsets = (
         ('Configuration', {
@@ -185,9 +212,13 @@ class SeriExerciceAdmin(admin.ModelAdmin):
     )
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related(
-            'exercice__machine', 'exercice__seance'
+        qs = super().get_queryset(request).select_related(
+            'exercice__machine', 'exercice__seance', 'exercice__seance__utilisateur'
         )
+        # Filtrage automatique par utilisateur si l'utilisateur n'est pas superuser
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(exercice__seance__utilisateur=request.user)
 
 
 @admin.register(ProgressionMachine)
@@ -241,6 +272,45 @@ class ProgressionMachineAdmin(admin.ModelAdmin):
     ]
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related(
+        qs = super().get_queryset(request).select_related(
             'utilisateur', 'machine', 'mode_entrainement', 'derniere_seance'
         )
+        # Filtrage automatique par utilisateur si l'utilisateur n'est pas superuser
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(utilisateur=request.user)
+
+
+@admin.register(SeanceSimple)
+class SeanceSimpleAdmin(admin.ModelAdmin):
+    list_display = [
+        'utilisateur', 'machine_nom', 'date_seance', 'type_exercice', 
+        'duree_minutes', 'note_ressenti', 'created_at'
+    ]
+    list_filter = [
+        'type_exercice', 'date_seance', 'note_ressenti', 'created_at'
+    ]
+    list_editable = ['type_exercice', 'duree_minutes', 'note_ressenti']
+    search_fields = [
+        'utilisateur__email', 'utilisateur__prenom', 'utilisateur__nom',
+        'machine_nom', 'commentaire'
+    ]
+    date_hierarchy = 'date_seance'
+    ordering = ['-date_seance', 'machine_nom']
+
+    fieldsets = (
+        ('Séance CSV', {
+            'fields': ('utilisateur', 'machine_nom', 'date_seance', 'type_exercice')
+        }),
+        ('Détails optionnels', {
+            'fields': ('duree_minutes', 'note_ressenti', 'commentaire'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request).select_related('utilisateur')
+        # Filtrage automatique par utilisateur si l'utilisateur n'est pas superuser  
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(utilisateur=request.user)

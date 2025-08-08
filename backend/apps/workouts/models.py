@@ -11,6 +11,9 @@ from apps.users.models import User
 from apps.machines.models import Machine, VarianteMachine
 from apps.core.models import ModeEntrainement
 
+# Import du nouveau modèle simple
+from .models_simple import SeanceSimple
+
 
 class SeanceEntrainement(TimeStampedModel):
     """

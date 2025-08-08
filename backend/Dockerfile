@@ -33,5 +33,5 @@
     # ---- Port exposé pour Gunicorn ----
     EXPOSE 8000
 
-    # ---- Point d’entrée ----
-    ENTRYPOINT ["./entrypoint.sh"]
+    # ---- Point d'entrée ----
+    CMD ["bash", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn basicfit_project.wsgi:application --bind 0.0.0.0:8000 --workers 1"]
