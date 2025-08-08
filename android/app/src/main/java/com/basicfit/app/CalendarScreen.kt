@@ -404,6 +404,27 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
                 return@useLines
             }
             
+            // Parser les headers de la première ligne
+            val headerLine = linesList.first()
+            val headers = headerLine.split(';', ',').map { it.trim().lowercase() }
+            AppLogger.csv("CSV_IMPORT", "📋 Headers détectés: $headers")
+            
+            // Trouver les indices des colonnes (insensible à la casse)
+            val machineIndex = headers.indexOfFirst { it.contains("machine") || it.contains("exercice") || it.contains("nom") }
+            val dateIndex = headers.indexOfFirst { it.contains("date") }
+            val typeIndex = headers.indexOfFirst { it.contains("type") || it.contains("categorie") || it.contains("mode") }
+            val repsIndex = headers.indexOfFirst { it.contains("rep") || it.contains("repetition") }
+            val setsIndex = headers.indexOfFirst { it.contains("set") || it.contains("serie") }
+            val weightIndex = headers.indexOfFirst { it.contains("poids") || it.contains("weight") || it.contains("kg") }
+            
+            AppLogger.d("CSV_IMPORT", "   Machine col: $machineIndex, Date col: $dateIndex, Type col: $typeIndex")
+            AppLogger.d("CSV_IMPORT", "   Reps col: $repsIndex, Sets col: $setsIndex, Weight col: $weightIndex")
+            
+            if (machineIndex == -1 || dateIndex == -1) {
+                AppLogger.e("CSV_IMPORT", "❌ Colonnes obligatoires manquantes: machine=$machineIndex, date=$dateIndex")
+                return@useLines
+            }
+            
             linesList.drop(1).forEachIndexed { index, line ->
                 totalLines--
                 AppLogger.d("CSV_IMPORT", "🔍 Ligne ${index + 2}: '$line'")
@@ -416,117 +437,90 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
                 val parts = line.split(';', ',').map { it.trim() }
                 AppLogger.d("CSV_IMPORT", "📝 Parsage ligne ${index + 2}: ${parts.size} colonnes = $parts")
 
-            // Support des formats : Machine;Date;Type OU Machine;Date;Répétitions;Séries;Poids
-            when (parts.size) {
-                3 -> {
-                    AppLogger.csv("CSV_IMPORT", "📋 Format 3 colonnes détecté: Machine;Date;Type")
-                    // Format simplifié : Machine;Date;Type
-                    val machineName = parts[0]
-                    val dateStr = parts[1]
-                    val typeStr = parts[2]
+                // Vérifier que nous avons assez de colonnes
+                if (parts.size <= maxOf(machineIndex, dateIndex)) {
+                    AppLogger.e("CSV_IMPORT", "❌ Pas assez de colonnes ligne ${index + 2}: ${parts.size} colonnes, besoin de ${maxOf(machineIndex, dateIndex) + 1}")
+                    errorLines++
+                    return@forEachIndexed
+                }
 
-                    AppLogger.d("CSV_IMPORT", "   Machine: '$machineName', Date: '$dateStr', Type: '$typeStr'")
+                // Extraire les valeurs selon les indices détectés
+                val machineName = parts.getOrNull(machineIndex) ?: ""
+                val dateStr = parts.getOrNull(dateIndex) ?: ""
+                val typeStr = if (typeIndex >= 0 && typeIndex < parts.size) parts[typeIndex] else "musculation"
+                
+                // Extraire les valeurs optionnelles selon les indices détectés
+                val repsStr = if (repsIndex >= 0 && repsIndex < parts.size) parts[repsIndex] else ""
+                val setsStr = if (setsIndex >= 0 && setsIndex < parts.size) parts[setsIndex] else ""
+                val weightStr = if (weightIndex >= 0 && weightIndex < parts.size) parts[weightIndex] else ""
+                
+                AppLogger.d("CSV_IMPORT", "   Machine: '$machineName', Date: '$dateStr', Type: '$typeStr'")
+                AppLogger.d("CSV_IMPORT", "   Reps: '$repsStr', Sets: '$setsStr', Weight: '$weightStr'")
 
-                    // Parsing flexible de la date
-                    val dateFormats = listOf(
-                        DateTimeFormatter.ISO_LOCAL_DATE,
-                        DateTimeFormatter.ofPattern("dd/MM/yyyy"),
-                        DateTimeFormatter.ofPattern("dd-MM-yyyy")
-                    )
-                    val parsedDate = dateFormats.firstNotNullOfOrNull { fmt ->
-                        runCatching { LocalDate.parse(dateStr, fmt) }.getOrNull()
+                // Parsing flexible de la date
+                val dateFormats = listOf(
+                    DateTimeFormatter.ISO_LOCAL_DATE,
+                    DateTimeFormatter.ofPattern("dd/MM/yyyy"),
+                    DateTimeFormatter.ofPattern("dd-MM-yyyy")
+                )
+                val parsedDate = dateFormats.firstNotNullOfOrNull { fmt ->
+                    runCatching { LocalDate.parse(dateStr, fmt) }.getOrNull()
+                }
+
+                if (parsedDate == null) {
+                    AppLogger.e("CSV_IMPORT", "❌ Impossible de parser la date '$dateStr' ligne ${index + 2}")
+                    errorLines++
+                    return@forEachIndexed
+                }
+
+                AppLogger.d("CSV_IMPORT", "   Date parsée: $parsedDate")
+
+                // Parser les valeurs numériques si disponibles
+                val parsedReps = if (repsStr.isNotEmpty()) {
+                    if (repsStr.contains('-')) {
+                        val bounds = repsStr.split('-').mapNotNull { it.toIntOrNull() }
+                        if (bounds.size == 2) ((bounds[0] + bounds[1]) / 2.0).toInt() else 0
+                    } else repsStr.toIntOrNull() ?: 0
+                } else 0
+                
+                val parsedSets = setsStr.toIntOrNull() ?: 0
+                val parsedWeight = weightStr.toDoubleOrNull() ?: 0.0
+
+                // Déterminer les valeurs finales (colonnes détectées ou valeurs par défaut selon le type)
+                val (finalSets, finalReps, finalWeight) = when {
+                    // Si des valeurs ont été trouvées dans le CSV, les utiliser
+                    parsedSets > 0 || parsedReps > 0 || parsedWeight > 0.0 -> {
+                        Triple(
+                            if (parsedSets > 0) parsedSets else 1,
+                            if (parsedReps > 0) parsedReps else 1,
+                            parsedWeight
+                        )
                     }
-
-                    if (parsedDate == null) {
-                        AppLogger.e("CSV_IMPORT", "❌ Impossible de parser la date '$dateStr' ligne ${index + 2}")
-                        errorLines++
-                        return@forEachIndexed
-                    }
-
-                    AppLogger.d("CSV_IMPORT", "   Date parsée: $parsedDate")
-
-                    // Déterminer les valeurs par défaut selon le type
-                    val (sets, reps, weight) = when (typeStr.lowercase()) {
+                    // Sinon utiliser les valeurs par défaut selon le type
+                    else -> when (typeStr.lowercase()) {
                         "cardio", "tapis", "vélo", "rameur" -> Triple(1, 30, 0.0) // 30 min cardio
                         "musculation", "force" -> Triple(3, 10, 50.0) // 3 séries de 10 reps
                         "gainage", "plank", "core" -> Triple(1, 60, 0.0) // 1 min gainage
                         else -> Triple(3, 10, 0.0) // Valeurs par défaut
                     }
-
-                    AppLogger.d("CSV_IMPORT", "   Valeurs: ${sets}x${reps} @ ${weight}kg")
-
-                    val record = ExerciseRecord(
-                        name = machineName,
-                        sets = sets,
-                        reps = reps,
-                        weight = weight
-                    )
-                    entriesByDate.getOrPut(parsedDate) { mutableListOf() }.add(record)
-                    processedLines++
-                    AppLogger.success("CSV_IMPORT", "✅ Ligne ${index + 2} traitée avec succès")
                 }
-                4, 5 -> {
-                    AppLogger.csv("CSV_IMPORT", "📋 Format ${parts.size} colonnes détecté: Machine;Date;Répétitions;Séries;Poids")
-                    // Format étendu : Machine;Date;Répétitions;Séries;Poids(optionnel)
-                    val machineName = parts[0]
-                    val dateStr = parts[1]
-                    val repetitionStr = parts[2]
-                    val serieStr = parts[3]
-                    val utilisationStr = if (parts.size == 5) parts[4] else "0"
 
-                    AppLogger.d("CSV_IMPORT", "   Machine: '$machineName', Date: '$dateStr'")
-                    AppLogger.d("CSV_IMPORT", "   Reps: '$repetitionStr', Sets: '$serieStr', Weight: '$utilisationStr'")
+                AppLogger.d("CSV_IMPORT", "   Valeurs finales: ${finalSets}x${finalReps} @ ${finalWeight}kg")
 
-                    val utilisation = utilisationStr.toDoubleOrNull() ?: 0.0
-
-                    // Repetitions : "10-12" -> moyenne, sinon valeur directe
-                    val repetition = if (repetitionStr.contains('-')) {
-                        val bounds = repetitionStr.split('-').mapNotNull { it.toIntOrNull() }
-                        if (bounds.size == 2) ((bounds[0] + bounds[1]) / 2.0).toInt() else 0
-                    } else repetitionStr.toIntOrNull() ?: 0
-
-                    val serie = serieStr.toIntOrNull() ?: 0
-
-                    if (repetition <= 0 || serie <= 0) {
-                        AppLogger.e("CSV_IMPORT", "❌ Valeurs invalides ligne ${index + 2}: reps=$repetition, sets=$serie")
-                        errorLines++
-                        return@forEachIndexed
-                    }
-
-                    // Parsing flexible de la date
-                    val dateFormats = listOf(
-                        DateTimeFormatter.ISO_LOCAL_DATE,
-                        DateTimeFormatter.ofPattern("dd/MM/yyyy"),
-                        DateTimeFormatter.ofPattern("dd-MM-yyyy")
-                    )
-                    val parsedDate = dateFormats.firstNotNullOfOrNull { fmt ->
-                        runCatching { LocalDate.parse(dateStr, fmt) }.getOrNull()
-                    }
-
-                    if (parsedDate == null) {
-                        AppLogger.e("CSV_IMPORT", "❌ Impossible de parser la date '$dateStr' ligne ${index + 2}")
-                        errorLines++
-                        return@forEachIndexed
-                    }
-
-                    AppLogger.d("CSV_IMPORT", "   Valeurs parsées: ${serie}x${repetition} @ ${utilisation}kg")
-
-                    val record = ExerciseRecord(
-                        name = machineName,
-                        sets = serie,
-                        reps = repetition,
-                        weight = utilisation
-                    )
-                    entriesByDate.getOrPut(parsedDate) { mutableListOf() }.add(record)
-                    processedLines++
-                    AppLogger.success("CSV_IMPORT", "✅ Ligne ${index + 2} traitée avec succès")
-                }
-                else -> {
-                    AppLogger.e("CSV_IMPORT", "❌ Format inconnu ligne ${index + 2}: ${parts.size} colonnes")
-                    errorLines++
-                }
+                val record = ExerciseRecord(
+                    name = machineName,
+                    sets = finalSets,
+                    reps = finalReps,
+                    weight = finalWeight
+                )
+                entriesByDate.getOrPut(parsedDate) { mutableListOf() }.add(record)
+                processedLines++
+                AppLogger.success("CSV_IMPORT", "✅ Ligne ${index + 2} traitée avec succès")
             }
         }
+    } catch (e: Exception) {
+        AppLogger.e("CSV_IMPORT", "❌ Erreur fatale lors du parsing CSV: ${e.message}", e)
+        return@withContext emptyList()
     }
     
     // Résumé du traitement
@@ -547,9 +541,4 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
     AppLogger.i("CSV_IMPORT", "   • ${entriesByDate.values.sumOf { it.size }} exercices au total")
     
     return@withContext workoutEntries
-    
-    } catch (e: Exception) {
-        AppLogger.e("CSV_IMPORT", "❌ Erreur fatale lors du parsing CSV: ${e.message}", e)
-        return@withContext emptyList()
-    }
 }

@@ -577,14 +577,37 @@ class ApiService private constructor() {
     suspend fun importCsvSessions(csvData: String): Result<CsvImportResponse> {
         return try {
             if (!isInitialized) {
+                AppLogger.e("CSV_API", "❌ ApiService non initialisé")
                 return Result.failure(Exception("ApiService non initialisé"))
             }
 
+            AppLogger.api("CSV_API", "🚀 Début import CSV vers serveur")
+            AppLogger.d("CSV_API", "   Taille données CSV: ${csvData.length} caractères")
+            AppLogger.d("CSV_API", "   Premières lignes: ${csvData.take(200)}...")
+
             val request = CsvImportRequest(csv_data = csvData)
+            AppLogger.d("CSV_API", "   Requête créée, envoi vers ${BASE_URL}/api/workouts/csv-import/")
+            
             val response = api.importCsvSessions(request)
+            
+            AppLogger.success("CSV_API", "✅ Import CSV réussi: ${response.success}")
+            AppLogger.d("CSV_API", "   Message: ${response.message}")
+            AppLogger.d("CSV_API", "   Séances créées: ${response.imported_count}")
+            AppLogger.d("CSV_API", "   Total lignes: ${response.total_lines}")
+            AppLogger.d("CSV_API", "   Erreurs: ${response.errors_count}")
+            if (response.errors.isNotEmpty()) {
+                AppLogger.w("CSV_API", "   Détails erreurs: ${response.errors}")
+            }
+            
             Result.success(response)
+        } catch (e: retrofit2.HttpException) {
+            val errorBody = e.response()?.errorBody()?.string()
+            AppLogger.e("CSV_API", "❌ Erreur HTTP ${e.code()}: ${e.message()}")
+            AppLogger.e("CSV_API", "   URL: ${e.response()?.raw()?.request?.url}")
+            AppLogger.e("CSV_API", "   Réponse serveur: $errorBody")
+            Result.failure(Exception("HTTP ${e.code()}: $errorBody"))
         } catch (e: Exception) {
-            android.util.Log.e("ApiService", "Erreur importCsvSessions: ${e.message}")
+            AppLogger.e("CSV_API", "❌ Erreur importCsvSessions: ${e.message}", e)
             Result.failure(e)
         }
     }

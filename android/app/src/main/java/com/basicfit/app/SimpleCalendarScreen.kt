@@ -454,6 +454,8 @@ private suspend fun importCsvFile(
     onResult: (Boolean, String) -> Unit
 ) = withContext(Dispatchers.IO) {
     try {
+        AppLogger.csv("SIMPLE_CSV", "🚀 Début import CSV simple depuis URI: $uri")
+        
         // Lire le fichier CSV
         val csvContent = context.contentResolver.openInputStream(uri)?.use { inputStream ->
             BufferedReader(InputStreamReader(inputStream)).use { reader ->
@@ -461,16 +463,34 @@ private suspend fun importCsvFile(
             }
         } ?: throw Exception("Impossible de lire le fichier")
 
+        AppLogger.d("SIMPLE_CSV", "📄 Fichier CSV lu: ${csvContent.length} caractères")
+        AppLogger.d("SIMPLE_CSV", "   Premières lignes: ${csvContent.take(300)}...")
+        
+        if (csvContent.isBlank()) {
+            AppLogger.w("SIMPLE_CSV", "⚠️ Fichier CSV vide")
+            withContext(Dispatchers.Main) {
+                onResult(false, "Le fichier CSV est vide")
+            }
+            return@withContext
+        }
+
         // Importer via l'API
+        AppLogger.api("SIMPLE_CSV", "📤 Appel API import CSV")
         apiService.importCsvSessions(csvContent).onSuccess { response ->
+            AppLogger.success("SIMPLE_CSV", "✅ Réponse API reçue: success=${response.success}")
+            AppLogger.d("SIMPLE_CSV", "   Message: ${response.message}")
+            AppLogger.d("SIMPLE_CSV", "   Imported count: ${response.imported_count}")
+            
             withContext(Dispatchers.Main) {
                 if (response.success) {
                     onResult(true, "${response.imported_count} séances importées")
                 } else {
+                    AppLogger.w("SIMPLE_CSV", "⚠️ API success=false: ${response.message}")
                     onResult(false, response.message)
                 }
             }
         }.onFailure { error ->
+            AppLogger.e("SIMPLE_CSV", "❌ Échec appel API: ${error.message}", error)
             withContext(Dispatchers.Main) {
                 onResult(false, error.message ?: "Erreur inconnue")
             }
