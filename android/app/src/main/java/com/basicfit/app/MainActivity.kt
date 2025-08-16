@@ -413,30 +413,6 @@ fun getNutritionalRecommendations(objectif: String, weight: Double): Map<String,
     }
 }
 
-fun getPersonalizedTips(profile: ProfileData): List<String> {
-    val tips = mutableListOf<String>()
-    val age = calculateAge(profile.dateNaissance)
-    val bmi = calculateBMI(profile.poids, profile.taille)
-
-    if (age < 25) {
-        tips.add("Concentrez-vous sur l'apprentissage des mouvements de base")
-    } else if (age > 50) {
-        tips.add("Privilégiez les exercices de mobilité et d'équilibre")
-    }
-
-    when {
-        bmi < 18.5 -> tips.add("Augmentez vos apports caloriques et focalisez sur la prise de masse")
-        bmi > 25 -> tips.add("Combinez exercices cardiovasculaires et musculation")
-        bmi > 30 -> tips.add("Commencez par des exercices à faible impact")
-    }
-
-    when (profile.niveauActivite) {
-        "Sédentaire" -> tips.add("Commencez progressivement avec 2-3 séances par semaine")
-        "Très actif" -> tips.add("Variez vos entraînements pour éviter la stagnation")
-    }
-
-    return tips
-}
 
 fun calculateBurnedCalories(weight: Double, duration: Int, intensity: String): Int {
     val metValue = when (intensity) {
@@ -1498,7 +1474,6 @@ fun ProfileScreen(
     val caloriesPerDay = calculateDailyCalories(age, weightNum, heightNum, genre, niveauActivite)
     val goalCalories = calculateGoalBasedCalories(age, weightNum, heightNum, genre, niveauActivite, objectif)
     val nutritionalRecommendations = getNutritionalRecommendations(objectif, weightNum)
-    val recommendations = getPersonalizedTips(profileData)
     val (totalSessions, totalMinutes, totalCalories) = dataManager.getTotalStats()
 
     LazyColumn(

@@ -31,7 +31,8 @@
       "Bash(./deploy_flyio.bat)",
       "Bash(deploy_flyio.bat)",
       "Bash(fly secrets:*)",
-      "Bash(fly postgres connect:*)"
+      "Bash(fly postgres connect:*)",
+      "Bash(fly ssh console:*)"
     ],
     "deny": []
   }
