@@ -307,7 +307,7 @@ private fun DayCell(
         hasCompleted -> Color(0xFF4CAF50) // Vert pour terminé
         entriesToday.isNotEmpty() && isPast -> Color(0xFFFF5722) // Rouge pour en retard
         entriesToday.isNotEmpty() && !isPast -> Color(0xFFFF9800) // Orange pour à venir
-        isToday -> Color(0xFFFFF3E0) // Fond pêche clair pour aujourd'hui
+        isToday -> Color(0xFF00C9A7).copy(alpha = 0.2f) // Fond mint clair pour aujourd'hui
         else -> Color.White // Blanc par défaut
     }
 
@@ -316,7 +316,7 @@ private fun DayCell(
             .aspectRatio(1f)
             .padding(2.dp)
             .background(backgroundColor, RoundedCornerShape(4.dp))
-            .then(if (isToday) Modifier.border(2.dp, Accent, RoundedCornerShape(4.dp)) else Modifier)
+            .then(if (isToday) Modifier.border(3.dp, Color(0xFF00C9A7), RoundedCornerShape(4.dp)) else Modifier)
             .then(
                 if (entriesToday.isNotEmpty()) {
                     Modifier.clickable { onEntryClick(entriesToday.first()) }

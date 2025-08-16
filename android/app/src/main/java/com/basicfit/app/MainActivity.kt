@@ -481,6 +481,23 @@ fun MainScreen() {
     var connectionStatus by remember { mutableStateOf("Vérification...") }
     var isOnline by remember { mutableStateOf(false) }
     var selectedCalendarEntry by remember { mutableStateOf<WorkoutEntry?>(null) }
+    
+    // Vérifier la déconnexion forcée par l'intercepteur
+    LaunchedEffect(Unit) {
+        val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
+        val forceLogout = prefs.getBoolean("force_logout", false)
+        if (forceLogout) {
+            // Nettoyer le flag et déclencher la déconnexion
+            prefs.edit().remove("force_logout").apply()
+            isLoggedIn = false
+            dataManager.clearUserData()
+            android.widget.Toast.makeText(
+                context, 
+                "Session expirée, veuillez vous reconnecter", 
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        }
+    }
 
     // État pour forcer la mise à jour des recommandations
     var forceRecommendationUpdate by remember { mutableStateOf(0) }
@@ -2730,7 +2747,12 @@ fun WorkoutInProgressScreen(
                         else -> Triple(3, 10, 90)
                     }
                     
-                    val recommendedWeight = calculateStartingWeight(machine, profileData.copy(objectif = goalObjective))
+                    val recommendedWeight = getSmartRecommendedWeight(
+                        machine = machine,
+                        profileData = profileData.copy(objectif = goalObjective),
+                        workoutHistory = workoutHistory,
+                        trainingType = goalObjective
+                    )
                     
                     ExerciseSession(
                         machine = machine,
@@ -2947,6 +2969,8 @@ fun WorkoutInProgressScreen(
                         CurrentExerciseCard(
                             exerciseSession = currentExercise,
                             profileData = profileData,
+                            workoutHistory = workoutHistory,
+                            trainingType = selectedGoal ?: "Volume",
                             onSetCompleted = { weight, reps ->
                                 // Ajouter la série terminée
                                 currentExercise.sets.add(
@@ -2998,6 +3022,31 @@ fun WorkoutInProgressScreen(
                                         currentExerciseIndex = newIndex
                                     )
                                 }
+                            },
+                            onReplaceExercise = { newMachine ->
+                                // Remplacer l'exercice en cours par une nouvelle machine
+                                val updatedExercises = currentWorkoutSession.exercises.toMutableList()
+                                val currentIndex = currentWorkoutSession.currentExerciseIndex
+                                
+                                // Créer un nouveau ExerciseSession avec la nouvelle machine
+                                val newExerciseSession = currentExercise.copy(
+                                    machine = newMachine
+                                )
+                                
+                                // Remplacer l'exercice dans la liste
+                                updatedExercises[currentIndex] = newExerciseSession
+                                
+                                // Mettre à jour la session
+                                currentWorkoutSession = currentWorkoutSession.copy(
+                                    exercises = updatedExercises
+                                )
+                                
+                                // Afficher une confirmation
+                                android.widget.Toast.makeText(
+                                    context, 
+                                    "✅ ${currentExercise.machine.nom} remplacé par ${newMachine.nom}", 
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
                             }
                         )
                     }
@@ -3261,14 +3310,70 @@ fun WorkoutProgressCard(
 fun CurrentExerciseCard(
     exerciseSession: ExerciseSession,
     profileData: ProfileData,
+    workoutHistory: List<WorkoutEntry>,
+    trainingType: String,
     onSetCompleted: (Double, Int) -> Unit,
-    onRemove: () -> Unit = {}
+    onRemove: () -> Unit = {},
+    onReplaceExercise: (Machine) -> Unit = {}
 ) {
     var weight by remember { mutableStateOf("") }
     var reps by remember { mutableStateOf("") }
     var duration by remember { mutableStateOf("") }
+    
+    // États pour le remplacement d'exercice
+    var showReplaceDialog by remember { mutableStateOf(false) }
+    var availableMachines by remember { mutableStateOf<List<Machine>>(emptyList()) }
+    var alternativeExercises by remember { mutableStateOf<List<Machine>>(emptyList()) }
+    
+    // Calculer les performances de l'exercice
+    val exercisePerformances = remember(workoutHistory, trainingType) {
+        extractExercisePerformances(workoutHistory, trainingType)
+    }
+    val currentPerformance = exercisePerformances[exerciseSession.machine.nom]
 
     val context = LocalContext.current
+
+    // Charger les machines disponibles pour les alternatives
+    LaunchedEffect(Unit) {
+        try {
+            val api = ApiService.getInstance().apply { initialize(context) }.getApi()
+            val response = api.getMachines()
+            if (response.results.isNotEmpty()) {
+                val remoteMachines = response.results.mapNotNull { dto ->
+                    try {
+                        Machine(
+                            id = dto.id,
+                            nom = dto.nom,
+                            description = dto.description ?: "",
+                            instructions = dto.instructions ?: "",
+                            categorie = CategorieMachine.values().find { it.displayName.equals(dto.categorie ?: "", true) }
+                                ?: CategorieMachine.MUSCULATION,
+                            groupeMusculairePrimaire = dto.groupe_musculaire_primaires?.firstOrNull()?.get("nom") ?: "",
+                            incrementPoids = 2.5,
+                            poidsMinimum = 0.0,
+                            poidsMaximum = 200.0,
+                            imageGif = dto.image_gif
+                        )
+                    } catch (_: Exception) { null }
+                }
+                availableMachines = remoteMachines
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("MachinesAPI", "❌ Erreur chargement machines: ${e.message}")
+        }
+    }
+
+    // Fonction pour trouver les exercices alternatifs
+    fun findAlternativeExercises(): List<Machine> {
+        val currentMachine = exerciseSession.machine
+        return availableMachines.filter { alternative ->
+            alternative.id != currentMachine.id && (
+                alternative.groupeMusculairePrimaire.equals(currentMachine.groupeMusculairePrimaire, ignoreCase = true) ||
+                alternative.categorie == currentMachine.categorie ||
+                alternative.tags.any { tag -> currentMachine.tags.any { currentTag -> currentTag.equals(tag, ignoreCase = true) } }
+            )
+        }.take(10) // Limiter à 10 alternatives
+    }
 
     // Préremplissage selon la progression des séries
     LaunchedEffect(exerciseSession.sets.size) {
@@ -3303,9 +3408,14 @@ fun CurrentExerciseCard(
     val weightDisplay = when {
         actualRecommendedWeight > 0 -> "${actualRecommendedWeight.toInt()} kg"
         actualRecommendedWeight == 0.0 -> {
-            // Calculer une suggestion de poids de départ
-            val suggestedWeight = calculateStartingWeight(exerciseSession.machine, profileData)
-            if (suggestedWeight > 0) "${suggestedWeight.toInt()}kg (suggestion)" else "Poids à déterminer"
+            // Calculer une suggestion de poids de départ intelligente
+            val suggestedWeight = getSmartRecommendedWeight(
+                exerciseSession.machine,
+                profileData,
+                workoutHistory,
+                trainingType
+            )
+            if (suggestedWeight > 0) "${suggestedWeight.toInt()}kg (intelligent)" else "Poids à déterminer"
         }
         else -> "Poids à déterminer"
     }
@@ -3337,17 +3447,36 @@ fun CurrentExerciseCard(
                     )
                 }
 
-                // Bouton de suppression pour l'exercice en cours
-                IconButton(
-                    onClick = onRemove,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Supprimer cet exercice",
-                        tint = Color(0xFFE57373), // Rouge clair
-                        modifier = Modifier.size(20.dp)
-                    )
+                // Boutons d'action pour l'exercice en cours
+                Row {
+                    // Bouton de remplacement
+                    IconButton(
+                        onClick = {
+                            alternativeExercises = findAlternativeExercises()
+                            showReplaceDialog = true
+                        },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SwapHoriz,
+                            contentDescription = "Remplacer cet exercice",
+                            tint = Color(0xFF00C9A7), // Mint
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    
+                    // Bouton de suppression
+                    IconButton(
+                        onClick = onRemove,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Supprimer cet exercice",
+                            tint = Color(0xFFE57373), // Rouge clair
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
@@ -3438,12 +3567,17 @@ fun CurrentExerciseCard(
                             color = Color(0xFF666666)
                         )
 
-                        // Afficher une suggestion si pas d'historique (utiliser API en priorité)
+                        // Afficher une suggestion si pas d'historique (utiliser système intelligent)
                         if (actualRecommendedWeight == 0.0) {
-                            val suggestedWeight = calculateStartingWeight(exerciseSession.machine, profileData)
+                            val suggestedWeight = getSmartRecommendedWeight(
+                                exerciseSession.machine,
+                                profileData,
+                                workoutHistory,
+                                trainingType
+                            )
                             if (suggestedWeight > 0) {
                                 Text(
-                                    text = "💡 Suggestion de départ: ${suggestedWeight.toInt()}kg",
+                                    text = "💡 Suggestion intelligente: ${suggestedWeight.toInt()}kg",
                                     fontSize = 11.sp,
                                     color = Color(0xFF4CAF50),
                                     fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
@@ -3461,6 +3595,107 @@ fun CurrentExerciseCard(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            // Affichage des performances et recommandations intelligentes
+            if (!isCardioMachine) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F8FF)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "📈 ANALYSE INTELLIGENTE",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1976D2)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        if (currentPerformance != null) {
+                            // Afficher les performances de la dernière séance
+                            Text(
+                                text = "Dernier poids utilisé: ${currentPerformance.lastWeight.toInt()}kg ⇒ ${currentPerformance.successRate.toInt()}%",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.Black
+                            )
+                            
+                            // Afficher la recommandation
+                            when (val rec = currentPerformance.recommendation) {
+                                is WeightRecommendation.Increase -> {
+                                    Text(
+                                        text = "🔥 Nouveau poids recommandé: ${rec.newWeight.toInt()}kg",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF4CAF50)
+                                    )
+                                    Text(
+                                        text = rec.reason,
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF666666),
+                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                    )
+                                }
+                                is WeightRecommendation.Decrease -> {
+                                    Text(
+                                        text = "⚡ Nouveau poids recommandé: ${rec.newWeight.toInt()}kg",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFFF9800)
+                                    )
+                                    Text(
+                                        text = rec.reason,
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF666666),
+                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                    )
+                                }
+                                is WeightRecommendation.Maintain -> {
+                                    Text(
+                                        text = "✅ Continuer avec ${currentPerformance.lastWeight.toInt()}kg",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF2196F3)
+                                    )
+                                    Text(
+                                        text = rec.reason,
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF666666),
+                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                    )
+                                }
+                                is WeightRecommendation.Pending -> {
+                                    Text(
+                                        text = "🎯 En attente d'un entraînement",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color(0xFF666666),
+                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                    )
+                                }
+                                null -> {
+                                    Text(
+                                        text = "🎯 En attente d'un entraînement",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color(0xFF666666),
+                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                    )
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = "🎯 En attente d'un entraînement",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF666666),
+                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             if (isCardioMachine) {
                 // Interface pour cardio - champ de temps personnalisé
@@ -3528,8 +3763,13 @@ fun CurrentExerciseCard(
                                     exerciseSession.recommendedWeight > 0 ->
                                         "Recommandé: ${exerciseSession.recommendedWeight.toInt()}kg"
                                     else -> {
-                                        val suggested = calculateStartingWeight(exerciseSession.machine, profileData)
-                                        if (suggested > 0) "Suggestion: ${suggested.toInt()}kg" else "À déterminer"
+                                        val suggested = getSmartRecommendedWeight(
+                                            exerciseSession.machine,
+                                            profileData,
+                                            workoutHistory,
+                                            trainingType
+                                        )
+                                        if (suggested > 0) "Intelligent: ${suggested.toInt()}kg" else "À déterminer"
                                     }
                                 }
                             )
@@ -3576,6 +3816,114 @@ fun CurrentExerciseCard(
                 }
             }
         }
+    }
+
+    // Dialogue de sélection d'exercice alternatif
+    if (showReplaceDialog) {
+        AlertDialog(
+            onDismissRequest = { 
+                showReplaceDialog = false 
+            },
+            title = {
+                Text("Remplacer l'exercice")
+            },
+            text = {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(400.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item {
+                        Text(
+                            text = "Choisissez un exercice alternatif pour : ${exerciseSession.machine.nom}",
+                            fontSize = 14.sp,
+                            color = Color.Gray,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        
+                        if (alternativeExercises.isEmpty()) {
+                            Text(
+                                text = "Aucun exercice alternatif trouvé pour le même groupe musculaire.",
+                                fontSize = 14.sp,
+                                color = Color.Gray,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                            )
+                        } else {
+                            Text(
+                                text = "Exercices pour : ${exerciseSession.machine.groupeMusculairePrimaire}",
+                                fontSize = 12.sp,
+                                color = Accent,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                        }
+                    }
+                    
+                    items(alternativeExercises) { machine ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onReplaceExercise(machine)
+                                    showReplaceDialog = false
+                                },
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F9FA))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = machine.categorie.icone,
+                                    fontSize = 20.sp,
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
+                                
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = machine.nom,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color.Black
+                                    )
+                                    Text(
+                                        text = machine.groupeMusculairePrimaire,
+                                        fontSize = 12.sp,
+                                        color = Color.Gray
+                                    )
+                                    Text(
+                                        text = machine.categorie.displayName,
+                                        fontSize = 10.sp,
+                                        color = Accent
+                                    )
+                                }
+                                
+                                Icon(
+                                    imageVector = Icons.Default.SwapHoriz,
+                                    contentDescription = "Remplacer",
+                                    tint = Accent,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(
+                    onClick = { showReplaceDialog = false }
+                ) {
+                    Text("Annuler")
+                }
+            }
+        )
     }
 }
 
@@ -3798,6 +4146,161 @@ fun calculateStartingWeight(machine: Machine, profileData: ProfileData): Double 
     android.util.Log.d("Recommendation", "Poids de départ calculé: $roundedWeight kg (base: $baseWeight, âge: $age, genre: ${profileData.genre}, objectif: $objectif)")
 
     return roundedWeight
+}
+
+// Fonction pour calculer le taux de réussite d'un exercice
+fun calculateSuccessRate(
+    targetSets: Int,
+    targetReps: Int,
+    achievedSets: Int,
+    achievedReps: Int
+): Double {
+    val totalTargetReps = targetSets * targetReps
+    val totalAchievedReps = achievedSets * achievedReps
+    
+    return if (totalTargetReps > 0) {
+        (totalAchievedReps.toDouble() / totalTargetReps.toDouble() * 100.0).coerceAtMost(100.0)
+    } else {
+        0.0
+    }
+}
+
+// Fonction pour analyser les performances et générer des recommandations
+fun analyzeExercisePerformance(
+    machineName: String,
+    lastWeight: Double,
+    targetSets: Int,
+    targetReps: Int,
+    achievedSets: Int,
+    achievedReps: Int,
+    trainingType: String
+): ExercisePerformance {
+    val successRate = calculateSuccessRate(targetSets, targetReps, achievedSets, achievedReps)
+    
+    val recommendation = when {
+        // Si aucun entraînement précédent
+        lastWeight <= 0 -> WeightRecommendation.Pending
+        
+        // Taux de réussite élevé (>80%) - augmenter le poids
+        successRate >= 80.0 -> {
+            val increasePercentage = when (trainingType.lowercase()) {
+                "force", "puissance" -> 0.05 // 5% pour la force
+                "volume", "prise de masse" -> 0.075 // 7.5% pour le volume
+                "endurance" -> 0.025 // 2.5% pour l'endurance
+                else -> 0.05
+            }
+            val newWeight = (lastWeight * (1 + increasePercentage) / 2.5).roundToInt() * 2.5
+            WeightRecommendation.Increase(
+                newWeight = newWeight,
+                reason = "Excellent! Taux de réussite ${successRate.toInt()}% - augmentation recommandée"
+            )
+        }
+        
+        // Taux de réussite faible (<60%) - diminuer le poids
+        successRate < 60.0 -> {
+            val decreasePercentage = when (trainingType.lowercase()) {
+                "force", "puissance" -> 0.1 // 10% pour la force
+                "volume", "prise de masse" -> 0.075 // 7.5% pour le volume
+                "endurance" -> 0.05 // 5% pour l'endurance
+                else -> 0.075
+            }
+            val newWeight = (lastWeight * (1 - decreasePercentage) / 2.5).roundToInt() * 2.5
+            WeightRecommendation.Decrease(
+                newWeight = newWeight.coerceAtLeast(5.0), // Minimum 5kg
+                reason = "Taux de réussite ${successRate.toInt()}% - réduction recommandée pour progresser"
+            )
+        }
+        
+        // Taux de réussite correct (60-80%) - maintenir
+        else -> WeightRecommendation.Maintain(
+            reason = "Bon équilibre! Taux de réussite ${successRate.toInt()}% - continuer avec ce poids"
+        )
+    }
+    
+    return ExercisePerformance(
+        machineName = machineName,
+        lastWeight = lastWeight,
+        targetSets = targetSets,
+        targetReps = targetReps,
+        achievedSets = achievedSets,
+        achievedReps = achievedReps,
+        successRate = successRate,
+        lastSessionDate = java.time.LocalDate.now().toString(),
+        recommendation = recommendation
+    )
+}
+
+// Fonction pour extraire les performances depuis l'historique des workouts
+fun extractExercisePerformances(
+    workoutHistory: List<WorkoutEntry>,
+    trainingType: String
+): Map<String, ExercisePerformance> {
+    val performances = mutableMapOf<String, ExercisePerformance>()
+    
+    // Analyser chaque workout de l'historique (plus récent en premier)
+    val sortedHistory = workoutHistory.sortedByDescending { it.date }
+    
+    for (workout in sortedHistory) {
+        for (exercise in workout.exercises) {
+            // Si on n'a pas encore analysé cet exercice
+            if (!performances.containsKey(exercise.name)) {
+                // Chercher tous les workouts qui contiennent cet exercice
+                val exerciseHistories = sortedHistory.filter { w ->
+                    w.exercises.any { e -> e.name == exercise.name }
+                }
+                
+                if (exerciseHistories.isNotEmpty()) {
+                    // Prendre la performance la plus récente
+                    val mostRecent = exerciseHistories.first()
+                    val mostRecentExercise = mostRecent.exercises.first { it.name == exercise.name }
+                    
+                    // Calculer les objectifs typiques selon le type d'entraînement
+                    val (targetSets, targetReps) = when (trainingType.lowercase()) {
+                        "force", "puissance" -> Pair(4, 5)
+                        "volume", "prise de masse" -> Pair(4, 10)
+                        "endurance" -> Pair(3, 15)
+                        else -> Pair(3, 10)
+                    }
+                    
+                    val performance = analyzeExercisePerformance(
+                        machineName = exercise.name,
+                        lastWeight = mostRecentExercise.weight,
+                        targetSets = targetSets,
+                        targetReps = targetReps,
+                        achievedSets = mostRecentExercise.sets,
+                        achievedReps = mostRecentExercise.reps,
+                        trainingType = trainingType
+                    )
+                    
+                    performances[exercise.name] = performance
+                }
+            }
+        }
+    }
+    
+    return performances
+}
+
+// Fonction pour obtenir le poids recommandé intelligent
+fun getSmartRecommendedWeight(
+    machine: Machine,
+    profileData: ProfileData,
+    workoutHistory: List<WorkoutEntry>,
+    trainingType: String
+): Double {
+    // D'abord essayer d'utiliser l'analyse intelligente
+    val performances = extractExercisePerformances(workoutHistory, trainingType)
+    val performance = performances[machine.nom]
+    
+    return when (val recommendation = performance?.recommendation) {
+        is WeightRecommendation.Increase -> recommendation.newWeight
+        is WeightRecommendation.Decrease -> recommendation.newWeight
+        is WeightRecommendation.Maintain -> performance.lastWeight
+        is WeightRecommendation.Pending, null -> {
+            // Pas d'historique, utiliser le calcul de base
+            calculateStartingWeight(machine, profileData)
+        }
+    }
 }
 
 @Composable

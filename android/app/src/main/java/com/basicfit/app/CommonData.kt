@@ -58,3 +58,41 @@ data class ExerciseRecord(
     val totalWeight: Double get() = weight * sets
 }
 
+// Classe pour tracker les performances d'un exercice
+data class ExercisePerformance(
+    val machineName: String,
+    val lastWeight: Double,
+    val targetSets: Int,
+    val targetReps: Int,
+    val achievedSets: Int,
+    val achievedReps: Int,
+    val successRate: Double,
+    val lastSessionDate: String,
+    val recommendation: WeightRecommendation?
+)
+
+// Types de recommandation d'ajustement de poids
+sealed class WeightRecommendation {
+    data class Increase(val newWeight: Double, val reason: String) : WeightRecommendation()
+    data class Decrease(val newWeight: Double, val reason: String) : WeightRecommendation()
+    data class Maintain(val reason: String) : WeightRecommendation()
+    object Pending : WeightRecommendation()
+}
+
+// Classe pour l'historique détaillé d'un exercice
+data class ExerciseHistory(
+    val machineName: String,
+    val date: String,
+    val sets: List<SetPerformance>
+)
+
+// Performance d'une série individuelle
+data class SetPerformance(
+    val setNumber: Int,
+    val targetReps: Int,
+    val achievedReps: Int,
+    val weight: Double,
+    val restTime: Int?, // en secondes
+    val completed: Boolean
+)
+

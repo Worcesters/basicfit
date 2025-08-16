@@ -252,12 +252,36 @@ class AuthInterceptor(private val context: Context) : Interceptor {
         }
 
         val request = requestBuilder.build()
-        return chain.proceed(request)
+        val response = chain.proceed(request)
+        
+        // Vérifier si le token est invalide (401/403)
+        if (response.code == 401 || response.code == 403) {
+            android.util.Log.w("AuthInterceptor", "Token invalide détecté (${response.code}), déconnexion automatique")
+            // Déclencher la déconnexion automatique
+            forceLogout(context)
+        }
+        
+        return response
     }
 
     private fun getAuthToken(context: Context): String? {
         val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
         return prefs.getString("auth_token", null)
+    }
+    
+    private fun forceLogout(context: Context) {
+        try {
+            val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                remove("auth_token")
+                putBoolean("is_logged_in", false)
+                putBoolean("force_logout", true) // Flag pour signaler à l'UI
+                apply()
+            }
+            android.util.Log.i("AuthInterceptor", "Déconnexion automatique effectuée")
+        } catch (e: Exception) {
+            android.util.Log.e("AuthInterceptor", "Erreur lors de la déconnexion automatique: ${e.message}")
+        }
     }
 }
 
