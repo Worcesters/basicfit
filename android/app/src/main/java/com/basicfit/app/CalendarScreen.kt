@@ -23,6 +23,7 @@ import io.github.boguszpawlowski.composecalendar.day.DayState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.isActive
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.time.LocalDate
@@ -42,6 +43,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.font.FontWeight
 
 @Composable
 fun CalendarScreen(

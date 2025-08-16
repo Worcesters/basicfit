@@ -1404,10 +1404,7 @@ fun AppMainInterface(
                 )
                 3 -> CalendarScreen(
                     workoutHistory = workoutHistory,
-                    onWorkoutHistoryChange = { newWorkoutHistory ->
-                        workoutHistory = newWorkoutHistory
-                        dataManager.saveWorkoutHistory(workoutHistory)
-                    },
+                    onWorkoutHistoryChange = onWorkoutHistoryChange,
                     onCsvImported = { imported ->
                         val combined = (workoutHistory + imported).groupBy { it.date }.map { (date, entries) ->
                             if (entries.size == 1) {
@@ -1429,14 +1426,13 @@ fun AppMainInterface(
                                 )
                             }
                         }
-                        workoutHistory = combined.sortedBy { it.date }
-                        dataManager.saveWorkoutHistory(workoutHistory)
+                        onWorkoutHistoryChange(combined.sortedBy { it.date })
                     },
                     onEntryClick = { entry ->
                         // Navigate to workout details if needed
                     },
                     onGoToWorkout = {
-                        selectedTabIndex = 1 // Switch to workout tab
+                        onTabChange(1) // Switch to workout tab
                     }
                 )
                 4 -> LogsScreen()
