@@ -37,6 +37,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.text.input.KeyboardType
@@ -55,6 +56,7 @@ fun CalendarScreen(
 
     // Ajout pour le bouton de vidage du calendrier
     var showClearDialog by remember { mutableStateOf(false) }
+    var isClearingDatabase by remember { mutableStateOf(false) }
 
     // État pour la synchronisation avec la BDD
     var isLoadingFromDB by remember { mutableStateOf(false) }
@@ -66,81 +68,103 @@ fun CalendarScreen(
 
     var draggedEntry by remember { mutableStateOf<WorkoutEntry?>(null) }
 
-    // Fonction pour diagnostiquer les problèmes de sync
+    // Fonction pour diagnostiquer les problèmes de sync (avec gestion de scope)
     fun runHealthCheck() {
-        coroutineScope.launch {
-            try {
-                val apiService = ApiService.getInstance()
-                apiService.initialize(context)
-                
-                android.util.Log.d("CalendarSync", "🔍 Démarrage health check...")
-                
-                if (apiService.isApiAvailable()) {
-                    // Test de l'endpoint health
-                    val healthResult = apiService.getApi().getCalendarHealth()
-                    if (healthResult.success) {
-                        android.util.Log.d("CalendarSync", "✅ Health check OK: ${healthResult.message}")
-                        Toast.makeText(context, "🔍 Health check: API OK", Toast.LENGTH_SHORT).show()
+        if (coroutineScope.isActive) {
+            coroutineScope.launch {
+                try {
+                    val apiService = ApiService.getInstance()
+                    apiService.initialize(context)
+
+                    android.util.Log.d("CalendarSync", "🔍 Démarrage health check...")
+
+                    if (apiService.isApiAvailable()) {
+                        // Test de l'endpoint health
+                        val healthResult = apiService.getApi().getCalendarHealth()
+                        if (isActive) {
+                            if (healthResult.success) {
+                                android.util.Log.d("CalendarSync", "✅ Health check OK: ${healthResult.message}")
+                                Toast.makeText(context, "🔍 Health check: API OK", Toast.LENGTH_SHORT).show()
+                            } else {
+                                android.util.Log.w("CalendarSync", "⚠️ Health check échoué: ${healthResult.message}")
+                                Toast.makeText(context, "⚠️ Health check: ${healthResult.message}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     } else {
-                        android.util.Log.w("CalendarSync", "⚠️ Health check échoué: ${healthResult.message}")
-                        Toast.makeText(context, "⚠️ Health check: ${healthResult.message}", Toast.LENGTH_SHORT).show()
+                        if (isActive) {
+                            android.util.Log.w("CalendarSync", "❌ API non disponible pour health check")
+                            Toast.makeText(context, "❌ Health check: API non disponible", Toast.LENGTH_SHORT).show()
+                        }
                     }
-                } else {
-                    android.util.Log.w("CalendarSync", "❌ API non disponible pour health check")
-                    Toast.makeText(context, "❌ Health check: API non disponible", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    if (isActive) {
+                        android.util.Log.e("CalendarSync", "❌ Exception health check: ${e.message}")
+                        Toast.makeText(context, "❌ Health check échoué: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("CalendarSync", "❌ Exception health check: ${e.message}")
-                Toast.makeText(context, "❌ Health check échoué: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    // Fonction pour synchroniser avec la BDD (améliorée)
+    // Fonction pour synchroniser avec la BDD (améliorée avec gestion de scope)
     fun syncWithDatabase() {
         if (isLoadingFromDB) return
 
-        coroutineScope.launch {
-            isLoadingFromDB = true
-            try {
-                val apiService = ApiService.getInstance()
-                apiService.initialize(context)
+        // Vérifier que le scope est actif avant de lancer la coroutine
+        if (coroutineScope.isActive) {
+            coroutineScope.launch {
+                isLoadingFromDB = true
+                try {
+                    val apiService = ApiService.getInstance()
+                    apiService.initialize(context)
 
-                android.util.Log.d("CalendarSync", "🔄 Démarrage synchronisation calendrier...")
+                    android.util.Log.d("CalendarSync", "🔄 Démarrage synchronisation calendrier...")
 
-                if (apiService.isApiAvailable()) {
-                    val result = apiService.getCalendarHistory()
-                    result.onSuccess { dbHistory ->
-                        android.util.Log.d("CalendarSync", "📊 Données reçues de l'API: ${dbHistory.size} séances")
-                        
-                        // Log des premières entrées pour debug
-                        dbHistory.take(3).forEachIndexed { index, entry ->
-                            android.util.Log.d("CalendarSync", "  [$index] Date: ${entry.date}, Mode: ${entry.mode}, Exercices: ${entry.exercises.size}")
+                    if (apiService.isApiAvailable()) {
+                        val result = apiService.getCalendarHistory()
+                        result.onSuccess { dbHistory ->
+                            // Vérifier que le scope est toujours actif avant les opérations UI
+                            if (isActive) {
+                                android.util.Log.d("CalendarSync", "📊 Données reçues de l'API: ${dbHistory.size} séances")
+
+                                // Log des premières entrées pour debug
+                                dbHistory.take(3).forEachIndexed { index, entry ->
+                                    android.util.Log.d("CalendarSync", "  [$index] Date: ${entry.date}, Mode: ${entry.mode}, Exercices: ${entry.exercises.size}")
+                                }
+
+                                // Fusionner avec l'historique local (priorité aux données DB)
+                                val mergedHistory = (workoutHistory + dbHistory)
+                                    .distinctBy { "${it.date}_${it.mode}_${it.duration}" }
+                                    .sortedByDescending { it.date }
+
+                                onWorkoutHistoryChange(mergedHistory)
+                                lastSyncTime = System.currentTimeMillis()
+
+                                android.util.Log.d("CalendarSync", "✅ Synchronisation réussie: ${dbHistory.size} séances de la BDD, ${mergedHistory.size} total après fusion")
+                                Toast.makeText(context, "✅ Calendrier synchronisé (${dbHistory.size} séances)", Toast.LENGTH_SHORT).show()
+                            }
+                        }.onFailure { error ->
+                            if (isActive) {
+                                android.util.Log.e("CalendarSync", "❌ Erreur de synchronisation: ${error.message}", error)
+                                Toast.makeText(context, "❌ Erreur sync: ${error.message}", Toast.LENGTH_LONG).show()
+                            }
                         }
-
-                        // Fusionner avec l'historique local (priorité aux données DB)
-                        val mergedHistory = (workoutHistory + dbHistory)
-                            .distinctBy { "${it.date}_${it.mode}_${it.duration}" }
-                            .sortedByDescending { it.date }
-
-                        onWorkoutHistoryChange(mergedHistory)
-                        lastSyncTime = System.currentTimeMillis()
-
-                        android.util.Log.d("CalendarSync", "✅ Synchronisation réussie: ${dbHistory.size} séances de la BDD, ${mergedHistory.size} total après fusion")
-                        Toast.makeText(context, "✅ Calendrier synchronisé (${dbHistory.size} séances)", Toast.LENGTH_SHORT).show()
-                    }.onFailure { error ->
-                        android.util.Log.e("CalendarSync", "❌ Erreur de synchronisation: ${error.message}", error)
-                        Toast.makeText(context, "❌ Erreur sync: ${error.message}", Toast.LENGTH_LONG).show()
+                    } else {
+                        if (isActive) {
+                            android.util.Log.w("CalendarSync", "⚠️ API non disponible")
+                            Toast.makeText(context, "⚠️ Serveur non accessible", Toast.LENGTH_SHORT).show()
+                        }
                     }
-                } else {
-                    android.util.Log.w("CalendarSync", "⚠️ API non disponible")
-                    Toast.makeText(context, "⚠️ Serveur non accessible", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    if (isActive) {
+                        android.util.Log.e("CalendarSync", "❌ Exception lors de la synchronisation: ${e.message}", e)
+                        Toast.makeText(context, "❌ Exception sync: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                } finally {
+                    if (isActive) {
+                        isLoadingFromDB = false
+                    }
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("CalendarSync", "❌ Exception lors de la synchronisation: ${e.message}", e)
-                Toast.makeText(context, "❌ Exception sync: ${e.message}", Toast.LENGTH_LONG).show()
-            } finally {
-                isLoadingFromDB = false
             }
         }
     }
@@ -153,24 +177,33 @@ fun CalendarScreen(
         }
     }
 
-    // Launcher CSV avec logs détaillés
+    // Launcher CSV avec gestion correcte du scope
     val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             AppLogger.csv("CSV_LAUNCHER", "📂 Sélection fichier CSV: $uri")
-            coroutineScope.launch {
-                try {
-                    val imported = parseCsv(context, uri)
-                    if (imported.isNotEmpty()) {
-                        AppLogger.success("CSV_LAUNCHER", "✅ Import CSV terminé: ${imported.size} séances")
-                        onCsvImported(imported)
-                        Toast.makeText(context, "Import réussi : ${imported.size} séances ajoutées", Toast.LENGTH_LONG).show()
-                    } else {
-                        AppLogger.w("CSV_LAUNCHER", "⚠️ Aucune données dans le fichier CSV")
-                        Toast.makeText(context, "Aucune donnée trouvée dans le fichier CSV", Toast.LENGTH_LONG).show()
+            // Vérifier que le composant est toujours en composition avant de lancer la coroutine
+            if (coroutineScope.isActive) {
+                coroutineScope.launch {
+                    try {
+                        val imported = parseCsv(context, uri)
+                        // Vérifier à nouveau que le scope est actif avant les opérations UI
+                        if (isActive) {
+                            if (imported.isNotEmpty()) {
+                                AppLogger.success("CSV_LAUNCHER", "✅ Import CSV terminé: ${imported.size} séances")
+                                onCsvImported(imported)
+                                Toast.makeText(context, "Import réussi : ${imported.size} séances ajoutées", Toast.LENGTH_LONG).show()
+                            } else {
+                                AppLogger.w("CSV_LAUNCHER", "⚠️ Aucune données dans le fichier CSV")
+                                Toast.makeText(context, "Aucune donnée trouvée dans le fichier CSV", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // Vérifier que le scope est toujours actif avant d'afficher l'erreur
+                        if (isActive) {
+                            AppLogger.e("CSV_LAUNCHER", "❌ Erreur lors de l'import CSV", e)
+                            Toast.makeText(context, "Erreur lors de l'import: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
                     }
-                } catch (e: Exception) {
-                    AppLogger.e("CSV_LAUNCHER", "❌ Erreur lors de l'import CSV", e)
-                    Toast.makeText(context, "Erreur lors de l'import: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         } else {
@@ -213,11 +246,21 @@ fun CalendarScreen(
 
             Button(
                 onClick = { showClearDialog = true },
+                enabled = !isClearingDatabase,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
-            ) { Text("🗑️ Vider", color = Color.White) }
+            ) {
+                if (isClearingDatabase) {
+                    Text("🗑️ Suppression...", color = Color.White)
+                } else {
+                    Text("🗑️ Vider BDD", color = Color.White)
+                }
+            }
         }
 
         Spacer(Modifier.height(8.dp))
+
+        // State pour la date sélectionnée
+        var selectedDate by remember { mutableStateOf<LocalDate?>(LocalDate.now()) }
 
         // Calendrier Compose
         LazyColumn(
@@ -247,35 +290,104 @@ fun CalendarScreen(
                                     }
                                     draggedEntry = null
                                 },
-                                onEntryClick = onEntryClick
+                                onEntryClick = onEntryClick,
+                                selectedDate = selectedDate,
+                                onDateSelect = { selectedDate = it }
                             )
                         }
                     )
                 }
             }
+
+            // Section des détails de la journée sélectionnée
+            selectedDate?.let { date ->
+                val entriesForSelectedDate = workoutHistory.filter { it.date == date }
+                if (entriesForSelectedDate.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        DayDetailsSection(
+                            date = date,
+                            entries = entriesForSelectedDate,
+                            onEntryClick = onEntryClick
+                        )
+                    }
+                }
+            }
         }
 
-        // Pop-up de confirmation
+        // Pop-up de confirmation pour vider la BDD
         if (showClearDialog) {
             AlertDialog(
                 onDismissRequest = { showClearDialog = false },
                 confirmButton = {
-                    TextButton(onClick = {
-                        // Conserver uniquement les séances complétées
-                        val remaining = workoutHistory.filter { it.duration > 0 }
-                        onWorkoutHistoryChange(remaining)
-                        showClearDialog = false
-                    }) {
-                        Text("Confirmer", color = Accent)
+                    TextButton(
+                        onClick = {
+                            if (coroutineScope.isActive) {
+                                coroutineScope.launch {
+                                    isClearingDatabase = true
+                                    try {
+                                        val apiService = ApiService.getInstance()
+                                        apiService.initialize(context)
+
+                                        if (apiService.isApiAvailable()) {
+                                            val result = apiService.deleteAllSessions()
+                                            if (isActive) {
+                                                result.onSuccess { response ->
+                                                    if (response.success) {
+                                                        // Vider aussi l'historique local
+                                                        onWorkoutHistoryChange(emptyList())
+                                                        Toast.makeText(context, "✅ ${response.message} (${response.deleted_count} séances supprimées)", Toast.LENGTH_LONG).show()
+                                                        android.util.Log.d("ClearDatabase", "✅ Suppression réussie: ${response.deleted_count} séances")
+                                                    } else {
+                                                        Toast.makeText(context, "❌ Erreur: ${response.message}", Toast.LENGTH_LONG).show()
+                                                        android.util.Log.e("ClearDatabase", "❌ Erreur serveur: ${response.message}")
+                                                    }
+                                                }.onFailure { error ->
+                                                    Toast.makeText(context, "❌ Erreur de connexion: ${error.message}", Toast.LENGTH_LONG).show()
+                                                    android.util.Log.e("ClearDatabase", "❌ Erreur API: ${error.message}", error)
+                                                }
+                                            }
+                                        } else {
+                                            if (isActive) {
+                                                Toast.makeText(context, "⚠️ Serveur non accessible", Toast.LENGTH_SHORT).show()
+                                                android.util.Log.w("ClearDatabase", "⚠️ API non disponible")
+                                            }
+                                        }
+                                    } catch (e: Exception) {
+                                        if (isActive) {
+                                            Toast.makeText(context, "❌ Exception: ${e.message}", Toast.LENGTH_LONG).show()
+                                            android.util.Log.e("ClearDatabase", "❌ Exception lors de la suppression", e)
+                                        }
+                                    } finally {
+                                        if (isActive) {
+                                            isClearingDatabase = false
+                                            showClearDialog = false
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        enabled = !isClearingDatabase
+                    ) {
+                        if (isClearingDatabase) {
+                            Text("Suppression...", color = Color.Gray)
+                        } else {
+                            Text("Confirmer", color = Accent)
+                        }
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showClearDialog = false }) {
+                    TextButton(
+                        onClick = { showClearDialog = false },
+                        enabled = !isClearingDatabase
+                    ) {
                         Text("Annuler")
                     }
                 },
-                title = { Text("Confirmer la suppression") },
-                text = { Text("Voulez-vous vraiment vider le calendrier des séances non terminées ?") }
+                title = { Text("⚠️ Vider la base de données") },
+                text = {
+                    Text("Voulez-vous vraiment supprimer TOUS les entraînements simples de la base de données ?\n\n⚠️ Cette action est irréversible !")
+                }
             )
         }
     }
@@ -292,7 +404,9 @@ private fun DayCell(
     draggedEntry: WorkoutEntry?,
     onDragStart: (WorkoutEntry) -> Unit,
     onDropOnDate: (LocalDate) -> Unit,
-    onEntryClick: (WorkoutEntry) -> Unit
+    onEntryClick: (WorkoutEntry) -> Unit,
+    selectedDate: LocalDate?,
+    onDateSelect: (LocalDate) -> Unit
 ) {
     val date = dayState.date
     val entriesToday = remember(workoutHistory) { workoutHistory.filter { it.date == date } }
@@ -301,9 +415,11 @@ private fun DayCell(
 
     val isToday = date == LocalDate.now()
     val isPast = date.isBefore(LocalDate.now())
+    val isSelected = date == selectedDate
 
     // Déterminer la couleur de fond selon le statut
     val backgroundColor = when {
+        isSelected -> Color(0xFF00C9A7).copy(alpha = 0.4f) // Fond mint pour sélection
         hasCompleted -> Color(0xFF4CAF50) // Vert pour terminé
         entriesToday.isNotEmpty() && isPast -> Color(0xFFFF5722) // Rouge pour en retard
         entriesToday.isNotEmpty() && !isPast -> Color(0xFFFF9800) // Orange pour à venir
@@ -317,11 +433,12 @@ private fun DayCell(
             .padding(2.dp)
             .background(backgroundColor, RoundedCornerShape(4.dp))
             .then(if (isToday) Modifier.border(3.dp, Color(0xFF00C9A7), RoundedCornerShape(4.dp)) else Modifier)
-            .then(
+            .clickable {
+                onDateSelect(date)
                 if (entriesToday.isNotEmpty()) {
-                    Modifier.clickable { onEntryClick(entriesToday.first()) }
-                } else Modifier
-            )
+                    onEntryClick(entriesToday.first())
+                }
+            }
             .pointerInput(entriesToday) {
                 detectDragGestures(onDragEnd = {
                     onDropOnDate(date)
@@ -357,24 +474,44 @@ private fun DayCell(
             )
         }
 
-        // Afficher le nombre d'exercices au centre
+        // Afficher les détails des séances de façon plus lisible
         if (exercisesToday.isNotEmpty()) {
             Column(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // Icône ou emoji selon l'état
                 Text(
-                    text = exercisesToday.size.toString(),
-                    fontSize = 12.sp,
+                    text = when {
+                        hasCompleted -> "✅"
+                        isPast -> "❌"
+                        else -> "📅"
+                    },
+                    fontSize = 14.sp
+                )
+
+                Text(
+                    text = "${exercisesToday.size}",
+                    fontSize = 11.sp,
                     color = if (backgroundColor == Color.White) Color.Black else Color.White,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                 )
 
                 if (exercisesToday.size > 1) {
                     Text(
-                        text = "exercices",
-                        fontSize = 6.sp,
+                        text = "ex.",
+                        fontSize = 8.sp,
+                        color = if (backgroundColor == Color.White) Color.Black else Color.White
+                    )
+                }
+
+                // Affichage de la durée si complétée
+                if (hasCompleted) {
+                    val completedEntry = entriesToday.first { it.duration > 0 }
+                    Text(
+                        text = "${completedEntry.duration}min",
+                        fontSize = 7.sp,
                         color = if (backgroundColor == Color.White) Color.Black else Color.White
                     )
                 }
@@ -398,17 +535,17 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
             val linesList = lines.toList()
             totalLines = linesList.size
             AppLogger.csv("CSV_IMPORT", "📊 Fichier CSV lu: $totalLines lignes (header inclus)")
-            
+
             if (totalLines < 2) {
                 AppLogger.w("CSV_IMPORT", "⚠️ Fichier CSV vide ou sans données (seulement header)")
                 return@useLines
             }
-            
+
             // Parser les headers de la première ligne
             val headerLine = linesList.first()
             val headers = headerLine.split(';', ',').map { it.trim().lowercase() }
             AppLogger.csv("CSV_IMPORT", "📋 Headers détectés: $headers")
-            
+
             // Trouver les indices des colonnes (insensible à la casse)
             val machineIndex = headers.indexOfFirst { it.contains("machine") || it.contains("exercice") || it.contains("nom") }
             val dateIndex = headers.indexOfFirst { it.contains("date") }
@@ -416,24 +553,24 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
             val repsIndex = headers.indexOfFirst { it.contains("rep") || it.contains("repetition") }
             val setsIndex = headers.indexOfFirst { it.contains("set") || it.contains("serie") }
             val weightIndex = headers.indexOfFirst { it.contains("poids") || it.contains("weight") || it.contains("kg") }
-            
+
             AppLogger.d("CSV_IMPORT", "   Machine col: $machineIndex, Date col: $dateIndex, Type col: $typeIndex")
             AppLogger.d("CSV_IMPORT", "   Reps col: $repsIndex, Sets col: $setsIndex, Weight col: $weightIndex")
-            
+
             if (machineIndex == -1 || dateIndex == -1) {
                 AppLogger.e("CSV_IMPORT", "❌ Colonnes obligatoires manquantes: machine=$machineIndex, date=$dateIndex")
                 return@useLines
             }
-            
+
             linesList.drop(1).forEachIndexed { index, line ->
                 totalLines--
                 AppLogger.d("CSV_IMPORT", "🔍 Ligne ${index + 2}: '$line'")
-                
+
                 if (line.trim().isEmpty()) {
                     AppLogger.w("CSV_IMPORT", "⚠️ Ligne ${index + 2} vide, ignorée")
                     return@forEachIndexed
                 }
-                
+
                 val parts = line.split(';', ',').map { it.trim() }
                 AppLogger.d("CSV_IMPORT", "📝 Parsage ligne ${index + 2}: ${parts.size} colonnes = $parts")
 
@@ -448,12 +585,12 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
                 val machineName = parts.getOrNull(machineIndex) ?: ""
                 val dateStr = parts.getOrNull(dateIndex) ?: ""
                 val typeStr = if (typeIndex >= 0 && typeIndex < parts.size) parts[typeIndex] else "musculation"
-                
+
                 // Extraire les valeurs optionnelles selon les indices détectés
                 val repsStr = if (repsIndex >= 0 && repsIndex < parts.size) parts[repsIndex] else ""
                 val setsStr = if (setsIndex >= 0 && setsIndex < parts.size) parts[setsIndex] else ""
                 val weightStr = if (weightIndex >= 0 && weightIndex < parts.size) parts[weightIndex] else ""
-                
+
                 AppLogger.d("CSV_IMPORT", "   Machine: '$machineName', Date: '$dateStr', Type: '$typeStr'")
                 AppLogger.d("CSV_IMPORT", "   Reps: '$repsStr', Sets: '$setsStr', Weight: '$weightStr'")
 
@@ -482,7 +619,7 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
                         if (bounds.size == 2) ((bounds[0] + bounds[1]) / 2.0).toInt() else 0
                     } else repsStr.toIntOrNull() ?: 0
                 } else 0
-                
+
                 val parsedSets = setsStr.toIntOrNull() ?: 0
                 val parsedWeight = weightStr.toDoubleOrNull() ?: 0.0
 
@@ -522,7 +659,7 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
         AppLogger.e("CSV_IMPORT", "❌ Erreur fatale lors du parsing CSV: ${e.message}", e)
         return@withContext emptyList()
     }
-    
+
     // Résumé du traitement
     val workoutEntries = entriesByDate.map { (date, records) ->
         WorkoutEntry(
@@ -533,12 +670,120 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
             totalWeight = records.sumOf { it.weight * it.reps }
         )
     }
-    
+
     AppLogger.success("CSV_IMPORT", "📊 Résumé import CSV:")
     AppLogger.i("CSV_IMPORT", "   • ${processedLines} lignes traitées avec succès")
     AppLogger.i("CSV_IMPORT", "   • ${errorLines} lignes avec erreurs")
     AppLogger.i("CSV_IMPORT", "   • ${entriesByDate.size} séances créées")
     AppLogger.i("CSV_IMPORT", "   • ${entriesByDate.values.sumOf { it.size }} exercices au total")
-    
+
     return@withContext workoutEntries
+}
+
+@Composable
+private fun DayDetailsSection(
+    date: LocalDate,
+    entries: List<WorkoutEntry>,
+    onEntryClick: (WorkoutEntry) -> Unit
+) {
+    androidx.compose.material3.Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            // En-tête avec la date
+            Text(
+                text = "📅 ${date.format(DateTimeFormatter.ofPattern("dd MMMM yyyy"))}",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF333333)
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Liste des séances
+            entries.forEach { entry ->
+                WorkoutEntryItem(
+                    entry = entry,
+                    onClick = { onEntryClick(entry) }
+                )
+                if (entry != entries.last()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkoutEntryItem(
+    entry: WorkoutEntry,
+    onClick: () -> Unit
+) {
+    androidx.compose.material3.Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(
+            containerColor = if (entry.duration > 0) Color(0xFFF1F8E9) else Color(0xFFFFF3E0)
+        ),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Icône de statut
+            Text(
+                text = if (entry.duration > 0) "✅" else "📅",
+                fontSize = 20.sp,
+                modifier = Modifier.padding(end = 12.dp)
+            )
+
+            Column(modifier = Modifier.weight(1f)) {
+                // Nom de la séance
+                Text(
+                    text = entry.mode,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF333333)
+                )
+
+                // Détails
+                Text(
+                    text = if (entry.duration > 0) {
+                        "${entry.exercises.size} exercices • ${entry.duration} min • ${entry.totalWeight.toInt()}kg total"
+                    } else {
+                        "${entry.exercises.size} exercices planifiés"
+                    },
+                    fontSize = 12.sp,
+                    color = Color(0xFF666666)
+                )
+
+                // Liste des exercices (limitée à 3)
+                val displayExercises = entry.exercises.take(3)
+                if (displayExercises.isNotEmpty()) {
+                    Text(
+                        text = displayExercises.joinToString(" • ") { it.name } +
+                               if (entry.exercises.size > 3) " +${entry.exercises.size - 3}" else "",
+                        fontSize = 11.sp,
+                        color = Color(0xFF888888),
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                    )
+                }
+            }
+
+            // Indicateur visuel
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = "Voir détails",
+                tint = Color(0xFF00C9A7),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
 }
