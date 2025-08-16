@@ -1433,7 +1433,8 @@ fun AppMainInterface(
                     },
                     onGoToWorkout = {
                         onTabChange(1) // Switch to workout tab
-                    }
+                    },
+                    onStartWorkout = onStartWorkout
                 )
                 4 -> LogsScreen()
             }

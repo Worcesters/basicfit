@@ -39,6 +39,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.text.input.KeyboardType
@@ -51,7 +52,8 @@ fun CalendarScreen(
     onWorkoutHistoryChange: (List<WorkoutEntry>) -> Unit,
     onCsvImported: (List<WorkoutEntry>) -> Unit,
     onEntryClick: (WorkoutEntry) -> Unit,
-    onGoToWorkout: () -> Unit
+    onGoToWorkout: () -> Unit,
+    onStartWorkout: (List<Machine>, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -310,7 +312,8 @@ fun CalendarScreen(
                         DayDetailsSection(
                             date = date,
                             entries = entriesForSelectedDate,
-                            onEntryClick = onEntryClick
+                            onEntryClick = onEntryClick,
+                            onStartWorkout = onStartWorkout
                         )
                     }
                 }
@@ -686,7 +689,8 @@ private suspend fun parseCsv(context: Context, uri: android.net.Uri): List<Worko
 private fun DayDetailsSection(
     date: LocalDate,
     entries: List<WorkoutEntry>,
-    onEntryClick: (WorkoutEntry) -> Unit
+    onEntryClick: (WorkoutEntry) -> Unit,
+    onStartWorkout: (List<Machine>, String) -> Unit
 ) {
     androidx.compose.material3.Card(
         modifier = Modifier.fillMaxWidth(),
@@ -711,7 +715,26 @@ private fun DayDetailsSection(
             entries.forEach { entry ->
                 WorkoutEntryItem(
                     entry = entry,
-                    onClick = { onEntryClick(entry) }
+                    onClick = { onEntryClick(entry) },
+                    onStartWorkout = if (entry.duration == 0) {
+                        {
+                            // Convertir WorkoutEntry en machines pour démarrer l'entraînement
+                            val machines = entry.exercises.map { exercise ->
+                                Machine(
+                                    id = 0, // ID temporaire
+                                    nom = exercise.name,
+                                    nomAnglais = exercise.name,
+                                    description = "Machine générée depuis calendrier",
+                                    instructions = "Exercice importé depuis le calendrier",
+                                    categorie = CategorieMachine.MUSCULATION,
+                                    groupeMusculairePrimaire = "Général",
+                                    imageGif = null,
+                                    tempo = null
+                                )
+                            }
+                            onStartWorkout(machines, entry.mode)
+                        }
+                    } else null
                 )
                 if (entry != entries.last()) {
                     Spacer(modifier = Modifier.height(8.dp))
@@ -724,7 +747,8 @@ private fun DayDetailsSection(
 @Composable
 private fun WorkoutEntryItem(
     entry: WorkoutEntry,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onStartWorkout: (() -> Unit)? = null
 ) {
     androidx.compose.material3.Card(
         modifier = Modifier
@@ -779,13 +803,44 @@ private fun WorkoutEntryItem(
                 }
             }
 
-            // Indicateur visuel
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = "Voir détails",
-                tint = Color(0xFF00C9A7),
-                modifier = Modifier.size(20.dp)
-            )
+            // Bouton démarrer pour les séances non terminées ou icône pour les terminées
+            if (onStartWorkout != null) {
+                Button(
+                    onClick = onStartWorkout,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF00C9A7)
+                    ),
+                    modifier = Modifier.padding(start = 8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "Démarrer",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Démarrer",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            } else {
+                // Indicateur visuel pour les séances terminées
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = "Voir détails",
+                    tint = Color(0xFF00C9A7),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }
