@@ -56,9 +56,11 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.withContext
 import com.basicfit.app.data.AuthManager
 import kotlin.math.roundToInt
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.graphics.Brush
 import androidx.core.view.WindowCompat
@@ -465,6 +467,7 @@ class MainActivity : ComponentActivity() {
 fun MainScreen() {
     val context = LocalContext.current
     val dataManager = remember { DataManager(context) }
+    val coroutineScope = rememberCoroutineScope()
 
     var selectedTabIndex by remember { mutableStateOf(0) }
     var profileData by remember { mutableStateOf(dataManager.loadProfileData()) }
@@ -743,7 +746,7 @@ fun MainScreen() {
                 dataManager.saveProfileData(newProfile)
                 
                 // Sauvegarder aussi vers le backend
-                GlobalScope.launch {
+                coroutineScope.launch {
                     try {
                         val apiService = ApiService.getInstance()
                         apiService.initialize(context)
@@ -792,7 +795,7 @@ fun MainScreen() {
                 val apiService = ApiService.getInstance()
                 apiService.initialize(context)
 
-                kotlinx.coroutines.GlobalScope.launch {
+                coroutineScope.launch {
                     try {
                         var successCount = 0
                         var errorCount = 0
@@ -833,13 +836,15 @@ fun MainScreen() {
 
                         AppLogger.success("CSV_SYNC", "📊 Synchronisation CSV terminée: ${successCount} succès, ${errorCount} erreurs")
                         
-                        kotlinx.coroutines.MainScope().launch {
+                        // Afficher le toast sur le thread principal
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                             android.widget.Toast.makeText(context, "✅ Import CSV synchronisé avec la base de données", android.widget.Toast.LENGTH_LONG).show()
                         }
 
                     } catch (e: Exception) {
                         AppLogger.e("CSV_SYNC", "❌ Erreur synchronisation CSV: ${e.message}", e)
-                        kotlinx.coroutines.MainScope().launch {
+                        // Afficher le toast d'erreur sur le thread principal
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                             android.widget.Toast.makeText(context, "⚠️ Import local réussi, erreur synchronisation serveur", android.widget.Toast.LENGTH_LONG).show()
                         }
                     }
@@ -1792,36 +1797,6 @@ fun ProfileScreen(
             }
         }
 
-        // Conseils personnalisés
-        if (recommendations.isNotEmpty()) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        Text(
-                            text = "Conseils personnalisés",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Accent,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
-
-                        recommendations.forEach { tip ->
-                            Text(
-                                text = "• $tip",
-                                fontSize = 14.sp,
-                                color = Color(0xFF2E2E2E),
-                                modifier = Modifier.padding(vertical = 2.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        }
 
         // Bouton statistiques
         item {

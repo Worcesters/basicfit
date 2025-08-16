@@ -29,7 +29,9 @@
       "Bash(./build_apk.bat)",
       "Bash(git reset:*)",
       "Bash(./deploy_flyio.bat)",
-      "Bash(deploy_flyio.bat)"
+      "Bash(deploy_flyio.bat)",
+      "Bash(fly secrets:*)",
+      "Bash(fly postgres connect:*)"
     ],
     "deny": []
   }

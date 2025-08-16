@@ -110,6 +110,13 @@ final_deploy.bat
 
 ## Key Features & Models
 
+### Recent Feature Updates (2025-08-16)
+- **Intelligent Performance Analysis**: Real-time success rate calculation based on achieved vs target sets/reps with adaptive weight recommendations
+- **Exercise Replacement Dialog**: In-workout exercise substitution targeting same muscle groups with searchable interface
+- **Enhanced Calendar Interface**: Google Calendar-style current day indicators with mint color highlighting and improved visual feedback
+- **Automatic Authentication Management**: Token validation with automatic logout on 401/403 responses
+- **CSV Import Optimization**: Fixed coroutine scope management for reliable data import functionality
+
 ### Base Models Pattern
 All Django models inherit from base classes in `apps.core.models`:
 - `TimeStampedModel`: Auto-managed `created_at`/`updated_at` fields
@@ -134,8 +141,10 @@ All Django models inherit from base classes in `apps.core.models`:
 - `SeanceEntrainement`: Complete workout sessions with user/date tracking
 - `SerieExercice`: Individual sets with reps, weight, rest periods, tempo
 - Volume load calculations for progression tracking
-- New recommendation system based on user history and preferences
-- Calendar integration for workout scheduling and history
+- **Intelligent Recommendation System**: Advanced performance analysis with success rate calculations and adaptive weight recommendations
+- **Exercise Replacement System**: Dynamic exercise substitution during workouts based on muscle groups
+- **Automatic Token Management**: Automatic logout detection for invalid authentication tokens
+- Calendar integration with enhanced visual indicators and workout scheduling
 
 ## API Architecture
 
@@ -208,11 +217,11 @@ Based on recent commits, ensure correct endpoint usage:
 ## Android App Architecture
 
 ### Key Components
-- **MainActivity.kt**: Main application entry with Jetpack Compose UI and navigation
-- **CalendarScreen.kt**: Workout history calendar with CSV import/export functionality
-- **ApiService.kt**: Retrofit client with JWT authentication and automatic token refresh
+- **MainActivity.kt**: Main application entry with Jetpack Compose UI, navigation, intelligent recommendation system, and exercise replacement functionality
+- **CalendarScreen.kt**: Enhanced workout history calendar with improved current day indicators and optimized CSV import functionality
+- **ApiService.kt**: Retrofit client with JWT authentication, automatic token refresh, and automatic logout detection on invalid tokens
 - **AuthManager.kt**: Handles user authentication and profile management
-- **DataManager.kt**: Local data management and caching utilities
+- **CommonData.kt**: Data models including ExercisePerformance, WeightRecommendation, and performance tracking structures
 
 ### UI Design System
 - Material Design 3 with custom color palette (Mint: #00C9A7, SoftBlue: #6DD5ED)
