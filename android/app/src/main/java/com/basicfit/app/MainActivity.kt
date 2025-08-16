@@ -57,6 +57,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import com.basicfit.app.data.AuthManager
 import kotlin.math.roundToInt
 import androidx.compose.runtime.LaunchedEffect
@@ -568,11 +569,11 @@ fun MainScreen() {
 
                 // Synchroniser les données depuis le serveur
                 val syncManager = SyncManager(context)
-                kotlinx.coroutines.GlobalScope.launch {
+                coroutineScope.launch {
                     try {
                         // Récupérer l'historique depuis le serveur
                         val serverHistory = syncManager.syncWorkoutHistory()
-                        kotlinx.coroutines.MainScope().launch {
+                        withContext(Dispatchers.Main) {
                                                     serverHistory.onSuccess { history ->
                             // Fusionner avec l'historique local
                             val serverWorkoutHistory = convertServerHistoryToLocal(history)
@@ -672,7 +673,7 @@ fun MainScreen() {
 
                 // AJOUT: Synchronisation de la séance terminée vers l'API
                 val syncManager = SyncManager(context)
-                kotlinx.coroutines.GlobalScope.launch {
+                coroutineScope.launch {
                     try {
                         android.util.Log.d("WorkoutSync", "🔄 Synchronisation séance terminée: ${newEntry.mode}")
                         val result = syncManager.saveWorkoutToServer(
@@ -684,7 +685,7 @@ fun MainScreen() {
 
                         if (result.isSuccess) {
                             android.util.Log.d("WorkoutSync", "✅ Séance terminée synchronisée avec la BDD")
-                            kotlinx.coroutines.MainScope().launch {
+                            withContext(Dispatchers.Main) {
                                 android.widget.Toast.makeText(context, "✅ Séance synchronisée avec la base de données", android.widget.Toast.LENGTH_SHORT).show()
                             }
                         } else {
@@ -854,6 +855,7 @@ fun AuthScreen(
 ) {
     val context = LocalContext.current
     val authManager = remember { AuthManager(context) }
+    val coroutineScope = rememberCoroutineScope()
 
     var isLoginMode by remember { mutableStateOf(true) }
     var email by remember { mutableStateOf("") }
@@ -881,10 +883,10 @@ fun AuthScreen(
             // Connexion
             if (email.isNotBlank() && password.isNotBlank()) {
                 // Lancer la requête de connexion avec une coroutine
-                GlobalScope.launch {
+                coroutineScope.launch {
                     try {
                         val result = authManager.login(email, password)
-                        MainScope().launch {
+                        withContext(Dispatchers.Main) {
                             result.onSuccess { response ->
                                 if (response.success) {
                                     // Créer le ProfileData avec les vraies données du backend
@@ -925,7 +927,7 @@ fun AuthScreen(
                             isLoading = false
                         }
                     } catch (e: Exception) {
-                        MainScope().launch {
+                        withContext(Dispatchers.Main) {
                             errorMessage = "Erreur de connexion inattendue"
                             isLoading = false
                         }
@@ -941,7 +943,7 @@ fun AuthScreen(
                 password == confirmPassword && nom.isNotBlank()) {
 
                 // Lancer la requête d'inscription avec une coroutine
-                GlobalScope.launch {
+                coroutineScope.launch {
                     try {
                         // Mapper les valeurs Android vers les valeurs backend
                         val objectifBackend = when (objectif) {
@@ -973,7 +975,7 @@ fun AuthScreen(
                             objectifSportif = objectifBackend,
                             niveauExperience = niveauBackend
                         )
-                        MainScope().launch {
+                        withContext(Dispatchers.Main) {
                             result.onSuccess { response ->
                                 if (response.success) {
                                     // Créer le ProfileData avec les données backend ou les données saisies
@@ -1003,7 +1005,7 @@ fun AuthScreen(
                             isLoading = false
                         }
                     } catch (e: Exception) {
-                        MainScope().launch {
+                        withContext(Dispatchers.Main) {
                             errorMessage = "Erreur d'inscription: ${e.message}"
                             isLoading = false
                         }
@@ -1452,6 +1454,7 @@ fun ProfileScreen(
 ) {
     val context = LocalContext.current
     val dataManager = remember { DataManager(context) }
+    val coroutineScope = rememberCoroutineScope()
 
     var isEditing by remember { mutableStateOf(false) }
     var nom by remember { mutableStateOf(profileData.nom) }
@@ -1811,13 +1814,13 @@ fun ProfileScreen(
 
             Button(
                 onClick = {
-                    kotlinx.coroutines.GlobalScope.launch {
+                    coroutineScope.launch {
                         try {
                             val apiService = ApiService.getInstance()
                             apiService.initialize(context)
                             val response = apiService.getApi().forceProgressionUpdate()
 
-                            kotlinx.coroutines.MainScope().launch {
+                            withContext(Dispatchers.Main) {
                                 if (response.success) {
                                     android.widget.Toast.makeText(
                                         context,
@@ -1833,7 +1836,7 @@ fun ProfileScreen(
                                 }
                             }
                         } catch (e: Exception) {
-                            kotlinx.coroutines.MainScope().launch {
+                            withContext(Dispatchers.Main) {
                                 android.widget.Toast.makeText(
                                     context,
                                     "❌ Erreur: ${e.message}",
