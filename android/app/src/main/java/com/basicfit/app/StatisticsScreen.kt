@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.geometry.Offset
@@ -33,9 +34,40 @@ fun StatisticsScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    // État pour l'historique synchronisé depuis l'API
+    var apiWorkoutHistory by remember { mutableStateOf(workoutHistory) }
+    var isLoading by remember { mutableStateOf(false) }
+
+    // Synchroniser l'historique depuis l'API au démarrage
+    LaunchedEffect(Unit) {
+        isLoading = true
+        try {
+            val apiService = ApiService.getInstance()
+            apiService.initialize(context)
+
+            // Récupérer l'historique depuis l'API
+            apiService.getCalendarHistory().onSuccess { serverHistory ->
+                // Combiner avec l'historique local
+                val combinedHistory = (workoutHistory + serverHistory).distinctBy { it.date }
+                apiWorkoutHistory = combinedHistory.sortedByDescending { it.date }
+                android.util.Log.d("Statistics", "✅ Historique synchronisé: ${apiWorkoutHistory.size} séances")
+            }.onFailure { error ->
+                android.util.Log.w("Statistics", "⚠️ Erreur sync historique: ${error.message}")
+                // En cas d'erreur, utiliser l'historique local
+                apiWorkoutHistory = workoutHistory
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("Statistics", "❌ Erreur statistiques: ${e.message}")
+            apiWorkoutHistory = workoutHistory
+        } finally {
+            isLoading = false
+        }
+    }
 
     // Calculer les statistiques (uniquement séances complétées)
-    val completedWorkouts = workoutHistory.filter { it.duration > 0 }
+    val completedWorkouts = apiWorkoutHistory.filter { it.duration > 0 }
     val totalWorkouts = completedWorkouts.size
     val totalMinutes = completedWorkouts.sumOf { it.duration }
     val totalVolume = completedWorkouts.sumOf { it.totalWeight }
@@ -77,7 +109,7 @@ fun StatisticsScreen(
                         )
                     }
                     Text(
-                        text = "📊 Statistiques",
+                        text = "Statistiques",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -95,6 +127,32 @@ fun StatisticsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Indicateur de chargement
+            if (isLoading) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = Accent
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Synchronisation des données...",
+                                fontSize = 14.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                }
+            }
+
             // Statistiques générales
             item {
                 StatsOverviewCard(
@@ -108,7 +166,7 @@ fun StatisticsScreen(
 
             // Graphique de fréquence mensuelle
             item {
-                MonthlyFrequencyCard(workoutHistory = workoutHistory)
+                MonthlyFrequencyCard(workoutHistory = apiWorkoutHistory)
             }
 
             // Progression des charges
@@ -129,13 +187,13 @@ fun StatisticsScreen(
             item {
                 ObjectiveAnalysisCard(
                     profileData = profileData,
-                    workoutHistory = workoutHistory
+                    workoutHistory = apiWorkoutHistory
                 )
             }
 
             // Répartition par groupe musculaire
             item {
-                MuscleGroupDistributionCard(workoutHistory = workoutHistory)
+                MuscleGroupDistributionCard(workoutHistory = apiWorkoutHistory)
             }
         }
     }

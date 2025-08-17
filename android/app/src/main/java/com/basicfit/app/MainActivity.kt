@@ -1841,57 +1841,6 @@ fun ProfileScreen(
             }
         }
 
-        // BOUTON DE TEST - Forcer mise à jour des progressions (temporaire)
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = {
-                    coroutineScope.launch {
-                        try {
-                            val apiService = ApiService.getInstance()
-                            apiService.initialize(context)
-                            val response = apiService.getApi().forceProgressionUpdate()
-
-                            withContext(Dispatchers.Main) {
-                                if (response.success) {
-                                    android.widget.Toast.makeText(
-                                        context,
-                                        "✅ Progressions mises à jour ! Testez une recommandation.",
-                                        android.widget.Toast.LENGTH_LONG
-                                    ).show()
-                                } else {
-                                    android.widget.Toast.makeText(
-                                        context,
-                                        "❌ Erreur: ${response.message}",
-                                        android.widget.Toast.LENGTH_LONG
-                                    ).show()
-                                }
-                            }
-                        } catch (e: Exception) {
-                            withContext(Dispatchers.Main) {
-                                android.widget.Toast.makeText(
-                                    context,
-                                    "❌ Erreur: ${e.message}",
-                                    android.widget.Toast.LENGTH_LONG
-                                ).show()
-                            }
-                        }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF4CAF50),
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("🔧 FORCER MAJ RECOMMANDATIONS (TEST)")
-            }
-        }
-
         // Bouton de déconnexion
         item {
             Spacer(modifier = Modifier.height(16.dp))
@@ -3489,98 +3438,7 @@ fun CurrentExerciseCard(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // Recommandations
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = "📋 Recommandations",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Accent
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    if (isCardioMachine) {
-                        // Recommandations pour cardio
-                        val cardioType = when {
-                            exerciseSession.machine.nom.contains("Plank", ignoreCase = true) -> "Gainage"
-                            exerciseSession.machine.nom.contains("Gainage", ignoreCase = true) -> "Gainage"
-                            exerciseSession.machine.nom.contains("Burpee", ignoreCase = true) -> "Cardio intense"
-                            exerciseSession.machine.nom.contains("Mountain Climber", ignoreCase = true) -> "Cardio intense"
-                            exerciseSession.machine.nom.contains("Jumping Jack", ignoreCase = true) -> "Cardio"
-                            exerciseSession.machine.nom.contains("Squat Jump", ignoreCase = true) -> "Cardio intense"
-                            exerciseSession.machine.nom.contains("Lunge", ignoreCase = true) -> "Cardio"
-                            exerciseSession.machine.nom.contains("Wall Sit", ignoreCase = true) -> "Gainage"
-                            exerciseSession.machine.nom.contains("Push-up", ignoreCase = true) -> "Musculation"
-                            exerciseSession.machine.nom.contains("Pompe", ignoreCase = true) -> "Musculation"
-                            else -> "Cardio"
-                        }
-
-                        Text(
-                            text = "⏱️ Durée: ${exerciseSession.targetReps} minutes • Type: $cardioType",
-                            fontSize = 12.sp,
-                            color = Color(0xFF666666)
-                        )
-                        Text(
-                            text = when {
-                                cardioType == "Gainage" -> "💡 Maintenez la position et respirez profondément"
-                                cardioType == "Cardio intense" -> "💡 Rythme soutenu, récupération active"
-                                else -> "💡 Maintenez un rythme régulier et respirez profondément"
-                            },
-                            fontSize = 11.sp,
-                            color = Color(0xFF4CAF50),
-                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                        )
-                    } else {
-                        // Recommandations pour musculation
-                                                        Text(
-                                    text = "🎯 OBJECTIF: ${profileData.objectif}",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Accent
-                                )
-                                Text(
-                                    text = "📊 DÉTAILS: ${exerciseSession.targetReps} reps • ${exerciseSession.targetSets} sets • ${exerciseSession.restTime}s repos",
-                                    fontSize = 10.sp,
-                                    color = Color.Gray
-                                )
-                        Text(
-                            text = "Poids: $weightDisplay • Reps: ${exerciseSession.targetReps} • Repos: ${exerciseSession.restTime}s",
-                            fontSize = 12.sp,
-                            color = Color(0xFF666666)
-                        )
-
-                        // Afficher une suggestion si pas d'historique (utiliser système intelligent)
-                        if (actualRecommendedWeight == 0.0) {
-                            val suggestedWeight = getSmartRecommendedWeight(
-                                exerciseSession.machine,
-                                profileData,
-                                workoutHistory,
-                                trainingType
-                            )
-                            if (suggestedWeight > 0) {
-                                Text(
-                                    text = "💡 Suggestion intelligente: ${suggestedWeight.toInt()}kg",
-                                    fontSize = 11.sp,
-                                    color = Color(0xFF4CAF50),
-                                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                                )
-                            }
-                        }
-                    }
-
-                                        Text(
-                        text = "💪 Recommandation personnalisée • Technique contrôlée • Progression adaptée",
-                        fontSize = 12.sp,
-                        color = Color(0xFF666666)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
+            // Block de recommandations supprimé comme demandé
 
             // Affichage des performances et recommandations intelligentes
             if (!isCardioMachine) {
@@ -3606,8 +3464,69 @@ fun CurrentExerciseCard(
                                 color = Color.Black
                             )
 
-                                                    // Section recommandations supprimée comme demandé
-                        // Le système d'analyse intelligente est conservé en arrière-plan
+                                                    // Afficher la recommandation intelligente
+                            when (val rec = currentPerformance.recommendation) {
+                                is WeightRecommendation.Increase -> {
+                                    Text(
+                                        text = "🔥 Nouveau poids recommandé: ${rec.newWeight.toInt()}kg",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF4CAF50)
+                                    )
+                                    Text(
+                                        text = rec.reason,
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF666666),
+                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                    )
+                                }
+                                is WeightRecommendation.Decrease -> {
+                                    Text(
+                                        text = "⚡ Nouveau poids recommandé: ${rec.newWeight.toInt()}kg",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFFF9800)
+                                    )
+                                    Text(
+                                        text = rec.reason,
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF666666),
+                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                    )
+                                }
+                                is WeightRecommendation.Maintain -> {
+                                    Text(
+                                        text = "✅ Continuer avec ${currentPerformance.lastWeight.toInt()}kg",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF2196F3)
+                                    )
+                                    Text(
+                                        text = rec.reason,
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF666666),
+                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                    )
+                                }
+                                is WeightRecommendation.Pending -> {
+                                    Text(
+                                        text = "🎯 En attente d'un entraînement",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color(0xFF666666),
+                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                    )
+                                }
+                                null -> {
+                                    Text(
+                                        text = "🎯 En attente d'un entraînement",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color(0xFF666666),
+                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                    )
+                                }
+                            }
                         } else {
                             Text(
                                 text = "🎯 En attente d'un entraînement",
