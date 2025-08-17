@@ -100,6 +100,13 @@ data class ProfileData(
     val objectif: String = "Maintenir"
 )
 
+// Résultat de la resynchronisation
+data class ResyncResult(
+    val syncedWorkouts: Int,
+    val syncedProfile: Boolean,
+    val errors: List<String>
+)
+
 data class WorkoutEntry(
     val date: LocalDate,
     val mode: String,
@@ -226,6 +233,65 @@ class DataManager(private val context: Context) {
 
     fun clearUserData() {
         prefs.edit().clear().apply()
+    }
+    
+    // Fonction pour resynchroniser toutes les données après vidage du cache
+    suspend fun resyncAllDataAfterClear(context: android.content.Context): ResyncResult {
+        AppLogger.d("RESYNC", "🔄 Début resynchronisation complète après vidage cache")
+        
+        var syncedWorkouts = 0
+        var syncedProfile = false
+        val errors = mutableListOf<String>()
+        
+        try {
+            val apiService = ApiService.getInstance()
+            apiService.initialize(context)
+            
+            if (!apiService.isApiAvailable()) {
+                errors.add("API indisponible")
+                return ResyncResult(0, false, errors)
+            }
+            
+            // 1. Resynchroniser l'historique des séances
+            try {
+                val historyResult = apiService.getCalendarHistory()
+                historyResult.onSuccess { serverHistory ->
+                    saveWorkoutHistory(serverHistory)
+                    syncedWorkouts = serverHistory.size
+                    AppLogger.success("RESYNC", "✅ Historique resynchronisé: $syncedWorkouts séances")
+                }.onFailure { error ->
+                    errors.add("Erreur sync historique: ${error.message}")
+                    AppLogger.e("RESYNC", "❌ Erreur sync historique: ${error.message}")
+                }
+            } catch (e: Exception) {
+                errors.add("Exception sync historique: ${e.message}")
+                AppLogger.e("RESYNC", "❌ Exception sync historique: ${e.message}")
+            }
+            
+            // 2. Resynchroniser le profil utilisateur (optionnel - les données sont déjà dans le token)
+            try {
+                // Pour l'instant, on n'a pas d'endpoint pour récupérer le profil
+                // On marque comme réussi si l'utilisateur est connecté
+                if (apiService.getAuthToken(context) != null) {
+                    syncedProfile = true
+                    AppLogger.success("RESYNC", "✅ Profil: utilisateur authentifié")
+                } else {
+                    errors.add("Utilisateur non authentifié")
+                    AppLogger.e("RESYNC", "❌ Utilisateur non authentifié")
+                }
+            } catch (e: Exception) {
+                errors.add("Exception vérification auth: ${e.message}")
+                AppLogger.e("RESYNC", "❌ Exception vérification auth: ${e.message}")
+            }
+            
+        } catch (e: Exception) {
+            errors.add("Erreur générale: ${e.message}")
+            AppLogger.e("RESYNC", "❌ Erreur générale resync: ${e.message}")
+        }
+        
+        val result = ResyncResult(syncedWorkouts, syncedProfile, errors)
+        AppLogger.d("RESYNC", "📊 Résultat resync: ${result.syncedWorkouts} séances, profil=${result.syncedProfile}, erreurs=${result.errors.size}")
+        return result
     }
 
     fun resetStats() {
@@ -476,6 +542,44 @@ fun MainScreen() {
                 "Session expirée, veuillez vous reconnecter",
                 android.widget.Toast.LENGTH_LONG
             ).show()
+        }
+    }
+    
+    // Resynchronisation automatique si les données locales sont vides
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn && (workoutHistory.isEmpty() || profileData.nom.isEmpty())) {
+            AppLogger.d("AUTO_RESYNC", "🔄 Détection données vides, resynchronisation automatique")
+            AppLogger.d("AUTO_RESYNC", "   Historique: ${workoutHistory.size} séances")
+            AppLogger.d("AUTO_RESYNC", "   Profil: '${profileData.nom}'")
+            
+            try {
+                val resyncResult = dataManager.resyncAllDataAfterClear(context)
+                
+                if (resyncResult.syncedProfile) {
+                    profileData = dataManager.loadProfileData()
+                    AppLogger.success("AUTO_RESYNC", "✅ Profil resynchronisé: ${profileData.nom}")
+                }
+                
+                if (resyncResult.syncedWorkouts > 0) {
+                    workoutHistory = dataManager.loadWorkoutHistory()
+                    AppLogger.success("AUTO_RESYNC", "✅ Historique resynchronisé: ${workoutHistory.size} séances")
+                }
+                
+                if (resyncResult.errors.isNotEmpty()) {
+                    AppLogger.w("AUTO_RESYNC", "⚠️ Erreurs pendant resync: ${resyncResult.errors.joinToString(", ")}")
+                }
+                
+                val message = if (resyncResult.syncedWorkouts > 0 || resyncResult.syncedProfile) {
+                    "Données resynchronisées: ${resyncResult.syncedWorkouts} séances"
+                } else {
+                    "Impossible de resynchroniser les données"
+                }
+                
+                android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                
+            } catch (e: Exception) {
+                AppLogger.e("AUTO_RESYNC", "❌ Erreur resynchronisation: ${e.message}")
+            }
         }
     }
 
@@ -1510,7 +1614,61 @@ fun ProfileScreen(
     val caloriesPerDay = calculateDailyCalories(age, weightNum, heightNum, genre, niveauActivite)
     val goalCalories = calculateGoalBasedCalories(age, weightNum, heightNum, genre, niveauActivite, objectif)
     val nutritionalRecommendations = getNutritionalRecommendations(objectif, weightNum)
-    val (totalSessions, totalMinutes, totalCalories) = dataManager.getTotalStats()
+    
+    // État pour les statistiques avec synchronisation API
+    var totalSessions by remember { mutableStateOf(0) }
+    var totalMinutes by remember { mutableStateOf(0) }
+    var totalCalories by remember { mutableStateOf(0) }
+    var isLoadingStats by remember { mutableStateOf(true) }
+    
+    // Synchroniser les statistiques depuis l'API
+    LaunchedEffect(Unit) {
+        try {
+            AppLogger.d("STATS_PROFILE", "📊 Chargement statistiques profil")
+            
+            // Essayer d'abord l'API
+            val apiService = ApiService.getInstance()
+            if (apiService.isApiAvailable()) {
+                AppLogger.api("STATS_PROFILE", "🌐 Récupération stats depuis API")
+                
+                val result = apiService.getCalendarHistory()
+                result.onSuccess { apiHistory ->
+                    val combinedHistory = (workoutHistory + apiHistory).distinctBy { it.date }
+                    val completedWorkouts = combinedHistory.filter { it.duration > 0 }
+                    
+                    totalSessions = completedWorkouts.size
+                    totalMinutes = completedWorkouts.sumOf { it.duration }
+                    totalCalories = completedWorkouts.sumOf { 
+                        calculateBurnedCalories(weightNum, it.duration, niveauActivite) 
+                    }
+                    
+                    AppLogger.success("STATS_PROFILE", "✅ Stats API: $totalSessions séances, $totalMinutes min")
+                }.onFailure { error ->
+                    AppLogger.w("STATS_PROFILE", "⚠️ Erreur API stats: ${error.message}")
+                    // Fallback vers les données locales
+                    val localStats = dataManager.getTotalStats()
+                    totalSessions = localStats.first
+                    totalMinutes = localStats.second  
+                    totalCalories = localStats.third
+                }
+            } else {
+                AppLogger.w("STATS_PROFILE", "⚠️ API indisponible, utilisation stats locales")
+                val localStats = dataManager.getTotalStats()
+                totalSessions = localStats.first
+                totalMinutes = localStats.second
+                totalCalories = localStats.third
+            }
+        } catch (e: Exception) {
+            AppLogger.e("STATS_PROFILE", "❌ Erreur chargement stats: ${e.message}")
+            // En cas d'erreur, utiliser les stats locales
+            val localStats = dataManager.getTotalStats()
+            totalSessions = localStats.first
+            totalMinutes = localStats.second
+            totalCalories = localStats.third
+        } finally {
+            isLoadingStats = false
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -1707,13 +1865,31 @@ fun ProfileScreen(
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        StatCard("Séances", totalSessions.toString())
-                        StatCard("Minutes", totalMinutes.toString())
-                        StatCard("Calories", totalCalories.toString())
+                    if (isLoadingStats) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = Accent
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Chargement des statistiques...",
+                                fontSize = 14.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            StatCard("Séances", totalSessions.toString())
+                            StatCard("Minutes", totalMinutes.toString())
+                            StatCard("Calories", totalCalories.toString())
+                        }
                     }
                 }
             }
@@ -3034,7 +3210,7 @@ fun WorkoutInProgressScreen(
                                 exercisesCompleted.forEach { exercise ->
                                     AppLogger.d("SEANCE", "   ${exercise.name}: ${exercise.sets} séries × ${exercise.reps} reps @ ${exercise.weight}kg")
                                 }
-                                
+
                                 // Sauvegarder localement
                                 onFinishWorkout(duration, exercisesCompleted)
 
@@ -3266,7 +3442,7 @@ fun CurrentExerciseCard(
     var alternativeExercises by remember { mutableStateOf<List<Machine>>(emptyList()) }
 
     val context = LocalContext.current
-    
+
     // Calculer les performances de l'exercice
     val exercisePerformances = remember(workoutHistory, trainingType) {
         extractExercisePerformances(workoutHistory, trainingType, context)
@@ -4090,7 +4266,7 @@ fun extractExercisePerformances(
     AppLogger.d("ANALYSE_INTELLIGENTE", "🔍 Début extraction performances exercices")
     AppLogger.d("ANALYSE_INTELLIGENTE", "   Type entraînement: $trainingType")
     AppLogger.d("ANALYSE_INTELLIGENTE", "   Historique local: ${workoutHistory.size} séances")
-    
+
     val performances = mutableMapOf<String, ExercisePerformance>()
 
     // Priorité 1: Essayer de récupérer les données de l'API
@@ -4099,21 +4275,21 @@ fun extractExercisePerformances(
             val apiService = ApiService.getInstance()
             if (apiService.isApiAvailable()) {
                 AppLogger.api("ANALYSE_INTELLIGENTE", "🌐 API disponible, tentative récupération progressions")
-                
+
                 // Essayer de récupérer les progressions depuis l'API
                 kotlinx.coroutines.runBlocking {
                     try {
                         val progressionsResponse = apiService.getApi().getUserProgressions(trainingType)
                         if (progressionsResponse.success && progressionsResponse.data.isNotEmpty()) {
                             AppLogger.success("ANALYSE_INTELLIGENTE", "✅ ${progressionsResponse.data.size} progressions récupérées depuis API")
-                            
+
                             // Convertir les progressions API en performances locales
                             progressionsResponse.data.forEach { progression ->
                                 val performance = convertProgressionToPerformance(progression, trainingType)
                                 performances[progression.machine_nom] = performance
                                 AppLogger.d("ANALYSE_INTELLIGENTE", "   API: ${progression.machine_nom} -> ${progression.taux_reussite}% réussite")
                             }
-                            
+
                             AppLogger.success("ANALYSE_INTELLIGENTE", "✅ Analyse terminée avec données API: ${performances.size} exercices")
                             return@runBlocking
                         } else {
@@ -4148,7 +4324,7 @@ fun extractExercisePerformances(
                 if (exerciseHistories.isNotEmpty()) {
                     exercisesAnalyzed++
                     AppLogger.d("ANALYSE_INTELLIGENTE", "   Exercice ${exercise.name}: ${exerciseHistories.size} occurrences trouvées")
-                    
+
                     // Prendre la performance la plus récente
                     val mostRecent = exerciseHistories.first()
                     val mostRecentExercise = mostRecent.exercises.first { it.name == exercise.name }
@@ -4192,7 +4368,7 @@ fun getSmartRecommendedWeight(
 ): Double {
     AppLogger.d("POIDS_INTELLIGENT", "🤖 Calcul poids intelligent pour ${machine.nom}")
     AppLogger.d("POIDS_INTELLIGENT", "   Type: $trainingType, Profil: ${profileData.objectif}")
-    
+
     // D'abord essayer d'utiliser l'analyse intelligente
     val performances = extractExercisePerformances(workoutHistory, trainingType, context)
     val performance = performances[machine.nom]
@@ -4216,7 +4392,7 @@ fun getSmartRecommendedWeight(
             startingWeight
         }
     }
-    
+
     AppLogger.d("POIDS_INTELLIGENT", "✅ Poids final recommandé: ${recommendedWeight}kg")
     return recommendedWeight
 }
@@ -4233,11 +4409,11 @@ fun convertProgressionToPerformance(
         "endurance" -> Pair(3, 15)
         else -> Pair(3, 10)
     }
-    
+
     // Estimer les séries et répétitions réalisées selon le taux de réussite
     val achievedSets = if (progression.taux_reussite >= 80) targetSets else (targetSets * 0.8).toInt()
     val achievedReps = if (progression.taux_reussite >= 80) targetReps else (targetReps * 0.8).toInt()
-    
+
     // Créer la recommandation de poids
     val recommendation = when {
         progression.taux_reussite >= 90.0 -> {
@@ -4255,7 +4431,7 @@ fun convertProgressionToPerformance(
             WeightRecommendation.Decrease(newWeight, "Taux de réussite faible (${progression.taux_reussite.toInt()}%), diminution pour améliorer la technique")
         }
     }
-    
+
     return ExercisePerformance(
         machineName = progression.machine_nom,
         lastWeight = progression.poids_actuel,
