@@ -684,15 +684,15 @@ fun MainScreen() {
                         )
 
                         if (result.isSuccess) {
-                            android.util.Log.d("WorkoutSync", "✅ Séance terminée synchronisée avec la BDD")
+                            AppLogger.success("SEANCE_SYNC", "✅ Séance synchronisée avec la BDD: ${newEntry.mode}")
                             withContext(Dispatchers.Main) {
                                 android.widget.Toast.makeText(context, "✅ Séance synchronisée avec la base de données", android.widget.Toast.LENGTH_SHORT).show()
                             }
                         } else {
-                            android.util.Log.e("WorkoutSync", "❌ Erreur sync BDD: ${result.exceptionOrNull()?.message}")
+                            AppLogger.e("SEANCE_SYNC", "❌ Erreur synchronisation BDD: ${result.exceptionOrNull()?.message}")
                         }
                     } catch (e: Exception) {
-                        android.util.Log.e("WorkoutSync", "❌ Exception sync séance: ${e.message}")
+                        AppLogger.e("SEANCE_SYNC", "❌ Exception synchronisation séance: ${e.message}", e)
                     }
                 }
 
@@ -2686,7 +2686,8 @@ fun WorkoutInProgressScreen(
                         machine = machine,
                         profileData = profileData.copy(objectif = goalObjective),
                         workoutHistory = workoutHistory,
-                        trainingType = goalObjective
+                        trainingType = goalObjective,
+                        context = context
                     )
 
                     ExerciseSession(
@@ -3028,15 +3029,19 @@ fun WorkoutInProgressScreen(
                                     )
                                 }
 
+                                // Log les détails de l'entraînement terminé
+                                AppLogger.d("SEANCE", "🏋️ Détails de la séance terminée:")
+                                exercisesCompleted.forEach { exercise ->
+                                    AppLogger.d("SEANCE", "   ${exercise.name}: ${exercise.sets} séries × ${exercise.reps} reps @ ${exercise.weight}kg")
+                                }
+                                
                                 // Sauvegarder localement
                                 onFinishWorkout(duration, exercisesCompleted)
 
                                 // Nettoyer l'état d'entraînement sauvegardé
                                 dataManager.clearCurrentWorkout()
 
-                                // NOTE: La sauvegarde se fait automatiquement dans onFinishWorkout
-                                // Pas besoin de sauvegarder ici pour éviter les doublons
-                                android.util.Log.d("WorkoutSync", "ℹ️ Entraînement terminé - Sauvegarde automatique via onFinishWorkout")
+                                AppLogger.success("SEANCE", "💾 Séance sauvegardée localement et synchronisée")
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -3260,13 +3265,13 @@ fun CurrentExerciseCard(
     var availableMachines by remember { mutableStateOf<List<Machine>>(emptyList()) }
     var alternativeExercises by remember { mutableStateOf<List<Machine>>(emptyList()) }
 
+    val context = LocalContext.current
+    
     // Calculer les performances de l'exercice
     val exercisePerformances = remember(workoutHistory, trainingType) {
-        extractExercisePerformances(workoutHistory, trainingType)
+        extractExercisePerformances(workoutHistory, trainingType, context)
     }
     val currentPerformance = exercisePerformances[exerciseSession.machine.nom]
-
-    val context = LocalContext.current
 
     // Charger les machines disponibles pour les alternatives
     LaunchedEffect(Unit) {
@@ -3348,7 +3353,8 @@ fun CurrentExerciseCard(
                 exerciseSession.machine,
                 profileData,
                 workoutHistory,
-                trainingType
+                trainingType,
+                context
             )
             if (suggestedWeight > 0) "${suggestedWeight.toInt()}kg (intelligent)" else "Poids à déterminer"
         }
@@ -3611,7 +3617,8 @@ fun CurrentExerciseCard(
                                             exerciseSession.machine,
                                             profileData,
                                             workoutHistory,
-                                            trainingType
+                                            trainingType,
+                                            context
                                         )
                                         if (suggested > 0) "Intelligent: ${suggested.toInt()}kg" else "À déterminer"
                                     }
@@ -4074,16 +4081,61 @@ fun analyzeExercisePerformance(
     )
 }
 
-// Fonction pour extraire les performances depuis l'historique des workouts
+// Fonction pour extraire les performances depuis l'historique des workouts et l'API
 fun extractExercisePerformances(
     workoutHistory: List<WorkoutEntry>,
-    trainingType: String
+    trainingType: String,
+    context: android.content.Context? = null
 ): Map<String, ExercisePerformance> {
+    AppLogger.d("ANALYSE_INTELLIGENTE", "🔍 Début extraction performances exercices")
+    AppLogger.d("ANALYSE_INTELLIGENTE", "   Type entraînement: $trainingType")
+    AppLogger.d("ANALYSE_INTELLIGENTE", "   Historique local: ${workoutHistory.size} séances")
+    
     val performances = mutableMapOf<String, ExercisePerformance>()
 
-    // Analyser chaque workout de l'historique (plus récent en premier)
-    val sortedHistory = workoutHistory.sortedByDescending { it.date }
+    // Priorité 1: Essayer de récupérer les données de l'API
+    context?.let { ctx ->
+        try {
+            val apiService = ApiService.getInstance()
+            if (apiService.isApiAvailable()) {
+                AppLogger.api("ANALYSE_INTELLIGENTE", "🌐 API disponible, tentative récupération progressions")
+                
+                // Essayer de récupérer les progressions depuis l'API
+                kotlinx.coroutines.runBlocking {
+                    try {
+                        val progressionsResponse = apiService.getApi().getUserProgressions(trainingType)
+                        if (progressionsResponse.success && progressionsResponse.data.isNotEmpty()) {
+                            AppLogger.success("ANALYSE_INTELLIGENTE", "✅ ${progressionsResponse.data.size} progressions récupérées depuis API")
+                            
+                            // Convertir les progressions API en performances locales
+                            progressionsResponse.data.forEach { progression ->
+                                val performance = convertProgressionToPerformance(progression, trainingType)
+                                performances[progression.machine_nom] = performance
+                                AppLogger.d("ANALYSE_INTELLIGENTE", "   API: ${progression.machine_nom} -> ${progression.taux_reussite}% réussite")
+                            }
+                            
+                            AppLogger.success("ANALYSE_INTELLIGENTE", "✅ Analyse terminée avec données API: ${performances.size} exercices")
+                            return@runBlocking
+                        } else {
+                            AppLogger.w("ANALYSE_INTELLIGENTE", "⚠️ Aucune progression API trouvée, fallback vers historique local")
+                        }
+                    } catch (e: Exception) {
+                        AppLogger.e("ANALYSE_INTELLIGENTE", "❌ Erreur appel API progressions: ${e.message}")
+                    }
+                }
+            } else {
+                AppLogger.w("ANALYSE_INTELLIGENTE", "⚠️ API indisponible, utilisation historique local uniquement")
+            }
+        } catch (e: Exception) {
+            AppLogger.e("ANALYSE_INTELLIGENTE", "❌ Erreur accès API: ${e.message}")
+        }
+    }
 
+    // Priorité 2: Analyser l'historique local (fallback)
+    val sortedHistory = workoutHistory.sortedByDescending { it.date }
+    AppLogger.d("ANALYSE_INTELLIGENTE", "📊 Analyse historique local trié: ${sortedHistory.size} séances")
+
+    var exercisesAnalyzed = 0
     for (workout in sortedHistory) {
         for (exercise in workout.exercises) {
             // Si on n'a pas encore analysé cet exercice
@@ -4094,6 +4146,9 @@ fun extractExercisePerformances(
                 }
 
                 if (exerciseHistories.isNotEmpty()) {
+                    exercisesAnalyzed++
+                    AppLogger.d("ANALYSE_INTELLIGENTE", "   Exercice ${exercise.name}: ${exerciseHistories.size} occurrences trouvées")
+                    
                     // Prendre la performance la plus récente
                     val mostRecent = exerciseHistories.first()
                     val mostRecentExercise = mostRecent.exercises.first { it.name == exercise.name }
@@ -4117,11 +4172,13 @@ fun extractExercisePerformances(
                     )
 
                     performances[exercise.name] = performance
+                    AppLogger.d("ANALYSE_INTELLIGENTE", "   Performance calculée: poids=${performance.lastWeight}kg, succès=${performance.successRate}%")
                 }
             }
         }
     }
 
+    AppLogger.success("ANALYSE_INTELLIGENTE", "✅ Extraction terminée: $exercisesAnalyzed exercices analysés, ${performances.size} performances calculées")
     return performances
 }
 
@@ -4130,21 +4187,86 @@ fun getSmartRecommendedWeight(
     machine: Machine,
     profileData: ProfileData,
     workoutHistory: List<WorkoutEntry>,
-    trainingType: String
+    trainingType: String,
+    context: android.content.Context? = null
 ): Double {
+    AppLogger.d("POIDS_INTELLIGENT", "🤖 Calcul poids intelligent pour ${machine.nom}")
+    AppLogger.d("POIDS_INTELLIGENT", "   Type: $trainingType, Profil: ${profileData.objectif}")
+    
     // D'abord essayer d'utiliser l'analyse intelligente
-    val performances = extractExercisePerformances(workoutHistory, trainingType)
+    val performances = extractExercisePerformances(workoutHistory, trainingType, context)
     val performance = performances[machine.nom]
 
-    return when (val recommendation = performance?.recommendation) {
-        is WeightRecommendation.Increase -> recommendation.newWeight
-        is WeightRecommendation.Decrease -> recommendation.newWeight
-        is WeightRecommendation.Maintain -> performance.lastWeight
+    val recommendedWeight = when (val recommendation = performance?.recommendation) {
+        is WeightRecommendation.Increase -> {
+            AppLogger.success("POIDS_INTELLIGENT", "📈 Recommandation: Augmentation ${performance.lastWeight}kg → ${recommendation.newWeight}kg")
+            recommendation.newWeight
+        }
+        is WeightRecommendation.Decrease -> {
+            AppLogger.w("POIDS_INTELLIGENT", "📉 Recommandation: Diminution ${performance.lastWeight}kg → ${recommendation.newWeight}kg")
+            recommendation.newWeight
+        }
+        is WeightRecommendation.Maintain -> {
+            AppLogger.d("POIDS_INTELLIGENT", "➡️ Recommandation: Maintien à ${performance.lastWeight}kg")
+            performance.lastWeight
+        }
         is WeightRecommendation.Pending, null -> {
-            // Pas d'historique, utiliser le calcul de base
-            calculateStartingWeight(machine, profileData)
+            val startingWeight = calculateStartingWeight(machine, profileData)
+            AppLogger.d("POIDS_INTELLIGENT", "🎯 Pas d'historique, poids de départ calculé: ${startingWeight}kg")
+            startingWeight
         }
     }
+    
+    AppLogger.d("POIDS_INTELLIGENT", "✅ Poids final recommandé: ${recommendedWeight}kg")
+    return recommendedWeight
+}
+
+// Fonction pour convertir les progressions API en performances locales
+fun convertProgressionToPerformance(
+    progression: com.basicfit.app.data.UserProgression,
+    trainingType: String
+): ExercisePerformance {
+    // Calculer les objectifs selon le type d'entraînement
+    val (targetSets, targetReps) = when (trainingType.lowercase()) {
+        "force", "puissance" -> Pair(4, 5)
+        "volume", "prise de masse" -> Pair(4, 10)
+        "endurance" -> Pair(3, 15)
+        else -> Pair(3, 10)
+    }
+    
+    // Estimer les séries et répétitions réalisées selon le taux de réussite
+    val achievedSets = if (progression.taux_reussite >= 80) targetSets else (targetSets * 0.8).toInt()
+    val achievedReps = if (progression.taux_reussite >= 80) targetReps else (targetReps * 0.8).toInt()
+    
+    // Créer la recommandation de poids
+    val recommendation = when {
+        progression.taux_reussite >= 90.0 -> {
+            val newWeight = progression.poids_actuel + 2.5 // Incrément standard
+            WeightRecommendation.Increase(newWeight, "Excellent taux de réussite (${progression.taux_reussite.toInt()}%), augmentation recommandée")
+        }
+        progression.taux_reussite >= 70.0 -> {
+            WeightRecommendation.Maintain("Bon taux de réussite, maintien du poids")
+        }
+        progression.taux_reussite >= 50.0 -> {
+            WeightRecommendation.Maintain("Taux correct, stabilisation recommandée")
+        }
+        else -> {
+            val newWeight = maxOf(progression.poids_actuel - 2.5, progression.poids_actuel * 0.9)
+            WeightRecommendation.Decrease(newWeight, "Taux de réussite faible (${progression.taux_reussite.toInt()}%), diminution pour améliorer la technique")
+        }
+    }
+    
+    return ExercisePerformance(
+        machineName = progression.machine_nom,
+        lastWeight = progression.poids_actuel,
+        targetSets = targetSets,
+        targetReps = targetReps,
+        achievedSets = achievedSets,
+        achievedReps = achievedReps,
+        successRate = progression.taux_reussite,
+        lastSessionDate = progression.derniere_seance ?: java.time.LocalDate.now().toString(),
+        recommendation = recommendation
+    )
 }
 
 @Composable

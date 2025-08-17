@@ -697,3 +697,114 @@ def get_session_recommendations(request):
     except Exception as e:
         logger.error(f"Erreur dans get_session_recommendations: {e}")
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_intelligent_recommendations(request, mode_entrainement):
+    """
+    Endpoint pour récupérer les recommandations intelligentes basées sur les progressions
+    Compatible avec l'application Android
+    """
+    try:
+        user = request.user
+        nb_machines = int(request.GET.get('nb_machines', 6))
+        
+        logger.info(f"Demande recommandations intelligentes: user={user.id}, mode={mode_entrainement}, nb={nb_machines}")
+        
+        # Créer le système de recommandation
+        recommendation_system = ProgressionBasedRecommendationSystem()
+        
+        # Générer les recommandations
+        recommendations = recommendation_system.get_recommendations_for_user(
+            user=user,
+            mode_entrainement=mode_entrainement.upper(),
+            nb_machines=nb_machines
+        )
+        
+        response_data = {
+            'success': True,
+            'data': recommendations,
+            'message': f'Recommandations intelligentes générées pour {mode_entrainement}',
+            'mode_entrainement': mode_entrainement,
+            'count': len(recommendations)
+        }
+        
+        logger.info(f"Recommandations intelligentes envoyées: {len(recommendations)} machines")
+        return Response(response_data, status=status.HTTP_200_OK)
+        
+    except ValueError as e:
+        logger.error(f"Erreur paramètre dans get_intelligent_recommendations: {e}")
+        return Response({
+            'success': False,
+            'message': f'Paramètre invalide: {str(e)}',
+            'data': [],
+            'count': 0
+        }, status=status.HTTP_400_BAD_REQUEST)
+        
+    except Exception as e:
+        logger.error(f"Erreur dans get_intelligent_recommendations: {e}")
+        return Response({
+            'success': False,
+            'message': f'Erreur serveur: {str(e)}',
+            'data': [],
+            'count': 0
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_progressions(request):
+    """
+    Endpoint pour récupérer les progressions d'un utilisateur
+    Compatible avec l'application Android
+    """
+    try:
+        user = request.user
+        mode_entrainement = request.GET.get('mode_entrainement')
+        
+        logger.info(f"Demande progressions: user={user.id}, mode={mode_entrainement}")
+        
+        # Construire la requête
+        queryset = ProgressionMachine.objects.filter(utilisateur=user).select_related('machine', 'mode_entrainement')
+        
+        if mode_entrainement:
+            queryset = queryset.filter(mode_entrainement__nom=mode_entrainement.upper())
+            
+        progressions = queryset.order_by('-derniere_progression', '-taux_reussite')
+        
+        # Sérialiser les données
+        progressions_data = []
+        for progression in progressions:
+            progressions_data.append({
+                'id': progression.id,
+                'machine_id': progression.machine.id,
+                'machine_nom': progression.machine.nom,
+                'mode_entrainement': progression.mode_entrainement.nom if progression.mode_entrainement else '',
+                'poids_actuel': progression.poids_actuel,
+                'taux_reussite': progression.taux_reussite,
+                'nombre_seances_machine': progression.nombre_seances_machine,
+                'dernier_1rm': progression.dernier_1rm,
+                'progression_poids_total': progression.progression_poids_total,
+                'derniere_progression': progression.derniere_progression.isoformat() if progression.derniere_progression else None,
+                'derniere_seance': progression.derniere_seance.date_debut.isoformat() if progression.derniere_seance else None
+            })
+        
+        response_data = {
+            'success': True,
+            'data': progressions_data,
+            'message': f'Progressions récupérées pour l\'utilisateur',
+            'count': len(progressions_data)
+        }
+        
+        logger.info(f"Progressions envoyées: {len(progressions_data)} entrées")
+        return Response(response_data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Erreur dans get_user_progressions: {e}")
+        return Response({
+            'success': False,
+            'message': f'Erreur serveur: {str(e)}',
+            'data': [],
+            'count': 0
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

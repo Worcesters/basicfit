@@ -231,6 +231,21 @@ interface BasicFitApi {
     // Récupérer le résumé calendrier
     @GET("workouts/simple/summary/")
     suspend fun getCalendarSummary(): CalendarSummaryResponse
+    
+    // ========== NOUVELLES APIs RECOMMANDATIONS INTELLIGENTES ==========
+    
+    // Récupérer les recommandations intelligentes basées sur les progressions
+    @GET("workouts/recommendations/{mode_entrainement}/")
+    suspend fun getIntelligentRecommendations(
+        @Path("mode_entrainement") modeEntrainement: String,
+        @Query("nb_machines") nbMachines: Int = 6
+    ): IntelligentRecommendationsResponse
+    
+    // Récupérer les progressions d'un utilisateur
+    @GET("workouts/progressions/")
+    suspend fun getUserProgressions(
+        @Query("mode_entrainement") modeEntrainement: String? = null
+    ): ProgressionsResponse
 }
 
 // ==============================================

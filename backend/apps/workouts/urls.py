@@ -16,6 +16,10 @@ urlpatterns = [
     path('recommendations/<int:machine_id>/', views.get_recommendation, name='get_recommendation'),
     path('recommendations/name/<str:machine_name>/', views.get_recommendation_by_name, name='get_recommendation_by_name'),
     path('recommendations/session/', views.get_session_recommendations, name='get_session_recommendations'),
+    
+    # Nouveaux endpoints pour l'analyse intelligente
+    path('recommendations/<str:mode_entrainement>/', views.get_intelligent_recommendations, name='get_intelligent_recommendations'),
+    path('progressions/', views.get_user_progressions, name='get_user_progressions'),
 
     # Endpoints d'information
     path('info/', views_refactored.workouts_info, name='workouts_info'),

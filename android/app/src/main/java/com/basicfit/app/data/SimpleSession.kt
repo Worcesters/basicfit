@@ -107,3 +107,59 @@ data class CalendarSummaryResponse(
     val data: CalendarSummary,
     val message: String
 )
+
+/**
+ * Modèles pour les recommandations intelligentes
+ */
+data class IntelligentRecommendation(
+    val machine_id: Long,
+    val machine_nom: String,
+    val machine_categorie: String,
+    val poids_recommande: Double,
+    val series_recommandees: Int,
+    val repetitions_recommandees: Int,
+    val repos_recommande: Int,
+    val notes: String,
+    val progression_info: ProgressionInfo,
+    val recommandation_source: String
+)
+
+data class ProgressionInfo(
+    val poids_actuel: Double,
+    val taux_reussite: Double,
+    val nombre_seances: Int,
+    val dernier_1rm: Double?,
+    val progression_totale: Double
+)
+
+data class IntelligentRecommendationsResponse(
+    val success: Boolean,
+    val data: List<IntelligentRecommendation>,
+    val message: String,
+    val mode_entrainement: String,
+    val count: Int
+)
+
+/**
+ * Modèles pour les progressions utilisateur
+ */
+data class UserProgression(
+    val id: Long,
+    val machine_id: Long,
+    val machine_nom: String,
+    val mode_entrainement: String,
+    val poids_actuel: Double,
+    val taux_reussite: Double,
+    val nombre_seances_machine: Int,
+    val dernier_1rm: Double?,
+    val progression_poids_total: Double,
+    val derniere_progression: String?,
+    val derniere_seance: String?
+)
+
+data class ProgressionsResponse(
+    val success: Boolean,
+    val data: List<UserProgression>,
+    val message: String,
+    val count: Int
+)
