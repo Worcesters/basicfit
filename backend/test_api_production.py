@@ -94,8 +94,11 @@ def test_api_production():
         print(f"Status machines: {machines_response.status_code}")
         
         if machines_response.status_code == 200:
-            machines = machines_response.json()
-            print(f"[OK] {len(machines)} machines recuperees")
+            machines_data = machines_response.json()
+            # L'API retourne une structure avec 'results' et 'count'
+            machines = machines_data.get('results', [])
+            count = machines_data.get('count', 0)
+            print(f"[OK] {count} machines recuperees")
             
             # Trouver Supine Press
             supine_press = None
@@ -124,7 +127,7 @@ def test_api_production():
         try:
             # Test par ID
             rec_response = requests.get(
-                f"{API_BASE}/workouts/recommendation/simple/{supine_press['id']}/",
+                f"{API_BASE}/workouts/recommendations/{supine_press['id']}/",
                 headers=headers,
                 timeout=10
             )
