@@ -11,9 +11,15 @@ from apps.users.models import User
 from apps.machines.models import Machine, VarianteMachine
 from apps.core.models import ModeEntrainement
 
-# Import du nouveau modèle simple
-from .models_simple import SeanceSimple
+# Import des nouveaux modèles (les anciens sont obsolètes)
+from .models_refactored import (
+    SeanceEffectuee, ExerciceEffectue, SerieEffectuee,
+    CalendrierSeance, ExercicePlanifie
+)
 
+
+# ===== MODÈLES OBSOLÈTES (GARDÉS POUR LES MIGRATIONS) =====
+# Ces modèles ne sont plus utilisés mais gardés pour éviter les erreurs de migration
 
 class SeanceEntrainement(TimeStampedModel):
     """
@@ -154,6 +160,7 @@ class SeanceEntrainement(TimeStampedModel):
     )
 
     class Meta:
+        db_table = 'bf_seances_entrainement'
         verbose_name = "Séance d'entraînement"
         verbose_name_plural = "Séances d'entraînement"
         ordering = ['-date_prevue']
@@ -334,6 +341,7 @@ class ExerciceSeance(TimeStampedModel):
     )
 
     class Meta:
+        db_table = 'bf_exercices_realises'
         verbose_name = "Exercice de séance"
         verbose_name_plural = "Exercices de séances"
         ordering = ['seance', 'ordre_dans_seance']
@@ -470,6 +478,7 @@ class SeriExercice(TimeStampedModel):
     )
 
     class Meta:
+        db_table = 'bf_series_exercices'
         verbose_name = "Série d'exercice"
         verbose_name_plural = "Séries d'exercices"
         ordering = ['exercice', 'numero_serie']
@@ -579,6 +588,7 @@ class ProgressionMachine(TimeStampedModel):
     )
 
     class Meta:
+        db_table = 'bf_progression_utilisateurs'
         verbose_name = "Progression sur machine"
         verbose_name_plural = "Progressions sur machines"
         unique_together = ['utilisateur', 'machine', 'mode_entrainement']

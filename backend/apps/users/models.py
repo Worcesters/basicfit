@@ -136,6 +136,7 @@ class User(AbstractUser):
     REQUIRED_FIELDS = ['prenom', 'nom']
 
     class Meta:
+        db_table = 'bf_utilisateurs'
         verbose_name = "Utilisateur"
         verbose_name_plural = "Utilisateurs"
         ordering = ['-date_joined']
@@ -220,6 +221,7 @@ class ProfilUtilisateur(TimeStampedModel):
     )
 
     class Meta:
+        db_table = 'bf_profils_utilisateurs'
         verbose_name = "Profil utilisateur"
         verbose_name_plural = "Profils utilisateurs"
 

@@ -692,6 +692,39 @@ private fun DayDetailsSection(
     onEntryClick: (WorkoutEntry) -> Unit,
     onStartWorkout: (List<Machine>, String) -> Unit
 ) {
+    val context = LocalContext.current
+    var machinesList by remember { mutableStateOf<List<Machine>>(emptyList()) }
+    
+    // Charger les machines depuis l'API
+    LaunchedEffect(Unit) {
+        try {
+            val api = ApiService.getInstance().apply { initialize(context) }.getApi()
+            val response = api.getMachines()
+            if (response.results.isNotEmpty()) {
+                val remoteMachines = response.results.mapNotNull { dto ->
+                    try {
+                        Machine(
+                            id = dto.id,
+                            nom = dto.nom,
+                            description = dto.description ?: "",
+                            instructions = dto.instructions ?: "",
+                            categorie = CategorieMachine.values().find { it.displayName.equals(dto.categorie ?: "", true) }
+                                ?: CategorieMachine.MUSCULATION,
+                            groupeMusculairePrimaire = dto.groupe_musculaire_primaires?.firstOrNull()?.get("nom") ?: "",
+                            incrementPoids = 2.5,
+                            poidsMinimum = 0.0,
+                            poidsMaximum = 200.0,
+                            imageGif = dto.image_gif
+                        )
+                    } catch (_: Exception) { null }
+                }
+                machinesList = remoteMachines
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("MachinesAPI", "❌ Erreur chargement machines: ${e.message}")
+            machinesList = emptyList()
+        }
+    }
     androidx.compose.material3.Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -719,18 +752,25 @@ private fun DayDetailsSection(
                     onStartWorkout = if (entry.duration == 0) {
                         {
                             // Convertir WorkoutEntry en machines pour démarrer l'entraînement
-                            val machines = entry.exercises.map { exercise ->
-                                Machine(
-                                    id = 0, // ID temporaire
-                                    nom = exercise.name,
-                                    nomAnglais = exercise.name,
-                                    description = "Machine générée depuis calendrier",
-                                    instructions = "Exercice importé depuis le calendrier",
-                                    categorie = CategorieMachine.MUSCULATION,
-                                    groupeMusculairePrimaire = "Général",
-                                    imageGif = null,
-                                    tempo = null
-                                )
+                            val machines = entry.exercises.mapNotNull { exercise ->
+                                // Chercher la vraie machine dans l'API par nom
+                                val realMachine = machinesList.find { it.nom.equals(exercise.name, ignoreCase = true) }
+                                if (realMachine != null) {
+                                    realMachine
+                                } else {
+                                    // Fallback si la machine n'est pas trouvée
+                                    Machine(
+                                        id = 0, // ID temporaire
+                                        nom = exercise.name,
+                                        nomAnglais = exercise.name,
+                                        description = "Machine générée depuis calendrier",
+                                        instructions = "Exercice importé depuis le calendrier",
+                                        categorie = CategorieMachine.MUSCULATION,
+                                        groupeMusculairePrimaire = "Général",
+                                        imageGif = null,
+                                        tempo = null
+                                    )
+                                }
                             }
                             onStartWorkout(machines, entry.mode)
                         }

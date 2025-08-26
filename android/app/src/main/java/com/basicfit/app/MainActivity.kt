@@ -789,11 +789,17 @@ fun MainScreen() {
 
                         if (result.isSuccess) {
                             AppLogger.success("SEANCE_SYNC", "✅ Séance synchronisée avec la BDD: ${newEntry.mode}")
+                            AppLogger.d("SEANCE_SYNC", "   📊 Volume total: ${newEntry.totalWeight}kg")
+                            AppLogger.d("SEANCE_SYNC", "   ⏱️ Durée: ${newEntry.duration} min")
+                            AppLogger.d("SEANCE_SYNC", "   💪 ${newEntry.exercises.size} exercices")
+                            AppLogger.api("SEANCE_SYNC", "   💾 Données sauvegardées dans table: SeanceEffectuee")
+                            
                             withContext(Dispatchers.Main) {
                                 android.widget.Toast.makeText(context, "✅ Séance synchronisée avec la base de données", android.widget.Toast.LENGTH_SHORT).show()
                             }
                         } else {
                             AppLogger.e("SEANCE_SYNC", "❌ Erreur synchronisation BDD: ${result.exceptionOrNull()?.message}")
+                            AppLogger.e("SEANCE_SYNC", "   ⚠️ La séance reste uniquement en local")
                         }
                     } catch (e: Exception) {
                         AppLogger.e("SEANCE_SYNC", "❌ Exception synchronisation séance: ${e.message}", e)
@@ -887,26 +893,24 @@ fun MainScreen() {
                             AppLogger.d("CSV_SYNC", "   Exercices: ${importedEntry.exercises.size}")
 
                             try {
-                                // Pour les séances importées CSV (planifiées), utiliser planWorkout
-                                AppLogger.api("CSV_SYNC", "📤 Planification séance vers API: ${importedEntry.mode}")
+                                // CORRECTION: Les séances CSV sont des séances EFFECTUÉES, pas planifiées
+                                AppLogger.api("CSV_SYNC", "💾 Enregistrement séance effectuée vers API: ${importedEntry.mode}")
+                                AppLogger.d("CSV_SYNC", "   📝 Table destination: SeanceEffectuee (nouvelles tables)")
 
-                                val planRequest = PlanWorkoutRequest(
+                                val result = syncManager.saveWorkoutToServer(
                                     nom = importedEntry.mode,
-                                    date = "${importedEntry.date}T12:00:00Z",
-                                    duree = if (importedEntry.exercises.isEmpty()) 45 else importedEntry.exercises.size * 5, // Estimation
-                                    commentaire = "Importé depuis CSV - ${importedEntry.exercises.size} exercices"
+                                    dateDebut = "${importedEntry.date}T12:00:00",
+                                    dureeMinutes = importedEntry.duration,
+                                    exercises = importedEntry.exercises
                                 )
 
-                                AppLogger.d("CSV_SYNC", "   Request: nom='${planRequest.nom}', date='${planRequest.date}', duree=${planRequest.duree}")
-
-                                val response = apiService.getApi().planWorkout(planRequest)
-
-                                if (response.success) {
+                                if (result.isSuccess) {
                                     successCount++
-                                    AppLogger.success("CSV_SYNC", "✅ Séance CSV planifiée: ${importedEntry.mode}")
+                                    AppLogger.success("CSV_SYNC", "✅ Séance CSV enregistrée dans SeanceEffectuee: ${importedEntry.mode}")
+                                    AppLogger.d("CSV_SYNC", "   📊 ${importedEntry.exercises.size} exercices sauvegardés")
                                 } else {
                                     errorCount++
-                                    AppLogger.e("CSV_SYNC", "❌ Erreur planification CSV: ${response.message}")
+                                    AppLogger.e("CSV_SYNC", "❌ Erreur enregistrement CSV: ${result.exceptionOrNull()?.message}")
                                 }
                             } catch (e: Exception) {
                                 errorCount++
@@ -4326,9 +4330,14 @@ fun extractExercisePerformances(
                             }
 
                             AppLogger.success("ANALYSE_INTELLIGENTE", "✅ Analyse terminée avec données API: ${performances.size} exercices")
+                            AppLogger.api("ANALYSE_INTELLIGENTE", "   📊 Source: Tables SeanceEffectuee + ExerciceEffectue + ProgressionMachine")
+                            performances.forEach { (machine, perf) ->
+                                AppLogger.d("ANALYSE_INTELLIGENTE", "   🏋️ $machine: ${perf.lastWeight}kg (${perf.successRate.toInt()}% réussite)")
+                            }
                             return@runBlocking
                         } else {
                             AppLogger.w("ANALYSE_INTELLIGENTE", "⚠️ Aucune progression API trouvée, fallback vers historique local")
+                            AppLogger.w("ANALYSE_INTELLIGENTE", "   📱 Source: Données locales (moins précises)")
                         }
                     } catch (e: Exception) {
                         AppLogger.e("ANALYSE_INTELLIGENTE", "❌ Erreur appel API progressions: ${e.message}")
@@ -4343,6 +4352,10 @@ fun extractExercisePerformances(
     }
 
     // Priorité 2: Analyser l'historique local (fallback)
+    if (performances.isEmpty()) {
+        AppLogger.w("ANALYSE_INTELLIGENTE", "⚠️ Fallback complet vers historique local")
+        AppLogger.w("ANALYSE_INTELLIGENTE", "   📱 Source: SharedPreferences (données limitées)")
+    }
     val sortedHistory = workoutHistory.sortedByDescending { it.date }
     AppLogger.d("ANALYSE_INTELLIGENTE", "📊 Analyse historique local trié: ${sortedHistory.size} séances")
 

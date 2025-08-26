@@ -2,7 +2,7 @@
 URLs pour l'API des entraînements - Version professionnelle refactorisée
 """
 from django.urls import path, include
-from . import views, views_refactored
+from . import views, views_refactored, api_seances_effectuees
 
 urlpatterns = [
     # NOUVEAUX ENDPOINTS CALENDRIER SIMPLIFIÉS
@@ -20,6 +20,11 @@ urlpatterns = [
     # Nouveaux endpoints pour l'analyse intelligente
     path('recommendations/<str:mode_entrainement>/', views.get_intelligent_recommendations, name='get_intelligent_recommendations'),
     path('progressions/', views.get_user_progressions, name='get_user_progressions'),
+
+    # NOUVEAUX ENDPOINTS SÉANCES EFFECTUÉES (séparées du calendrier)
+    path('seances-effectuees/', api_seances_effectuees.get_seances_effectuees, name='get_seances_effectuees'),
+    path('progressions-effectuees/', api_seances_effectuees.get_progressions_effectuees, name='get_progressions_effectuees'),
+    path('seance-effectuee/', api_seances_effectuees.save_seance_effectuee, name='save_seance_effectuee'),
 
     # Endpoints d'information
     path('info/', views_refactored.workouts_info, name='workouts_info'),

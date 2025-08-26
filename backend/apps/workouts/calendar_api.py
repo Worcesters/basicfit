@@ -188,14 +188,18 @@ def save_workout_simple(request):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # Créer la séance
+        duree_minutes = data.get('duree', 0)
+        date_debut = timezone.now()
+        date_fin = date_debut + timedelta(minutes=duree_minutes) if duree_minutes > 0 else None
+        
         seance = SeanceEntrainement.objects.create(
             utilisateur=user,
             nom=data.get('nom', 'Séance'),
-            date_prevue=timezone.now(),
-            date_debut=timezone.now(),
+            date_prevue=date_debut,
+            date_debut=date_debut,
+            date_fin=date_fin,
             statut='TERMINEE',
-            duree_prevue=data.get('duree', 0),
-            duree_reelle=data.get('duree', 0),
+            duree_prevue=duree_minutes,
             note_ressenti=data.get('note', 5),
             commentaire=data.get('commentaire', '')
         )

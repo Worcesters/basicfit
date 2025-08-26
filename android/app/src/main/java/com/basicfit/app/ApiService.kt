@@ -902,9 +902,24 @@ class SyncManager(private val context: Context) {
                     )
                 )
                 
+                // CORRECTION: Trouver le vrai machine_id
+                val machineId = try {
+                    // Recherche dans la liste des machines par nom
+                    val machines = apiService.getApi().getMachines()
+                    val foundMachine = machines.results.find { machine -> 
+                        machine.nom.equals(exercise.name, ignoreCase = true) 
+                    }
+                    foundMachine?.id ?: 1 // Fallback si pas trouvé
+                } catch (e: Exception) {
+                    android.util.Log.w("ApiService", "⚠️ Impossible de trouver machine pour ${exercise.name}: ${e.message}")
+                    1 // ID par défaut si erreur
+                }
+                
+                android.util.Log.d("SEANCE_SAVE", "📝 Exercice: ${exercise.name} -> Machine ID: $machineId")
+                
                 ExerciceEffectueData(
                     nom_exercice = exercise.name,
-                    machine_id = 1, // ID par défaut, sera amélioré plus tard
+                    machine_id = machineId,
                     series = seriesData
                 )
             }
@@ -925,8 +940,23 @@ class SyncManager(private val context: Context) {
                 exercices = exercicesEffectues
             )
 
+            // LOGS DÉTAILLÉS POUR DEBUG
+            android.util.Log.d("SEANCE_SAVE", "🔄 Tentative sauvegarde séance effectuée:")
+            android.util.Log.d("SEANCE_SAVE", "   • Nom: $nom")
+            android.util.Log.d("SEANCE_SAVE", "   • Date début: $dateDebut")
+            android.util.Log.d("SEANCE_SAVE", "   • Date fin: $dateFin")
+            android.util.Log.d("SEANCE_SAVE", "   • Durée: $dureeMinutes min")
+            android.util.Log.d("SEANCE_SAVE", "   • Nombre exercices: ${exercicesEffectues.size}")
+            
             // Utiliser le nouvel endpoint pour les séances effectuées
             val response = apiService.getApi().saveSeanceEffectuee(request)
+            
+            if (response.success) {
+                android.util.Log.d("SEANCE_SAVE", "✅ Séance sauvegardée avec succès dans la table SeanceEffectuee")
+            } else {
+                android.util.Log.e("SEANCE_SAVE", "❌ Échec sauvegarde séance effectuée")
+            }
+            
             Result.success(response.success)
         } catch (e: Exception) {
             Result.failure(e)

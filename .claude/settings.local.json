@@ -32,7 +32,9 @@
       "Bash(deploy_flyio.bat)",
       "Bash(fly secrets:*)",
       "Bash(fly postgres connect:*)",
-      "Bash(fly ssh console:*)"
+      "Bash(fly ssh console:*)",
+      "Bash(call:*)",
+      "Bash(.build_apk.bat)"
     ],
     "deny": []
   }

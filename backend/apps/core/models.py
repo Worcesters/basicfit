@@ -104,6 +104,7 @@ class ModeEntrainement(TimeStampedModel):
     is_active = models.BooleanField(default=True, verbose_name="Actif")
 
     class Meta:
+        db_table = 'bf_modes_entrainement'
         verbose_name = "Mode d'entraînement"
         verbose_name_plural = "Modes d'entraînement"
         ordering = ['nom']

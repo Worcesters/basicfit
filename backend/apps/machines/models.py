@@ -39,6 +39,7 @@ class GroupeMusculaire(TimeStampedModel):
     is_active = models.BooleanField(default=True, verbose_name="Actif")
 
     class Meta:
+        db_table = 'bf_groupes_musculaires'
         verbose_name = "Groupe musculaire"
         verbose_name_plural = "Groupes musculaires"
         ordering = ['ordre_affichage', 'nom']
@@ -83,6 +84,7 @@ class CategorieMachine(TimeStampedModel):
     is_active = models.BooleanField(default=True, verbose_name="Actif")
 
     class Meta:
+        db_table = 'bf_categories_machines'
         verbose_name = "Catégorie de machine"
         verbose_name_plural = "Catégories de machines"
         ordering = ['nom']
@@ -261,6 +263,7 @@ class Machine(SoftDeletableModel):
     )
 
     class Meta:
+        db_table = 'bf_machines_equipements'
         verbose_name = "Machine"
         verbose_name_plural = "Machines"
         ordering = ['categorie', 'ordre_affichage', 'nom']
@@ -337,6 +340,7 @@ class VarianteMachine(TimeStampedModel):
     is_active = models.BooleanField(default=True, verbose_name="Actif")
 
     class Meta:
+        db_table = 'bf_variantes_exercices'
         verbose_name = "Variante de machine"
         verbose_name_plural = "Variantes de machines"
         unique_together = ['machine', 'nom']
@@ -371,6 +375,7 @@ class MachineCategorie(TimeStampedModel):
     )
 
     class Meta:
+        db_table = 'bf_machines_categories_liens'
         verbose_name = "Association Machine-Catégorie"
         verbose_name_plural = "Associations Machine-Catégorie"
         unique_together = ['machine', 'categorie']
