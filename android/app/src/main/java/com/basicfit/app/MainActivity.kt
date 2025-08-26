@@ -1603,6 +1603,18 @@ fun ProfileScreen(
     var niveauActivite by remember { mutableStateOf(profileData.niveauActivite) }
     var objectif by remember { mutableStateOf(profileData.objectif) }
 
+    // Synchroniser les variables d'état quand profileData change (après reconnexion)
+    LaunchedEffect(profileData) {
+        nom = profileData.nom
+        email = profileData.email
+        dateNaissance = profileData.dateNaissance
+        poids = profileData.poids.toString()
+        taille = profileData.taille.toString()
+        genre = profileData.genre
+        niveauActivite = profileData.niveauActivite
+        objectif = profileData.objectif
+    }
+
     // Calculer l'âge
     val age = calculateAge(dateNaissance)
 
@@ -2849,12 +2861,12 @@ fun WorkoutInProgressScreen(
                         "Endurance" -> "Endurance"
                         else -> profileData.objectif
                     }
-                    // Utiliser des valeurs par défaut pour les exercices
+                    // Utiliser des valeurs par défaut pour les exercices (3 séries pour tous)
                     val (targetSets, targetReps, restTime) = when (goalObjective) {
-                        "Force", "Puissance" -> Triple(4, 5, 180)
-                        "Prise de masse", "Volume" -> Triple(4, 10, 90)
+                        "Force", "Puissance" -> Triple(3, 5, 180)
+                        "Prise de masse", "Volume" -> Triple(3, 10, 90)
                         "Endurance" -> Triple(3, 15, 60)
-                        "Sèche" -> Triple(4, 12, 75)
+                        "Sèche" -> Triple(3, 12, 75)
                         else -> Triple(3, 10, 90)
                     }
 
@@ -4279,15 +4291,38 @@ fun extractExercisePerformances(
                 // Essayer de récupérer les progressions depuis l'API
                 kotlinx.coroutines.runBlocking {
                     try {
-                        val progressionsResponse = apiService.getApi().getUserProgressions(trainingType)
-                        if (progressionsResponse.success && progressionsResponse.data.isNotEmpty()) {
+                        // Utiliser le nouvel endpoint pour les progressions basées sur les séances effectuées
+                        val progressionsResponse = apiService.getApi().getProgressionsEffectuees(90)
+                        if (progressionsResponse.success && !progressionsResponse.data.isNullOrEmpty()) {
                             AppLogger.success("ANALYSE_INTELLIGENTE", "✅ ${progressionsResponse.data.size} progressions récupérées depuis API")
 
                             // Convertir les progressions API en performances locales
-                            progressionsResponse.data.forEach { progression ->
-                                val performance = convertProgressionToPerformance(progression, trainingType)
-                                performances[progression.machine_nom] = performance
-                                AppLogger.d("ANALYSE_INTELLIGENTE", "   API: ${progression.machine_nom} -> ${progression.taux_reussite}% réussite")
+                            progressionsResponse.data.forEach { progressionAny ->
+                                try {
+                                    // Cast sécurisé vers Map pour accéder aux propriétés
+                                    val progressionMap = progressionAny as? Map<String, Any>
+                                    if (progressionMap != null) {
+                                        val machineNom = progressionMap["machine_nom"] as? String ?: ""
+                                        val tauxReussite = (progressionMap["taux_reussite_global"] as? Number)?.toFloat() ?: 75.0f
+                                        val poidsActuel = (progressionMap["poids_actuel"] as? Number)?.toFloat() ?: 0.0f
+                                        
+                                        val performance = ExercisePerformance(
+                                            machineName = machineNom,
+                                            lastWeight = poidsActuel.toDouble(),
+                                            targetSets = 3,
+                                            targetReps = 10,
+                                            achievedSets = 3,
+                                            achievedReps = 10,
+                                            successRate = tauxReussite.toDouble(),
+                                            lastSessionDate = progressionMap["derniere_seance"] as? String ?: "",
+                                            recommendation = null
+                                        )
+                                        performances[machineNom] = performance
+                                        AppLogger.d("ANALYSE_INTELLIGENTE", "   API: $machineNom -> ${tauxReussite}% réussite")
+                                    }
+                                } catch (e: Exception) {
+                                    AppLogger.e("ANALYSE_INTELLIGENTE", "Erreur conversion progression: ${e.message}")
+                                }
                             }
 
                             AppLogger.success("ANALYSE_INTELLIGENTE", "✅ Analyse terminée avec données API: ${performances.size} exercices")

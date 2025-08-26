@@ -6,6 +6,10 @@ from .models import (
     SeanceEntrainement, ExerciceSeance, SeriExercice, ProgressionMachine
 )
 from .models_simple import SeanceSimple
+from .models_refactored import (
+    SeanceEffectuee, ExerciceEffectue, SerieEffectuee,
+    CalendrierSeance, ExercicePlanifie
+)
 
 
 class SeriExerciceInline(admin.TabularInline):
@@ -314,3 +318,67 @@ class SeanceSimpleAdmin(admin.ModelAdmin):
         if request.user.is_superuser:
             return qs
         return qs.filter(utilisateur=request.user)
+
+
+# ===== ADMINISTRATION DES MODÈLES REFACTORISÉS =====
+
+class ExerciceEffectueInline(admin.TabularInline):
+    model = ExerciceEffectue
+    extra = 0
+    fields = ['nom_exercice', 'machine', 'ordre_dans_seance', 'series_realisees', 'repetitions_totales', 'poids_moyen']
+    readonly_fields = ['volume_exercice', 'tonnage_exercice']
+
+class SerieEffectueeInline(admin.TabularInline):
+    model = SerieEffectuee
+    extra = 0
+    fields = ['numero_serie', 'repetitions_prevues', 'repetitions_realisees', 'poids_utilise']
+
+class ExercicePlanifieInline(admin.TabularInline):
+    model = ExercicePlanifie
+    extra = 0
+    fields = ['machine', 'ordre_prevu', 'series_prevues', 'repetitions_prevues', 'poids_prevu']
+
+@admin.register(SeanceEffectuee)
+class SeanceEffectueeAdmin(admin.ModelAdmin):
+    list_display = ['utilisateur', 'nom', 'date_debut', 'duree_minutes', 'nombre_exercices', 'volume_total']
+    list_filter = ['date_debut', 'note_ressenti', 'note_difficulte']
+    search_fields = ['utilisateur__email', 'nom', 'commentaire']
+    date_hierarchy = 'date_debut'
+    ordering = ['-date_debut']
+    inlines = [ExerciceEffectueInline]
+    
+    def get_queryset(self, request):
+        qs = super().get_queryset(request).select_related('utilisateur')
+        if not request.user.is_superuser:
+            return qs.filter(utilisateur=request.user)
+        return qs
+
+@admin.register(ExerciceEffectue)
+class ExerciceEffectueAdmin(admin.ModelAdmin):
+    list_display = ['seance', 'nom_exercice', 'machine', 'series_realisees', 'repetitions_totales', 'poids_moyen', 'taux_reussite']
+    list_filter = ['machine__categorie', 'seance__date_debut']
+    search_fields = ['nom_exercice', 'machine__nom', 'seance__utilisateur__email']
+    ordering = ['-seance__date_debut', 'ordre_dans_seance']
+    inlines = [SerieEffectueeInline]
+    
+    def get_queryset(self, request):
+        qs = super().get_queryset(request).select_related('seance', 'machine', 'seance__utilisateur')
+        if not request.user.is_superuser:
+            return qs.filter(seance__utilisateur=request.user)
+        return qs
+
+@admin.register(CalendrierSeance)
+class CalendrierSeanceAdmin(admin.ModelAdmin):
+    list_display = ['utilisateur', 'nom', 'date_prevue', 'duree_prevue', 'statut', 'mode_entrainement']
+    list_filter = ['statut', 'mode_entrainement', 'date_prevue']
+    list_editable = ['statut']
+    search_fields = ['utilisateur__email', 'nom', 'description']
+    date_hierarchy = 'date_prevue'
+    ordering = ['-date_prevue']
+    inlines = [ExercicePlanifieInline]
+    
+    def get_queryset(self, request):
+        qs = super().get_queryset(request).select_related('utilisateur', 'mode_entrainement')
+        if not request.user.is_superuser:
+            return qs.filter(utilisateur=request.user)
+        return qs

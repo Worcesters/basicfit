@@ -39,6 +39,7 @@ urlpatterns = [
     # API REST
     path('api/users/', include('apps.users.urls')),
     path('api/workouts/', include('apps.workouts.urls')),
+    path('api/workouts-v2/', include('apps.workouts.urls_separated')),  # Nouvelle API séparée
     path('api/machines/', include('apps.machines.urls')),
     path('api/core/', include('apps.core.urls')),
 ]

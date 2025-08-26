@@ -159,6 +159,29 @@ data class CsvImportRequest(
     val csv_data: String
 )
 
+// Classes pour les séances effectuées (nouvelle API)
+data class SeanceEffectueeRequest(
+    val nom: String,
+    val date_debut: String,
+    val date_fin: String,
+    val note_ressenti: Int,
+    val commentaire: String,
+    val exercices: List<ExerciceEffectueData>
+)
+
+data class ExerciceEffectueData(
+    val nom_exercice: String,
+    val machine_id: Int,
+    val series: List<SerieEffectueeData>
+)
+
+data class SerieEffectueeData(
+    val numero: Int,
+    val repetitions_prevues: Int,
+    val repetitions_realisees: Int,
+    val poids_utilise: Double
+)
+
 
 
 // ==============================================
@@ -183,7 +206,7 @@ interface BasicFitApi {
     @PUT("users/android/profile/update/")
     suspend fun updateProfile(@Body request: UpdateProfileRequest): AuthResponse
 
-    // Workouts
+    // Workouts (anciens endpoints - calendrier/planification)
     @POST("workouts/save/")
     suspend fun saveWorkout(@Body request: WorkoutRequest): ApiResponse<Any>
 
@@ -191,9 +214,19 @@ interface BasicFitApi {
     @POST("workouts/calendar/plan/")
     suspend fun planWorkout(@Body request: PlanWorkoutRequest): ApiResponse<Any>
 
-    // NOUVEAU ENDPOINT CALENDRIER SIMPLIFIÉ
+    // NOUVEAU ENDPOINT CALENDRIER SIMPLIFIÉ (planification)
     @GET("workouts/history/")
     suspend fun getWorkoutHistory(): ApiResponse<List<Any>>
+    
+    // NOUVEAUX ENDPOINTS SÉANCES EFFECTUÉES (séparées du calendrier)
+    @GET("workouts/seances-effectuees/")
+    suspend fun getSeancesEffectuees(@Query("days") days: Int = 365): ApiResponse<List<Any>>
+    
+    @GET("workouts/progressions-effectuees/")
+    suspend fun getProgressionsEffectuees(@Query("days") days: Int = 90): ApiResponse<List<Any>>
+    
+    @POST("workouts/seance-effectuee/")
+    suspend fun saveSeanceEffectuee(@Body request: WorkoutRequest): ApiResponse<Any>
     
     // Endpoint health check pour debug
     @GET("workouts/calendar/health/")
@@ -220,13 +253,17 @@ interface BasicFitApi {
     @GET("workouts/simple/")
     suspend fun getSimpleSessions(): SimpleSessionResponse
 
-    // Importer des séances depuis CSV
-    @POST("workouts/simple/import/")
+    // Importer des séances depuis CSV (nouvelle API séparée - calendrier)
+    @POST("workouts-v2/calendrier/import/")
     suspend fun importCsvSessions(@Body request: CsvImportRequest): CsvImportResponse
 
     // Supprimer toutes les séances de l'utilisateur
     @DELETE("workouts/simple/delete-all/")
     suspend fun deleteAllSessions(): DeleteAllResponse
+
+    // Sauvegarder une séance effectuée (nouvelle API séparée)
+    @POST("workouts-v2/effectuees/save/")
+    suspend fun saveSeanceEffectuee(@Body request: SeanceEffectueeRequest): ApiResponse<Any>
 
     // Récupérer le résumé calendrier
     @GET("workouts/simple/summary/")
@@ -853,29 +890,43 @@ class SyncManager(private val context: Context) {
                 return Result.failure(Exception("Utilisateur non connecté"))
             }
 
-            val exerciseRequests = exercises.map {
-                // Déterminer le type d'exercice basé sur le nom de la machine
-                val isCardio = it.name.contains("Tapis", ignoreCase = true) ||
-                    it.name.contains("Vélo", ignoreCase = true) ||
-                    it.name.contains("Rameur", ignoreCase = true) ||
-                    it.name.contains("Elliptique", ignoreCase = true)
-
-                ExerciseRequest(
-                    nom = it.name,
-                    series = it.sets,
-                    repetitions = it.reps,
-                    poids = it.weight,
-                    type_exercice = if (isCardio) "DUREE" else "REPETITIONS"
+            // Construire les données pour la nouvelle API des séances effectuées
+            val exercicesEffectues = exercises.mapIndexed { index, exercise ->
+                // Simuler des séries (pour les anciennes données on fait 1 série avec les totaux)
+                val seriesData = listOf(
+                    SerieEffectueeData(
+                        numero = 1,
+                        repetitions_prevues = exercise.reps,
+                        repetitions_realisees = exercise.reps,
+                        poids_utilise = exercise.weight
+                    )
+                )
+                
+                ExerciceEffectueData(
+                    nom_exercice = exercise.name,
+                    machine_id = 1, // ID par défaut, sera amélioré plus tard
+                    series = seriesData
                 )
             }
 
-            val request = WorkoutRequest(
+            val dateFin = try {
+                val startTime = java.time.LocalDateTime.parse(dateDebut.replace("Z", ""))
+                startTime.plusMinutes(dureeMinutes.toLong()).toString()
+            } catch (e: Exception) {
+                dateDebut // Fallback si parsing échoue
+            }
+
+            val request = SeanceEffectueeRequest(
                 nom = nom,
-                duree = dureeMinutes,
-                exercices = exerciseRequests
+                date_debut = dateDebut,
+                date_fin = dateFin,
+                note_ressenti = 7, // Valeur par défaut
+                commentaire = "Séance synchronisée depuis l'app mobile",
+                exercices = exercicesEffectues
             )
 
-            val response = apiService.getApi().saveWorkout(request)
+            // Utiliser le nouvel endpoint pour les séances effectuées
+            val response = apiService.getApi().saveSeanceEffectuee(request)
             Result.success(response.success)
         } catch (e: Exception) {
             Result.failure(e)
