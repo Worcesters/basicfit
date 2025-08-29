@@ -776,33 +776,87 @@ fun MainScreen() {
                 // Les recommandations se mettront à jour automatiquement grâce au remember(workoutHistory)
 
                 // AJOUT: Synchronisation de la séance terminée vers l'API
-                val syncManager = SyncManager(context)
+                val apiService = ApiService.getInstance()
+                apiService.initialize(context)
                 coroutineScope.launch {
                     try {
-                        android.util.Log.d("WorkoutSync", "🔄 Synchronisation séance terminée: ${newEntry.mode}")
-                        val result = syncManager.saveWorkoutToServer(
+                        AppLogger.api("SEANCE_SYNC", "🔄 Synchronisation séance vers BDD: ${newEntry.mode}")
+                        
+                        // Construire la requête avec le bon format SeanceEffectueeRequest
+                        val exercicesEffectues = newEntry.exercises.mapIndexed { index, exercise ->
+                            // Rechercher l'ID de la machine dans la base de données
+                            val machineId = try {
+                                val machinesResponse = apiService.getApi().getMachines()
+                                val foundMachine = machinesResponse.results.find { machine ->
+                                    machine.nom.equals(exercise.name, ignoreCase = true)
+                                }
+                                foundMachine?.id ?: 1 // Fallback si pas trouvé
+                            } catch (e: Exception) {
+                                AppLogger.w("SEANCE_SYNC", "⚠️ Impossible de trouver machine pour ${exercise.name}: ${e.message}")
+                                1 // ID par défaut si erreur
+                            }
+
+                            // Créer les séries effectuées (simuler des données détaillées)
+                            val seriesData = (1..exercise.sets).map { serieNum ->
+                                SerieEffectueeData(
+                                    numero = serieNum,
+                                    repetitions_prevues = exercise.reps,
+                                    repetitions_realisees = exercise.reps,
+                                    poids_utilise = exercise.weight
+                                )
+                            }
+
+                            ExerciceEffectueData(
+                                nom_exercice = exercise.name,
+                                machine_id = machineId,
+                                series = seriesData
+                            )
+                        }
+
+                        val dateDebut = "${newEntry.date}T${LocalTime.now()}"
+                        val dateFin = try {
+                            val startTime = java.time.LocalDateTime.parse(dateDebut)
+                            startTime.plusMinutes(newEntry.duration.toLong()).toString()
+                        } catch (e: Exception) {
+                            dateDebut // Fallback si parsing échoue
+                        }
+
+                        val seanceRequest = SeanceEffectueeRequest(
                             nom = newEntry.mode,
-                            dateDebut = "${newEntry.date}T${LocalTime.now()}",
-                            dureeMinutes = newEntry.duration,
-                            exercises = newEntry.exercises
+                            date_debut = dateDebut,
+                            date_fin = dateFin,
+                            note_ressenti = 7, // Valeur par défaut
+                            commentaire = "Séance manuel terminée depuis l'app mobile",
+                            exercices = exercicesEffectues
                         )
 
-                        if (result.isSuccess) {
-                            AppLogger.success("SEANCE_SYNC", "✅ Séance synchronisée avec la BDD: ${newEntry.mode}")
+                        AppLogger.d("SEANCE_SYNC", "   📝 Requête: ${exercicesEffectues.size} exercices, durée ${newEntry.duration}min")
+                        
+                        val result = apiService.getApi().saveSeanceEffectuee(seanceRequest)
+                        
+                        if (result.success) {
+                            AppLogger.success("SEANCE_SYNC", "✅ Séance sauvegardée en BDD: ${newEntry.mode}")
+                            AppLogger.api("SEANCE_SYNC", "   💾 Table: SeanceEffectuee")
                             AppLogger.d("SEANCE_SYNC", "   📊 Volume total: ${newEntry.totalWeight}kg")
                             AppLogger.d("SEANCE_SYNC", "   ⏱️ Durée: ${newEntry.duration} min")
                             AppLogger.d("SEANCE_SYNC", "   💪 ${newEntry.exercises.size} exercices")
-                            AppLogger.api("SEANCE_SYNC", "   💾 Données sauvegardées dans table: SeanceEffectuee")
                             
                             withContext(Dispatchers.Main) {
                                 android.widget.Toast.makeText(context, "✅ Séance synchronisée avec la base de données", android.widget.Toast.LENGTH_SHORT).show()
                             }
                         } else {
-                            AppLogger.e("SEANCE_SYNC", "❌ Erreur synchronisation BDD: ${result.exceptionOrNull()?.message}")
+                            AppLogger.e("SEANCE_SYNC", "❌ Erreur synchronisation BDD: ${result.message}")
                             AppLogger.e("SEANCE_SYNC", "   ⚠️ La séance reste uniquement en local")
+                            
+                            withContext(Dispatchers.Main) {
+                                android.widget.Toast.makeText(context, "⚠️ Séance sauvée en local, erreur synchronisation BDD", android.widget.Toast.LENGTH_SHORT).show()
+                            }
                         }
                     } catch (e: Exception) {
                         AppLogger.e("SEANCE_SYNC", "❌ Exception synchronisation séance: ${e.message}", e)
+                        withContext(Dispatchers.Main) {
+                            android.widget.Toast.makeText(context, "⚠️ Séance sauvée en local uniquement", android.widget.Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
 
@@ -884,53 +938,112 @@ fun MainScreen() {
 
                 coroutineScope.launch {
                     try {
+                        AppLogger.api("CSV_IMPORT", "🔄 Import CSV vers BDD: ${imported.size} séances")
+                        val apiService = ApiService.getInstance()
+                        apiService.initialize(context)
+                        
+                        // Convertir chaque WorkoutEntry en SeanceEffectueeRequest pour synchroniser avec la BDD
                         var successCount = 0
                         var errorCount = 0
-
-                        imported.forEach { importedEntry ->
-                            AppLogger.d("CSV_SYNC", "🔍 Traitement séance: ${importedEntry.mode} du ${importedEntry.date}")
-                            AppLogger.d("CSV_SYNC", "   Durée: ${importedEntry.duration} min")
-                            AppLogger.d("CSV_SYNC", "   Exercices: ${importedEntry.exercises.size}")
-
+                        val errors = mutableListOf<String>()
+                        
+                        for (entry in imported) {
                             try {
-                                // CORRECTION: Les séances CSV sont des séances EFFECTUÉES, pas planifiées
-                                AppLogger.api("CSV_SYNC", "💾 Enregistrement séance effectuée vers API: ${importedEntry.mode}")
-                                AppLogger.d("CSV_SYNC", "   📝 Table destination: SeanceEffectuee (nouvelles tables)")
+                                // Construire la requête avec le bon format SeanceEffectueeRequest
+                                val exercicesEffectues = entry.exercises.mapIndexed { index, exercise ->
+                                    // Rechercher l'ID de la machine dans la base de données
+                                    val machineId = try {
+                                        val machinesResponse = apiService.getApi().getMachines()
+                                        val foundMachine = machinesResponse.results.find { machine ->
+                                            machine.nom.equals(exercise.name, ignoreCase = true)
+                                        }
+                                        foundMachine?.id ?: 1 // Fallback si pas trouvé
+                                    } catch (e: Exception) {
+                                        AppLogger.w("CSV_SYNC", "⚠️ Impossible de trouver machine pour ${exercise.name}: ${e.message}")
+                                        1 // ID par défaut si erreur
+                                    }
 
-                                val result = syncManager.saveWorkoutToServer(
-                                    nom = importedEntry.mode,
-                                    dateDebut = "${importedEntry.date}T12:00:00",
-                                    dureeMinutes = importedEntry.duration,
-                                    exercises = importedEntry.exercises
+                                    // Créer les séries effectuées
+                                    val seriesData = (1..exercise.sets).map { serieNum ->
+                                        SerieEffectueeData(
+                                            numero = serieNum,
+                                            repetitions_prevues = exercise.reps,
+                                            repetitions_realisees = exercise.reps,
+                                            poids_utilise = exercise.weight
+                                        )
+                                    }
+
+                                    ExerciceEffectueData(
+                                        nom_exercice = exercise.name,
+                                        machine_id = machineId,
+                                        series = seriesData
+                                    )
+                                }
+
+                                val dateDebut = "${entry.date}T09:00:00" // Heure par défaut
+                                val dateFin = try {
+                                    val startTime = java.time.LocalDateTime.parse(dateDebut)
+                                    startTime.plusMinutes(entry.duration.toLong()).toString()
+                                } catch (e: Exception) {
+                                    "${entry.date}T${String.format("%02d:00:00", 9 + (entry.duration / 60))}"
+                                }
+
+                                val seanceRequest = SeanceEffectueeRequest(
+                                    nom = entry.mode,
+                                    date_debut = dateDebut,
+                                    date_fin = dateFin,
+                                    note_ressenti = 7, // Valeur par défaut
+                                    commentaire = "Séance importée depuis CSV",
+                                    exercices = exercicesEffectues
                                 )
-
-                                if (result.isSuccess) {
+                                
+                                val result = apiService.getApi().saveSeanceEffectuee(seanceRequest)
+                                
+                                if (result.success) {
                                     successCount++
-                                    AppLogger.success("CSV_SYNC", "✅ Séance CSV enregistrée dans SeanceEffectuee: ${importedEntry.mode}")
-                                    AppLogger.d("CSV_SYNC", "   📊 ${importedEntry.exercises.size} exercices sauvegardés")
+                                    AppLogger.d("CSV_SYNC", "✅ Séance ${entry.date} synchronisée")
                                 } else {
                                     errorCount++
-                                    AppLogger.e("CSV_SYNC", "❌ Erreur enregistrement CSV: ${result.exceptionOrNull()?.message}")
+                                    errors.add("${entry.date}: ${result.message}")
+                                    AppLogger.w("CSV_SYNC", "⚠️ Erreur séance ${entry.date}: ${result.message}")
                                 }
+                                
+                                // Délai entre les requêtes pour éviter de surcharger l'API
+                                kotlinx.coroutines.delay(100)
+                                
                             } catch (e: Exception) {
                                 errorCount++
-                                AppLogger.e("CSV_SYNC", "❌ Exception planification CSV: ${e.message}")
-                                AppLogger.e("CSV_SYNC", "   Séance: ${importedEntry.mode}")
+                                errors.add("${entry.date}: ${e.message}")
+                                AppLogger.e("CSV_SYNC", "❌ Exception séance ${entry.date}: ${e.message}")
+                            }
+                        }
+                        
+                        AppLogger.success("CSV_IMPORT", "✅ Import terminé: $successCount/$${imported.size} séances synchronisées")
+                        if (errorCount > 0) {
+                            AppLogger.w("CSV_IMPORT", "⚠️ $errorCount erreurs: ${errors.take(3).joinToString(", ")}")
+                        }
+                        
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            if (successCount > 0) {
+                                android.widget.Toast.makeText(
+                                    context, 
+                                    "✅ $successCount séances synchronisées avec la BDD" + 
+                                    if (errorCount > 0) " ($errorCount erreurs)" else "", 
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            } else {
+                                android.widget.Toast.makeText(
+                                    context, 
+                                    "⚠️ Import local réussi, erreurs synchronisation BDD", 
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
                             }
                         }
 
-                        AppLogger.success("CSV_SYNC", "📊 Synchronisation CSV terminée: ${successCount} succès, ${errorCount} erreurs")
-
-                        // Afficher le toast sur le thread principal
-                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                            android.widget.Toast.makeText(context, "✅ Import CSV synchronisé avec la base de données", android.widget.Toast.LENGTH_LONG).show()
-                        }
-
                     } catch (e: Exception) {
-                        AppLogger.e("CSV_SYNC", "❌ Erreur synchronisation CSV: ${e.message}", e)
-                        // Afficher le toast d'erreur sur le thread principal
+                        AppLogger.e("CSV_IMPORT", "❌ Exception générale import: ${e.message}", e)
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                            android.widget.Toast.makeText(context, "⚠️ Import local réussi, erreur synchronisation serveur", android.widget.Toast.LENGTH_LONG).show()
+                            android.widget.Toast.makeText(context, "⚠️ Import local réussi, erreur synchronisation BDD", android.widget.Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -1638,49 +1751,62 @@ fun ProfileScreen(
     var isLoadingStats by remember { mutableStateOf(true) }
     
     // Synchroniser les statistiques depuis l'API
-    LaunchedEffect(Unit) {
+    LaunchedEffect(workoutHistory) {
         try {
             AppLogger.d("STATS_PROFILE", "📊 Chargement statistiques profil")
             
-            // Essayer d'abord l'API
-            val apiService = ApiService.getInstance()
-            if (apiService.isApiAvailable()) {
-                AppLogger.api("STATS_PROFILE", "🌐 Récupération stats depuis API")
-                
-                val result = apiService.getCalendarHistory()
-                result.onSuccess { apiHistory ->
-                    val combinedHistory = (workoutHistory + apiHistory).distinctBy { it.date }
-                    val completedWorkouts = combinedHistory.filter { it.duration > 0 }
-                    
-                    totalSessions = completedWorkouts.size
-                    totalMinutes = completedWorkouts.sumOf { it.duration }
-                    totalCalories = completedWorkouts.sumOf { 
-                        calculateBurnedCalories(weightNum, it.duration, niveauActivite) 
-                    }
-                    
-                    AppLogger.success("STATS_PROFILE", "✅ Stats API: $totalSessions séances, $totalMinutes min")
-                }.onFailure { error ->
-                    AppLogger.w("STATS_PROFILE", "⚠️ Erreur API stats: ${error.message}")
-                    // Fallback vers les données locales
-                    val localStats = dataManager.getTotalStats()
-                    totalSessions = localStats.first
-                    totalMinutes = localStats.second  
-                    totalCalories = localStats.third
+            // Utiliser d'abord les données synchronisées du workoutHistory qui contient déjà les données API
+            val localCompletedWorkouts = workoutHistory.filter { it.duration > 0 }
+            
+            if (localCompletedWorkouts.isNotEmpty()) {
+                totalSessions = localCompletedWorkouts.size
+                totalMinutes = localCompletedWorkouts.sumOf { it.duration }
+                totalCalories = localCompletedWorkouts.sumOf { 
+                    calculateBurnedCalories(weightNum, it.duration, niveauActivite) 
                 }
+                
+                AppLogger.success("STATS_PROFILE", "✅ Stats calculées: $totalSessions séances, $totalMinutes min, $totalCalories cal")
+                AppLogger.d("STATS_PROFILE", "   📊 Poids utilisateur: ${weightNum}kg, niveau: $niveauActivite")
             } else {
-                AppLogger.w("STATS_PROFILE", "⚠️ API indisponible, utilisation stats locales")
-                val localStats = dataManager.getTotalStats()
-                totalSessions = localStats.first
-                totalMinutes = localStats.second
-                totalCalories = localStats.third
+                // Si workoutHistory est vide, essayer de récupérer depuis l'API directement
+                val apiService = ApiService.getInstance()
+                if (apiService.isApiAvailable()) {
+                    AppLogger.api("STATS_PROFILE", "🌐 WorkoutHistory vide, récupération directe depuis API")
+                    
+                    val result = apiService.getCalendarHistory()
+                    result.onSuccess { apiHistory ->
+                        val completedWorkouts = apiHistory.filter { it.duration > 0 }
+                        
+                        totalSessions = completedWorkouts.size
+                        totalMinutes = completedWorkouts.sumOf { it.duration }
+                        totalCalories = completedWorkouts.sumOf { 
+                            calculateBurnedCalories(weightNum, it.duration, niveauActivite) 
+                        }
+                        
+                        AppLogger.success("STATS_PROFILE", "✅ Stats API directes: $totalSessions séances, $totalMinutes min")
+                    }.onFailure { error ->
+                        AppLogger.e("STATS_PROFILE", "❌ Erreur API stats: ${error.message}")
+                        // Si tout échoue, afficher 0
+                        totalSessions = 0
+                        totalMinutes = 0
+                        totalCalories = 0
+                    }
+                } else {
+                    AppLogger.w("STATS_PROFILE", "⚠️ API indisponible et workoutHistory vide")
+                    totalSessions = 0
+                    totalMinutes = 0
+                    totalCalories = 0
+                }
             }
         } catch (e: Exception) {
             AppLogger.e("STATS_PROFILE", "❌ Erreur chargement stats: ${e.message}")
-            // En cas d'erreur, utiliser les stats locales
-            val localStats = dataManager.getTotalStats()
-            totalSessions = localStats.first
-            totalMinutes = localStats.second
-            totalCalories = localStats.third
+            // En cas d'erreur, afficher les statistiques réelles du workoutHistory
+            val safeWorkouts = workoutHistory.filter { it.duration > 0 }
+            totalSessions = safeWorkouts.size
+            totalMinutes = safeWorkouts.sumOf { it.duration }
+            totalCalories = safeWorkouts.sumOf { 
+                calculateBurnedCalories(weightNum, it.duration, niveauActivite) 
+            }
         } finally {
             isLoadingStats = false
         }

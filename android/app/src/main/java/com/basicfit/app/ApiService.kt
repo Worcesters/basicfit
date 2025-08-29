@@ -12,10 +12,10 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.google.gson.annotations.SerializedName
 import java.util.concurrent.TimeUnit
+import java.time.LocalDate
 import com.basicfit.app.data.*
 import com.google.gson.*
 import java.lang.reflect.Type
-import java.time.LocalDate
 
 // ==============================================
 // DATA CLASSES POUR LES RÉPONSES API
@@ -217,29 +217,26 @@ interface BasicFitApi {
     // NOUVEAU ENDPOINT CALENDRIER SIMPLIFIÉ (planification)
     @GET("workouts/history/")
     suspend fun getWorkoutHistory(): ApiResponse<List<Any>>
-    
+
     // NOUVEAUX ENDPOINTS SÉANCES EFFECTUÉES (séparées du calendrier)
     @GET("workouts/seances-effectuees/")
     suspend fun getSeancesEffectuees(@Query("days") days: Int = 365): ApiResponse<List<Any>>
-    
+
     @GET("workouts/progressions-effectuees/")
     suspend fun getProgressionsEffectuees(@Query("days") days: Int = 90): ApiResponse<List<Any>>
-    
-    @POST("workouts/seance-effectuee/")
-    suspend fun saveSeanceEffectuee(@Body request: WorkoutRequest): ApiResponse<Any>
-    
+
+    // NOUVEAU ENDPOINT SÉANCES EFFECTUÉES (pour sauvegarder les vraies séances terminées)
+    @POST("workouts-v2/effectuees/save/")
+    suspend fun saveSeanceEffectuee(@Body request: SeanceEffectueeRequest): ApiResponse<Any>
+
     // Endpoint health check pour debug
     @GET("workouts/calendar/health/")
     suspend fun getCalendarHealth(): ApiResponse<Any>
-
 
     // Machines
     // Retourne les machines avec leur wrapper de réponse
     @GET("machines/")
     suspend fun getMachines(): MachinesResponse
-
-
-
 
     @GET("users/android/ping/")
     suspend fun ping(): retrofit2.Response<Void>
@@ -248,7 +245,7 @@ interface BasicFitApi {
     suspend fun forceProgressionUpdate(): ApiResponse<Any>
 
     // ========== NOUVELLES APIs SEANCES SIMPLES ==========
-    
+
     // Récupérer toutes les séances simples
     @GET("workouts/simple/")
     suspend fun getSimpleSessions(): SimpleSessionResponse
@@ -261,28 +258,52 @@ interface BasicFitApi {
     @DELETE("workouts/simple/delete-all/")
     suspend fun deleteAllSessions(): DeleteAllResponse
 
-    // Sauvegarder une séance effectuée (nouvelle API séparée)
-    @POST("workouts-v2/effectuees/save/")
-    suspend fun saveSeanceEffectuee(@Body request: SeanceEffectueeRequest): ApiResponse<Any>
-
     // Récupérer le résumé calendrier
     @GET("workouts/simple/summary/")
     suspend fun getCalendarSummary(): CalendarSummaryResponse
-    
+
+    // ========== NOUVELLES APIs CALENDRIER ==========
+
+    @GET("workouts/calendrier/")
+    suspend fun getCalendrierEntrainements(@Query("days") days: Int = 365): CalendrierResponse
+
+    @POST("workouts/calendrier/import-csv/")
+    suspend fun importCsvToCalendar(@Body request: ImportCsvCalendarRequest): ImportCsvResponse
+
     // ========== NOUVELLES APIs RECOMMANDATIONS INTELLIGENTES ==========
-    
+
     // Récupérer les recommandations intelligentes basées sur les progressions
     @GET("workouts/recommendations/{mode_entrainement}/")
     suspend fun getIntelligentRecommendations(
         @Path("mode_entrainement") modeEntrainement: String,
         @Query("nb_machines") nbMachines: Int = 6
     ): IntelligentRecommendationsResponse
-    
+
     // Récupérer les progressions d'un utilisateur
     @GET("workouts/progressions/")
     suspend fun getUserProgressions(
         @Query("mode_entrainement") modeEntrainement: String? = null
     ): ProgressionsResponse
+
+    // NOUVEAUX ENDPOINTS ARCHITECTURE UNIFIÉE
+    @GET("workouts/exercices-unifies/")
+    suspend fun getExercicesUnifies(
+        @Query("limit") limit: Int = 100,
+        @Query("source") source: String? = null,
+        @Query("machine_id") machineId: Int? = null
+    ): ExercicesUnifiesResponse
+
+    @POST("workouts/exercices-unifies/import-csv/")
+    suspend fun importCsvUnifie(@Body request: Map<String, Any>): ImportCsvUnifieResponse
+
+    @POST("workouts/exercices-unifies/manuel/")
+    suspend fun creerExerciceManuel(@Body request: Map<String, Any>): ApiResponse<Any>
+
+    @GET("workouts/exercices-unifies/stats/")
+    suspend fun getStatistiquesUnifiees(): ApiResponse<Any>
+
+    @GET("workouts/exercices-unifies/machine/{machine_id}/")
+    suspend fun getHistoriqueMachineUnifie(@Path("machine_id") machineId: Int): ApiResponse<Any>
 }
 
 // ==============================================
@@ -305,14 +326,14 @@ class AuthInterceptor(private val context: Context) : Interceptor {
 
         val request = requestBuilder.build()
         val response = chain.proceed(request)
-        
+
         // Vérifier si le token est invalide (401/403)
         if (response.code == 401 || response.code == 403) {
             android.util.Log.w("AuthInterceptor", "Token invalide détecté (${response.code}), déconnexion automatique")
             // Déclencher la déconnexion automatique
             forceLogout(context)
         }
-        
+
         return response
     }
 
@@ -320,7 +341,7 @@ class AuthInterceptor(private val context: Context) : Interceptor {
         val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
         return prefs.getString("auth_token", null)
     }
-    
+
     private fun forceLogout(context: Context) {
         try {
             val prefs = context.getSharedPreferences("BasicFitPrefs", Context.MODE_PRIVATE)
@@ -382,7 +403,7 @@ class ApiService private constructor() {
                     override fun deserialize(json: JsonElement?, typeOfT: Type?, context: JsonDeserializationContext?): LocalDate {
                         return LocalDate.parse(json?.asString ?: "1970-01-01")
                     }
-                    
+
                     override fun serialize(src: LocalDate?, typeOfSrc: Type?, context: JsonSerializationContext?): JsonElement {
                         return JsonPrimitive(src?.toString())
                     }
@@ -454,18 +475,25 @@ class ApiService private constructor() {
                 return Result.failure(Exception("ApiService non initialisé"))
             }
 
-            // Utiliser getWorkoutHistory() qui fonctionne avec le backend existant
-            val response = api.getWorkoutHistory()
+            android.util.Log.d("ApiService", "🔄 Récupération historique séances effectuées pour calendrier")
+
+            // Utiliser le nouvel endpoint des séances effectuées
+            val response = api.getSeancesEffectuees(365) // Récupérer les 12 derniers mois
             if (response.success && response.data != null) {
-                val workoutEntries = response.data.mapNotNull { workoutData ->
-                    convertWorkoutToWorkoutEntry(workoutData)
+                android.util.Log.d("ApiService", "✅ ${response.data.size} séances effectuées récupérées")
+                
+                val workoutEntries = response.data.mapNotNull { seanceData ->
+                    convertSeanceEffectueeToWorkoutEntry(seanceData)
                 }
+                
+                android.util.Log.d("ApiService", "📊 ${workoutEntries.size} WorkoutEntry converties pour le calendrier")
                 Result.success(workoutEntries)
             } else {
+                android.util.Log.w("ApiService", "⚠️ Réponse API invalide: success=${response.success}, data=${response.data}")
                 Result.failure(Exception(response.message ?: "Erreur lors de la récupération de l'historique"))
             }
         } catch (e: Exception) {
-            android.util.Log.e("ApiService", "Erreur getCalendarHistory: ${e.message}")
+            android.util.Log.e("ApiService", "❌ Erreur getCalendarHistory: ${e.message}", e)
             Result.failure(e)
         }
     }
@@ -475,7 +503,7 @@ class ApiService private constructor() {
         return try {
             // Le backend retourne des Map<String, Any> pour les données de workout
             val workout = workoutData as? Map<String, Any> ?: return null
-            
+
             // Parser la date - essayer différents formats
             val dateStr = workout["date"]?.toString() ?: workout["date_debut"]?.toString() ?: return null
             val date = try {
@@ -490,9 +518,9 @@ class ApiService private constructor() {
 
             // Récupérer les informations de base
             val nom = workout["nom"]?.toString() ?: "Séance"
-            val duree = (workout["duree"]?.toString()?.toIntOrNull()) ?: 
+            val duree = (workout["duree"]?.toString()?.toIntOrNull()) ?:
                        (workout["duree_totale"]?.toString()?.toIntOrNull()) ?: 0
-            
+
             // Récupérer les exercices s'ils existent
             val exercicesData = workout["exercices"] as? List<Any> ?: emptyList()
             val exercises = exercicesData.mapNotNull { exerciceData ->
@@ -501,9 +529,9 @@ class ApiService private constructor() {
                     ExerciseRecord(
                         name = exercice["nom"]?.toString() ?: exercice["machine_nom"]?.toString() ?: "Exercice",
                         sets = exercice["series"]?.toString()?.toIntOrNull() ?: 1,
-                        reps = exercice["repetitions"]?.toString()?.toIntOrNull() ?: 
+                        reps = exercice["repetitions"]?.toString()?.toIntOrNull() ?:
                               exercice["reps"]?.toString()?.toIntOrNull() ?: 0,
-                        weight = exercice["poids"]?.toString()?.toDoubleOrNull() ?: 
+                        weight = exercice["poids"]?.toString()?.toDoubleOrNull() ?:
                                exercice["weight"]?.toString()?.toDoubleOrNull() ?: 0.0
                     )
                 } catch (e: Exception) {
@@ -520,6 +548,75 @@ class ApiService private constructor() {
             )
         } catch (e: Exception) {
             android.util.Log.w("ApiService", "Erreur conversion workout: ${e.message}")
+            null
+        }
+    }
+
+    // Convertir les données de séance effectuée backend en WorkoutEntry pour le calendrier
+    private fun convertSeanceEffectueeToWorkoutEntry(seanceData: Any): WorkoutEntry? {
+        return try {
+            // Le backend retourne des Map<String, Any> pour les séances effectuées
+            val seance = seanceData as? Map<String, Any> ?: return null
+            
+            android.util.Log.d("ApiService", "🔄 Conversion séance: ${seance["nom"]}")
+
+            // Parser la date - essayer différents formats depuis date_debut
+            val dateStr = seance["date_debut"]?.toString() ?: return null
+            val date = try {
+                when {
+                    dateStr.contains("T") -> java.time.LocalDate.parse(dateStr.split("T")[0])
+                    else -> java.time.LocalDate.parse(dateStr)
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("ApiService", "Erreur parsing date: $dateStr")
+                return null
+            }
+
+            // Récupérer les informations de base
+            val nom = seance["nom"]?.toString() ?: "Séance"
+            val duree = (seance["duree_minutes"]?.toString()?.toIntOrNull()) ?: 45
+
+            // Traiter les exercices depuis le format backend
+            val exercicesData = seance["exercices"] as? List<Map<String, Any>> ?: emptyList()
+            val exercises = exercicesData.mapNotNull { exerciceData ->
+                try {
+                    val nomExercice = exerciceData["nom_exercice"]?.toString() ?: 
+                                     exerciceData["machine_nom"]?.toString() ?: "Exercice"
+                    
+                    // Récupérer les données agrégées
+                    val series = (exerciceData["series_realisees"]?.toString()?.toIntOrNull()) ?: 1
+                    val repsTotal = (exerciceData["repetitions_totales"]?.toString()?.toIntOrNull()) ?: 10
+                    val reps = if (series > 0) repsTotal / series else repsTotal // Reps moyennes par série
+                    val poids = (exerciceData["poids_moyen"]?.toString()?.toDoubleOrNull()) ?: 0.0
+                    
+                    android.util.Log.d("ApiService", "  ✅ Exercice: $nomExercice, ${series}x${reps} @ ${poids}kg")
+
+                    ExerciseRecord(
+                        name = nomExercice,
+                        sets = series,
+                        reps = reps,
+                        weight = poids
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.w("ApiService", "Erreur conversion exercice: ${e.message}")
+                    null
+                }
+            }
+
+            // Calculer le poids total
+            val totalWeight = exercises.sumOf { it.weight * it.reps * it.sets }
+            
+            android.util.Log.d("ApiService", "✅ Séance convertie: $nom, ${exercises.size} exercices, ${duree}min, ${totalWeight}kg total")
+
+            WorkoutEntry(
+                date = date,
+                mode = nom,
+                exercises = exercises,
+                duration = duree,
+                totalWeight = totalWeight
+            )
+        } catch (e: Exception) {
+            android.util.Log.w("ApiService", "❌ Erreur conversion séance effectuée: ${e.message}", e)
             null
         }
     }
@@ -629,7 +726,7 @@ class ApiService private constructor() {
     }
 
     // ========== NOUVELLES METHODES SEANCES SIMPLES ==========
-    
+
     // Récupérer toutes les séances simples
     suspend fun getSimpleSessions(): Result<List<SimpleSession>> {
         return try {
@@ -663,9 +760,9 @@ class ApiService private constructor() {
 
             val request = CsvImportRequest(csv_data = csvData)
             AppLogger.d("CSV_API", "   Requête créée, envoi vers ${BASE_URL}/api/workouts/csv-import/")
-            
+
             val response = api.importCsvSessions(request)
-            
+
             AppLogger.success("CSV_API", "✅ Import CSV réussi: ${response.success}")
             AppLogger.d("CSV_API", "   Message: ${response.message}")
             AppLogger.d("CSV_API", "   Séances créées: ${response.imported_count}")
@@ -674,7 +771,7 @@ class ApiService private constructor() {
             if (response.errors.isNotEmpty()) {
                 AppLogger.w("CSV_API", "   Détails erreurs: ${response.errors}")
             }
-            
+
             Result.success(response)
         } catch (e: retrofit2.HttpException) {
             val errorBody = e.response()?.errorBody()?.string()
@@ -762,7 +859,7 @@ class AuthManager(private val context: Context) {
                             putBoolean("is_logged_in", true)
                             apply()
                         }
-                        
+
                         // Retourner la réponse avec les données complètes du profil
                         return Result.success(response.copy(user = completeUser))
                     }
@@ -901,22 +998,22 @@ class SyncManager(private val context: Context) {
                         poids_utilise = exercise.weight
                     )
                 )
-                
+
                 // CORRECTION: Trouver le vrai machine_id
                 val machineId = try {
                     // Recherche dans la liste des machines par nom
                     val machines = apiService.getApi().getMachines()
-                    val foundMachine = machines.results.find { machine -> 
-                        machine.nom.equals(exercise.name, ignoreCase = true) 
+                    val foundMachine = machines.results.find { machine ->
+                        machine.nom.equals(exercise.name, ignoreCase = true)
                     }
                     foundMachine?.id ?: 1 // Fallback si pas trouvé
                 } catch (e: Exception) {
                     android.util.Log.w("ApiService", "⚠️ Impossible de trouver machine pour ${exercise.name}: ${e.message}")
                     1 // ID par défaut si erreur
                 }
-                
+
                 android.util.Log.d("SEANCE_SAVE", "📝 Exercice: ${exercise.name} -> Machine ID: $machineId")
-                
+
                 ExerciceEffectueData(
                     nom_exercice = exercise.name,
                     machine_id = machineId,
@@ -947,16 +1044,16 @@ class SyncManager(private val context: Context) {
             android.util.Log.d("SEANCE_SAVE", "   • Date fin: $dateFin")
             android.util.Log.d("SEANCE_SAVE", "   • Durée: $dureeMinutes min")
             android.util.Log.d("SEANCE_SAVE", "   • Nombre exercices: ${exercicesEffectues.size}")
-            
+
             // Utiliser le nouvel endpoint pour les séances effectuées
             val response = apiService.getApi().saveSeanceEffectuee(request)
-            
+
             if (response.success) {
                 android.util.Log.d("SEANCE_SAVE", "✅ Séance sauvegardée avec succès dans la table SeanceEffectuee")
             } else {
                 android.util.Log.e("SEANCE_SAVE", "❌ Échec sauvegarde séance effectuée")
             }
-            
+
             Result.success(response.success)
         } catch (e: Exception) {
             Result.failure(e)
@@ -979,4 +1076,190 @@ class SyncManager(private val context: Context) {
             Result.failure(e)
         }
     }
+
+    // NOUVELLES MÉTHODES ARCHITECTURE UNIFIÉE (TEMPORAIREMENT DÉSACTIVÉES)
+    // TODO: Réactiver après résolution des problèmes de compilation Kotlin
+    /*
+    suspend fun getExercicesUnifies(limit: Int = 100): Result<List<WorkoutEntry>> {
+        return try {
+            if (!isInitialized) {
+                return Result.failure(Exception("ApiService non initialisé"))
+            }
+
+            AppLogger.api("EXERCICES_UNIFIES", "🏋️ Récupération exercices unifiés depuis API")
+            val response = api.getExercicesUnifies(limit)
+
+            if (response.success) {
+                // Grouper les exercices par séance pour reconstruire les WorkoutEntry
+                val exercicesParSeance = response.data.groupBy {
+                    "${it.date_exercice.substring(0, 10)}_${it.nom_seance ?: "Séance"}"
+                }
+
+                val workoutEntries = exercicesParSeance.map { (_, exercicesGroupe) ->
+                    val premierExercice = exercicesGroupe.first()
+                    val exercises = exercicesGroupe.map { exercice ->
+                        Exercise(
+                            name = exercice.nom_exercice,
+                            reps = (exercice.repetitions_totales / exercice.series_effectuees.coerceAtLeast(1)),
+                            weight = exercice.poids_utilise,
+                            sets = exercice.series_effectuees
+                        )
+                    }
+
+                    WorkoutEntry(
+                        date = premierExercice.date_exercice.substring(0, 10),
+                        mode = premierExercice.nom_seance ?: "Entraînement",
+                        exercises = exercises,
+                        duration = premierExercice.duree_seance_minutes ?: 60,
+                        totalWeight = exercicesGroupe.sumOf { it.volume_total }
+                    )
+                }
+
+                AppLogger.success("EXERCICES_UNIFIES", "✅ ${workoutEntries.size} séances reconstruites depuis ${response.data.size} exercices")
+                Result.success(workoutEntries.sortedByDescending { it.date })
+            } else {
+                AppLogger.e("EXERCICES_UNIFIES", "❌ Erreur API: ${response.message}")
+                Result.failure(Exception(response.message))
+            }
+        } catch (e: Exception) {
+            AppLogger.e("EXERCICES_UNIFIES", "❌ Exception: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    suspend fun importCsvUnifie(seances: List<WorkoutEntry>): Result<ImportCsvResponse> {
+        return try {
+            if (!isInitialized) {
+                return Result.failure(Exception("ApiService non initialisé"))
+            }
+
+            AppLogger.api("CSV_UNIFIE", "📤 Import CSV vers architecture unifiée: ${seances.size} séances")
+
+            val seancesData = seances.map { entry ->
+                val exercicesData = entry.exercises.map { exercise ->
+                    mapOf(
+                        "nom" to exercise.name,
+                        "poids" to exercise.weight,
+                        "repetitions" to exercise.reps,
+                        "series" to exercise.sets
+                    )
+                }
+
+                mapOf(
+                    "date" to entry.date,
+                    "nom_seance" to entry.mode,
+                    "duree" to entry.duration,
+                    "exercices" to exercicesData
+                )
+            }
+
+            val request = mapOf("seances" to seancesData)
+            val response = api.importCsvUnifie(request)
+
+            AppLogger.success("CSV_UNIFIE", "✅ Import réussi: ${response.created_count} exercices créés")
+
+            // Retourner une réponse compatible avec l'ancien format
+            Result.success(ImportCsvResponse(
+                success = response.success,
+                message = response.message,
+                imported_count = response.created_count,
+                errors = response.errors
+            ))
+        } catch (e: Exception) {
+            AppLogger.e("CSV_UNIFIE", "❌ Exception import: ${e.message}")
+            Result.failure(e)
+        }
+    }
+    */
 }
+
+// ===== STRUCTURES DE DONNÉES ARCHITECTURE UNIFIÉE =====
+
+data class ExercicesUnifiesResponse(
+    val success: Boolean,
+    val count: Int,
+    val data: List<ExerciceUnifieData>
+)
+
+data class ExerciceUnifieData(
+    val id: Int,
+    val source: String,
+    val date_exercice: String,
+    val nom_seance: String?,
+    val nom_exercice: String,
+    val machine: Map<String, Any>?,
+    val series_effectuees: Int,
+    val repetitions_totales: Int,
+    val poids_utilise: Double,
+    val volume_total: Double,
+    val taux_reussite: Double,
+    val duree_seance_minutes: Int?,
+    val commentaire: String?
+)
+
+data class ImportCsvUnifieResponse(
+    val success: Boolean,
+    val message: String,
+    val created_count: Int,
+    val errors: List<String>
+)
+
+// ===== NOUVELLES STRUCTURES DE DONNÉES CALENDRIER =====
+
+data class CalendrierResponse(
+    val success: Boolean,
+    val count: Int,
+    val data: List<CalendrierEntrainementData>
+)
+
+data class CalendrierEntrainementData(
+    val id: Int,
+    val date: String,
+    val nom_seance: String,
+    val mode_entrainement: String,
+    val duree_minutes: Int,
+    val heure_debut: String?,
+    val nombre_exercices: Int,
+    val volume_total: Double,
+    val source_donnees: String,
+    val statut: String,
+    val commentaire: String,
+    val exercices: List<ExerciceCalendrierData>
+)
+
+data class ExerciceCalendrierData(
+    val nom: String,
+    val machine_id: Int?,
+    val machine_nom: String?,
+    val ordre: Int,
+    val series: Int,
+    val repetitions: Int,
+    val poids: Double,
+    val volume: Double
+)
+
+data class ImportCsvCalendarRequest(
+    val seances: List<ImportSeanceData>
+)
+
+data class ImportSeanceData(
+    val date: String,
+    val nom: String,
+    val mode: String,
+    val duree: Int,
+    val exercices: List<ImportExerciceData>
+)
+
+data class ImportExerciceData(
+    val nom: String,
+    val poids: Double,
+    val repetitions: Int,
+    val series: Int
+)
+
+data class ImportCsvResponse(
+    val success: Boolean,
+    val message: String,
+    val created_count: Int,
+    val errors: List<String>
+)
