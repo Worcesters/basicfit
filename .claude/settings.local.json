@@ -34,7 +34,9 @@
       "Bash(fly postgres connect:*)",
       "Bash(fly ssh console:*)",
       "Bash(call:*)",
-      "Bash(.build_apk.bat)"
+      "Bash(.build_apk.bat)",
+      "Bash(timeout:*)",
+      "Bash(find:*)"
     ],
     "deny": []
   }

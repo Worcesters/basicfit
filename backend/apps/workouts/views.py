@@ -10,6 +10,8 @@ from django.utils import timezone
 from datetime import timedelta, datetime
 from django.utils.dateparse import parse_datetime
 import logging
+import csv
+import io
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +134,13 @@ class MachineViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = MachineSerializer
     permission_classes = [AllowAny]
 
+    def list(self, request, *args, **kwargs):
+        """Liste des machines avec format JSON correct"""
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        # Retourner directement le tableau des machines
+        return Response(serializer.data)
+
     @action(detail=False, methods=['get'])
     def groupes_musculaires(self, request):
         """Liste des groupes musculaires disponibles"""
@@ -146,345 +155,103 @@ def sauvegarder_seance_simple(request):
     try:
         data = request.data
         user = request.user
+        print(f"[DEBUG] Données reçues: {data}")
 
-        # ------ Gestion date prévue ------
-        raw_date = data.get('date') or data.get('date_prevue') or data.get('date_seance')
+        # Gestion de la date
+        raw_date = data.get('date', timezone.now().isoformat())
+        try:
+            if isinstance(raw_date, str):
+                date_prevue = parse_datetime(raw_date) or timezone.now()
+            else:
+                date_prevue = raw_date or timezone.now()
+        except:
+            date_prevue = timezone.now()
 
-        if isinstance(raw_date, str) and raw_date.strip():
-            try:
-                # Essayer différents formats de date
-                parsed = None
-                formats_to_try = [
-                    raw_date,  # Format original
-                    raw_date + 'T00:00:00' if 'T' not in raw_date else raw_date,  # Ajouter heure si manquante
-                    raw_date.replace('Z', '+00:00'),  # Remplacer Z par +00:00
-                ]
-
-                for date_format in formats_to_try:
-                    try:
-                        parsed = parse_datetime(date_format)
-                        if parsed:
-                            break
-                    except:
-                        try:
-                            parsed = datetime.fromisoformat(date_format)
-                            break
-                        except:
-                            continue
-
-                if parsed:
-                    date_prevue = timezone.make_aware(parsed) if parsed.tzinfo is None else parsed
-                else:
-                    # Si impossible de parser, utiliser aujourd'hui
-                    date_prevue = timezone.now()
-                    print(f"[WARNING] Impossible de parser la date '{raw_date}', utilisation de la date actuelle")
-            except Exception as e:
-                print(f"[ERROR] Erreur parsing date '{raw_date}': {e}")
-                date_prevue = timezone.now()
-        else:
-            date_prevue = raw_date or timezone.now()
-
-        print(f"[DEBUG] Date prévue traitée: {date_prevue} (original: {raw_date})")
-
-        # ------ DEDUPLICATION LOGIC IMPROVED ------
-        # Check for exact duplicate sessions on the same date with same exercises
-        workout_exercises = data.get('exercices', [])
-
-        # Look for duplicate sessions on the same date first
-        existing_seances = SeanceEntrainement.objects.filter(
+        # Créer la séance
+        seance = SeanceEntrainement.objects.create(
             utilisateur=user,
-            date_prevue__date=date_prevue.date(),
-            statut='TERMINEE'
-        ).prefetch_related('exercices__machine', 'exercices__series')
+            nom=data.get('nom', f"Séance du {date_prevue.strftime('%d/%m/%Y')}"),
+            date_prevue=date_prevue,
+            date_debut=timezone.now() - timedelta(minutes=data.get('duree', 45)),
+            date_fin=timezone.now(),
+            duree_prevue=data.get('duree', 45),
+            statut='TERMINEE',
+            note_ressenti=data.get('note_ressenti', 7),
+            commentaire=data.get('commentaire', '')
+        )
+        print(f"[DEBUG] Séance créée: {seance.id}")
 
-        for existing_seance in existing_seances:
-            existing_exercises = list(existing_seance.exercices.all())
+        # Ajouter les exercices
+        for idx, exercice_data in enumerate(data.get('exercices', [])):
+            nom_exercice = exercice_data.get('nom', '')
+            if not nom_exercice:
+                continue
 
-            # Compare if exercises match (same machines and similar weights)
-            if len(existing_exercises) == len(workout_exercises):
-                match_count = 0
-                for new_ex in workout_exercises:
-                    for existing_ex in existing_exercises:
-                        if (existing_ex.machine.nom.lower() == new_ex.get('nom', '').lower() and
-                            abs(float(existing_ex.poids_utilise or 0) - float(new_ex.get('poids', 0))) < 2.5):
-                            match_count += 1
-                            break
-
-                # If 80% or more exercises match, consider it a duplicate
-                if match_count >= len(workout_exercises) * 0.8:
-                    serializer = SeanceEntrainementSerializer(existing_seance)
-                    return Response({
-                        'id': existing_seance.id,
-                        'nom': existing_seance.nom,
-                        'statut': existing_seance.statut,
-                        'message': 'Séance similaire déjà existante (éviter doublon)',
-                        'data': serializer.data
-                    }, status=status.HTTP_200_OK)
-
-        # Déterminer le statut selon le type d'action
-        est_planification = data.get('est_planification', False) or data.get('action') == 'planifier'
-
-        if est_planification:
-            # Mode planification : séance future
-            seance = SeanceEntrainement.objects.create(
-                utilisateur=user,
-                nom=data.get('nom', f"Séance du {date_prevue.strftime('%d/%m/%Y')}"),
-                date_prevue=date_prevue,
-                duree_prevue=data.get('duree', 45),
-                statut='PLANIFIEE',
-                commentaire=data.get('commentaire', '')
-            )
-            print(f"[DEBUG] Séance PLANIFIEE créée pour le {date_prevue}")
-        else:
-            # Mode sauvegarde : séance terminée
-            seance = SeanceEntrainement.objects.create(
-                utilisateur=user,
-                nom=data.get('nom', f"Séance du {timezone.now().strftime('%d/%m/%Y')}"),
-                date_prevue=date_prevue,
-                date_debut=timezone.now() - timedelta(minutes=data.get('duree', 45)),
-                date_fin=timezone.now(),
-                duree_prevue=data.get('duree', 45),
-                statut='TERMINEE',
-                note_ressenti=data.get('note_ressenti', 7),
-                commentaire=data.get('commentaire', '')
-            )
-            print(f"[DEBUG] Séance TERMINEE sauvegardée")
-
-        # Les exercices ne sont ajoutés que pour les séances terminées
-        if not est_planification:
-            # Ajouter les exercices
-            for idx, exercice_data in enumerate(data.get('exercices', [])):
-                # Récupérer la machine par nom (recherche flexible)
-                machine = None
-                nom_exercice = exercice_data['nom']
-
-                # Essayer différentes stratégies de recherche
-                search_strategies = [
-                    lambda: Machine.objects.get(nom__iexact=nom_exercice),
-                    lambda: Machine.objects.get(nom__icontains=nom_exercice),
-                    lambda: Machine.objects.filter(nom__icontains=nom_exercice).first(),
-                    lambda: Machine.objects.get(nom__icontains=nom_exercice.replace('é', 'e').replace('è', 'e')),
-                    lambda: Machine.objects.get(nom__icontains=nom_exercice.replace('e', 'é')),
-                    lambda: Machine.objects.get(nom__icontains=nom_exercice.replace('e', 'è')),
-                ]
-
-                for strategy in search_strategies:
-                    try:
-                        machine = strategy()
-                        if machine:
-                            break
-                    except (Machine.DoesNotExist, Machine.MultipleObjectsReturned):
-                        continue
-
+            # Chercher ou créer la machine
+            try:
+                machine = Machine.objects.filter(nom__icontains=nom_exercice).first()
                 if not machine:
-                    # Créer la machine si elle n'existe pas
                     from apps.machines.models import CategorieMachine
-                    categorie_defaut, _ = CategorieMachine.objects.get_or_create(nom='MUSCULATION', defaults={
-                        'description': 'Catégorie auto générée',
-                    })
+                    categorie_defaut, _ = CategorieMachine.objects.get_or_create(
+                        nom='MUSCULATION',
+                        defaults={'description': 'Catégorie par défaut'}
+                    )
                     machine = Machine.objects.create(
                         nom=nom_exercice,
-                        description='Créée automatiquement depuis l\'app Android',
+                        description='Créé automatiquement',
                         instructions='',
-                        categorie=categorie_defaut,
                         increment_poids=2.5,
                         poids_minimum=0.0,
                         poids_maximum=200.0
                     )
+                    machine.categories.add(categorie_defaut)
 
-                # Vérifier si c'est une machine cardio (basé sur la catégorie ou le type d'exercice envoyé)
-                is_cardio = (
-                    machine.categorie.nom == 'CARDIO' if machine.categorie else False or
-                    exercice_data.get('type_exercice') == 'DUREE'
-                )
+                print(f"[DEBUG] Machine trouvée/créée: {machine.nom}")
 
-            if is_cardio:
-                # Pour les exercices cardio, les reps représentent la durée en minutes
-                duree_minutes = exercice_data.get('reps', 20)  # Durée en minutes
-                exercice = ExerciceSeance.objects.create(
-                    seance=seance,
-                    machine=machine,
-                    ordre_dans_seance=idx + 1,
-                    series_prevues=1,  # Une seule série pour cardio
-                    repetitions_prevues=duree_minutes,
-                    duree_prevue=duree_minutes * 60,  # Convertir en secondes
-                    poids_prevu=0.0,  # Pas de poids pour cardio
-                    nombre_series=1,
-                    repetitions_realisees=duree_minutes,
-                    duree_realisee=duree_minutes * 60,
-                    poids_utilise=0.0,
-                    statut='TERMINE'
-                )
-
-                # Créer une seule série pour cardio
-                SeriExercice.objects.create(
-                    exercice=exercice,
-                    numero_serie=1,
-                    repetitions_prevues=duree_minutes,
-                    duree_prevue=duree_minutes * 60,
-                    poids_prevu=0.0,
-                    repetitions_realisees=duree_minutes,
-                    duree_realisee=duree_minutes * 60,
-                    poids_utilise=0.0,
-                    statut='REUSSIE'
-                )
-            else:
-                # Pour les exercices de musculation
+                # Créer l'exercice
                 exercice = ExerciceSeance.objects.create(
                     seance=seance,
                     machine=machine,
                     ordre_dans_seance=idx + 1,
                     series_prevues=exercice_data.get('series', 3),
                     repetitions_prevues=exercice_data.get('reps', 10),
-                    poids_prevu=exercice_data.get('poids', 20),
+                    poids_prevu=float(exercice_data.get('poids', 20)),
                     nombre_series=exercice_data.get('series', 3),
                     repetitions_realisees=exercice_data.get('reps', 10),
-                    poids_utilise=exercice_data.get('poids', 20),
+                    poids_utilise=float(exercice_data.get('poids', 20)),
                     statut='TERMINE'
                 )
+                print(f"[DEBUG] Exercice créé: {exercice.id}")
 
-                # Ajouter les séries pour musculation
+                # Créer les séries
                 for serie_num in range(exercice_data.get('series', 3)):
-                    # Log du contenu reçu pour debug
-                    print(f"[DEBUG] Création série pour exercice: {exercice_data}")
                     SeriExercice.objects.create(
                         exercice=exercice,
                         numero_serie=serie_num + 1,
                         repetitions_prevues=exercice_data.get('reps', 10),
-                        poids_prevu=exercice_data.get('poids', 20),
+                        poids_prevu=float(exercice_data.get('poids', 20)),
                         repetitions_realisees=exercice_data.get('reps', 10),
-                        poids_utilise=exercice_data.get('poids', 20),
+                        poids_utilise=float(exercice_data.get('poids', 20)),
                         statut='REUSSIE'
                     )
+                print(f"[DEBUG] {exercice_data.get('series', 3)} séries créées")
 
-            # --- MISE À JOUR DE LA PROGRESSION ---
-            from .models import ProgressionMachine, ModeEntrainement
-
-            # S'assurer qu'il y a au moins un mode d'entraînement
-            mode = ModeEntrainement.objects.first()
-            if not mode:
-                # Créer un mode par défaut si aucun n'existe
-                mode = ModeEntrainement.objects.create(
-                    nom="Prise de masse",
-                    description="Mode par défaut",
-                    series_recommandees=3,
-                    repetitions_min=8,
-                    repetitions_max=12,
-                    repos_entre_series=90
-                )
-
-            # Récupérer ou créer la progression avec le mode d'entraînement
-            try:
-                progression = ProgressionMachine.objects.get(
-                    utilisateur=user,
-                    machine=machine
-                )
-                created = False
-            except ProgressionMachine.DoesNotExist:
-                # Calculer le 1RM pour cette première séance
-                premier_1rm = exercice.calculer_1rm_brzycki() if not is_cardio else None
-
-                # Créer la progression avec le poids de la séance comme base
-                progression = ProgressionMachine.objects.create(
-                    utilisateur=user,
-                    machine=machine,
-                    mode_entrainement=mode,
-                    poids_actuel=exercice.poids_utilise or exercice.poids_prevu or 0.0,
-                    series_actuelles=exercice.nombre_series,
-                    repetitions_actuelles=exercice.repetitions_realisees,
-                    derniere_seance=seance,
-                    dernier_1rm=premier_1rm,
-                    nombre_seances_machine=1,
-                    progression_poids_total=exercice.poids_utilise or exercice.poids_prevu or 0.0,
-                    taux_reussite=100.0,
-                    increment_automatique=True,
-                    seuil_progression=90.0,
-                    derniere_progression=timezone.now(),
-                )
-
-                # IMPORTANT: Pour la première séance, on démarre avec le poids utilisé
-                # La recommandation sera calculée après cette première séance
-                print(f"[DEBUG] Nouvelle progression créée pour {machine.nom}:")
-                print(f"  Poids première séance: {exercice.poids_utilise}kg")
-                print(f"  1RM calculé: {premier_1rm}kg")
-                print(f"  Poids de départ stocké: {progression.poids_actuel}kg")
-
-                created = True
-            if not created:
-                # Mise à jour des champs de progression
-                if not is_cardio:
-                    # Mettre à jour le 1RM avec le meilleur calculé
-                    nouveau_1rm = exercice.calculer_1rm_brzycki()
-                    if nouveau_1rm and (not progression.dernier_1rm or nouveau_1rm > progression.dernier_1rm):
-                        progression.dernier_1rm = nouveau_1rm
-
-                    # Ajouter au tonnage total
-                    progression.progression_poids_total += exercice.poids_utilise or exercice.poids_prevu or 0.0
-                else:
-                    # Pour cardio, mettre à jour la durée
-                    progression.repetitions_actuelles = exercice.repetitions_realisees
-
-                # Mettre à jour les informations de base
-                progression.series_actuelles = exercice.nombre_series
-                progression.derniere_seance = seance
-                progression.nombre_seances_machine += 1
-                progression.derniere_progression = timezone.now()
-
-                # CALCUL DU TAUX DE RÉUSSITE BASÉ SUR LES SÉRIES
-                series_reussies = 0
-                series_totales = exercice.series.count()
-                if series_totales > 0:
-                    for serie in exercice.series.all():
-                        if serie.repetitions_realisees >= serie.repetitions_prevues * 0.8:  # 80% = réussite
-                            series_reussies += 1
-                    progression.taux_reussite = (series_reussies / series_totales) * 100
-                else:
-                    progression.taux_reussite = 100.0  # Par défaut si pas de séries détaillées
-
-                # *** CALCUL DE LA NOUVELLE RECOMMANDATION POUR LA PROCHAINE SÉANCE ***
-                ancien_poids = progression.poids_actuel
-
-                # Pour éviter de bloquer à 17kg, utilisons directement le poids de la séance
-                # si c'est supérieur à la recommandation actuelle
-                poids_seance = exercice.poids_utilise or exercice.poids_prevu or 0.0
-                nouvelle_recommandation = progression.calculer_recommandation_professionnelle()
-
-                # Si le poids de la séance actuelle est supérieur à la recommandation,
-                # utiliser le poids de la séance comme base pour la prochaine fois
-                if poids_seance > nouvelle_recommandation:
-                    # Le joueur progresse plus vite que prévu, suivre son rythme
-                    progression.poids_actuel = poids_seance
-                    print(f"[DEBUG] Progression accélérée détectée - utilisation du poids séance: {poids_seance}kg")
-                else:
-                    progression.poids_actuel = nouvelle_recommandation
-
-                print(f"[DEBUG] Progression mise à jour pour {machine.nom}:")
-                print(f"  Ancien poids: {ancien_poids}kg")
-                print(f"  Poids de la séance: {poids_seance}kg")
-                print(f"  Recommandation calculée: {nouvelle_recommandation}kg")
-                print(f"  Nouveau poids retenu: {progression.poids_actuel}kg")
-                print(f"  1RM: {progression.dernier_1rm}kg")
-                print(f"  Taux réussite: {progression.taux_reussite}%")
-
-                progression.save()
+            except Exception as e:
+                print(f"[ERROR] Erreur création exercice {nom_exercice}: {e}")
+                continue
 
         # Calculer les métriques
         seance.calculer_metriques()
 
-        try:
-            serializer = SeanceEntrainementSerializer(seance)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        except Exception as serialization_error:
-            # Si la sérialisation échoue, retourner une réponse simple mais valide
-            return Response({
-                'id': seance.id,
-                'nom': seance.nom,
-                'statut': seance.statut,
-                'message': 'Séance sauvegardée avec succès',
-                'warning': f'Erreur de sérialisation: {str(serialization_error)}'
-            }, status=status.HTTP_201_CREATED)
+        return Response({
+            'id': seance.id,
+            'nom': seance.nom,
+            'statut': seance.statut,
+            'message': 'Séance sauvegardée avec succès'
+        }, status=status.HTTP_201_CREATED)
 
     except Exception as e:
+        print(f"[ERROR] Erreur sauvegarde séance: {e}")
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -540,7 +307,7 @@ def get_recommendation(request, machine_id):
     """
     try:
         user = request.user
-        
+
         # Récupérer la machine
         try:
             machine = Machine.objects.get(id=machine_id)
@@ -554,7 +321,7 @@ def get_recommendation(request, machine_id):
         recommendations = recommendation_system.get_recommendations_for_user(
             user, 'PRISE_MASSE', nb_machines=10
         )
-        
+
         # Chercher la recommandation pour cette machine spécifique
         for rec in recommendations:
             if rec['machine_id'] == machine_id:
@@ -567,7 +334,7 @@ def get_recommendation(request, machine_id):
                     'recommendation': rec,
                     'premiere_utilisation': rec['recommandation_source'] == 'premiere_utilisation'
                 }, status=status.HTTP_200_OK)
-        
+
         # Si pas trouvé dans les recommandations, créer une recommandation par défaut
         default_rec = {
             'machine_id': machine.id,
@@ -586,7 +353,7 @@ def get_recommendation(request, machine_id):
                 'progression_totale': 0
             }
         }
-        
+
         return Response({
             'machine': {
                 'id': machine.id,
@@ -613,7 +380,7 @@ def get_recommendation_by_name(request, machine_name):
 
         if not user.is_authenticated:
             return Response({'error': 'Authentification requise'}, status=status.HTTP_401_UNAUTHORIZED)
-        
+
         # Utiliser le nouveau système de recommandation
         recommendation_system = ProgressionBasedRecommendationSystem()
         try:
@@ -621,17 +388,17 @@ def get_recommendation_by_name(request, machine_name):
             machine = Machine.objects.filter(nom__icontains=machine_name).first()
             if not machine:
                 return Response({'error': f'Machine "{machine_name}" non trouvée'}, status=status.HTTP_404_NOT_FOUND)
-            
+
             # Pour une machine spécifique, utiliser PRISE_MASSE par défaut
             recommendations = recommendation_system.get_recommendations_for_user(
                 user, 'PRISE_MASSE', nb_machines=6
             )
-            
+
             # Chercher la recommandation pour cette machine spécifique
             for rec in recommendations:
                 if rec['machine_nom'].lower() in machine_name.lower() or machine_name.lower() in rec['machine_nom'].lower():
                     return Response(rec, status=status.HTTP_200_OK)
-            
+
             # Si pas trouvé, retourner une recommandation générique pour cette machine
             return Response({
                 'machine_id': machine.id,
@@ -643,7 +410,7 @@ def get_recommendation_by_name(request, machine_name):
                 'notes': 'Recommandation par défaut - première utilisation',
                 'recommandation_source': 'defaut'
             }, status=status.HTTP_200_OK)
-            
+
         except Exception as e:
             logger.error(f"Erreur système recommandation: {e}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -664,20 +431,20 @@ def get_session_recommendations(request):
         user = request.user
         mode = request.GET.get('mode', 'PRISE_MASSE')  # Mode par défaut
         nb_machines = int(request.GET.get('nb_machines', 6))  # 6 machines par défaut
-        
+
         # Vérifier que le mode est valide
         valid_modes = ['FORCE', 'PRISE_MASSE', 'ENDURANCE', 'SECHE']
         if mode not in valid_modes:
             return Response({
                 'error': f'Mode invalide. Modes supportés: {valid_modes}'
             }, status=status.HTTP_400_BAD_REQUEST)
-        
+
         # Utiliser le nouveau système de recommandation
         recommendation_system = ProgressionBasedRecommendationSystem()
         recommendations = recommendation_system.get_recommendations_for_user(
             user, mode, nb_machines
         )
-        
+
         response_data = {
             'mode_entrainement': mode,
             'nb_machines_demandees': nb_machines,
@@ -689,9 +456,9 @@ def get_session_recommendations(request):
                 'system_version': '2.0_progression_based'
             }
         }
-        
+
         return Response(response_data, status=status.HTTP_200_OK)
-        
+
     except ValueError as e:
         return Response({'error': f'Paramètre invalide: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
@@ -709,19 +476,19 @@ def get_intelligent_recommendations(request, mode_entrainement):
     try:
         user = request.user
         nb_machines = int(request.GET.get('nb_machines', 6))
-        
+
         logger.info(f"Demande recommandations intelligentes: user={user.id}, mode={mode_entrainement}, nb={nb_machines}")
-        
+
         # Créer le système de recommandation
         recommendation_system = ProgressionBasedRecommendationSystem()
-        
+
         # Générer les recommandations
         recommendations = recommendation_system.get_recommendations_for_user(
             user=user,
             mode_entrainement=mode_entrainement.upper(),
             nb_machines=nb_machines
         )
-        
+
         response_data = {
             'success': True,
             'data': recommendations,
@@ -729,10 +496,10 @@ def get_intelligent_recommendations(request, mode_entrainement):
             'mode_entrainement': mode_entrainement,
             'count': len(recommendations)
         }
-        
+
         logger.info(f"Recommandations intelligentes envoyées: {len(recommendations)} machines")
         return Response(response_data, status=status.HTTP_200_OK)
-        
+
     except ValueError as e:
         logger.error(f"Erreur paramètre dans get_intelligent_recommendations: {e}")
         return Response({
@@ -741,7 +508,7 @@ def get_intelligent_recommendations(request, mode_entrainement):
             'data': [],
             'count': 0
         }, status=status.HTTP_400_BAD_REQUEST)
-        
+
     except Exception as e:
         logger.error(f"Erreur dans get_intelligent_recommendations: {e}")
         return Response({
@@ -762,17 +529,17 @@ def get_user_progressions(request):
     try:
         user = request.user
         mode_entrainement = request.GET.get('mode_entrainement')
-        
+
         logger.info(f"Demande progressions: user={user.id}, mode={mode_entrainement}")
-        
+
         # Construire la requête
         queryset = ProgressionMachine.objects.filter(utilisateur=user).select_related('machine', 'mode_entrainement')
-        
+
         if mode_entrainement:
             queryset = queryset.filter(mode_entrainement__nom=mode_entrainement.upper())
-            
+
         progressions = queryset.order_by('-derniere_progression', '-taux_reussite')
-        
+
         # Sérialiser les données
         progressions_data = []
         for progression in progressions:
@@ -789,17 +556,17 @@ def get_user_progressions(request):
                 'derniere_progression': progression.derniere_progression.isoformat() if progression.derniere_progression else None,
                 'derniere_seance': progression.derniere_seance.date_debut.isoformat() if progression.derniere_seance else None
             })
-        
+
         response_data = {
             'success': True,
             'data': progressions_data,
             'message': f'Progressions récupérées pour l\'utilisateur',
             'count': len(progressions_data)
         }
-        
+
         logger.info(f"Progressions envoyées: {len(progressions_data)} entrées")
         return Response(response_data, status=status.HTTP_200_OK)
-        
+
     except Exception as e:
         logger.error(f"Erreur dans get_user_progressions: {e}")
         return Response({
@@ -807,4 +574,141 @@ def get_user_progressions(request):
             'message': f'Erreur serveur: {str(e)}',
             'data': [],
             'count': 0
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def import_csv_workouts(request):
+    """
+    Endpoint pour importer des séances d'entraînement depuis un fichier CSV
+    Compatible avec l'application Android - Upload de fichier
+    """
+    try:
+        # Vérifier qu'un fichier CSV a été uploadé
+        if 'csv_file' not in request.FILES:
+            return Response({
+                'success': False,
+                'message': 'Aucun fichier CSV fourni. Utilisez le paramètre "csv_file"',
+                'data': []
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        csv_file = request.FILES['csv_file']
+
+        # Vérifier que c'est bien un fichier CSV
+        if not csv_file.name.endswith('.csv'):
+            return Response({
+                'success': False,
+                'message': 'Le fichier doit être au format CSV',
+                'data': []
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Lire le contenu du fichier CSV
+        try:
+            # Décoder le contenu en UTF-8
+            content = csv_file.read().decode('utf-8')
+            csv_reader = csv.DictReader(io.StringIO(content))
+
+            imported_seances = []
+            errors = []
+
+            for row_num, row in enumerate(csv_reader, start=2):  # Commencer à 2 car ligne 1 = headers
+                try:
+                    # Parser la date
+                    date_str = row.get('date', '').strip()
+                    if not date_str:
+                        errors.append(f"Ligne {row_num}: Date manquante")
+                        continue
+
+                    try:
+                        date_prevue = parse_datetime(date_str) or timezone.now()
+                    except:
+                        date_prevue = timezone.now()
+
+                    # Créer la séance
+                    seance = SeanceEntrainement.objects.create(
+                        utilisateur=request.user,
+                        nom=row.get('nom', f"Séance importée du {date_prevue.strftime('%d/%m/%Y')}"),
+                        date_prevue=date_prevue,
+                        date_debut=date_prevue,
+                        date_fin=date_prevue + timedelta(minutes=int(row.get('duree', 45))),
+                        duree_prevue=int(row.get('duree', 45)),
+                        statut='TERMINEE',
+                        note_ressenti=int(row.get('note_ressenti', 7)),
+                        commentaire=row.get('commentaire', 'Importé depuis CSV')
+                    )
+
+                    # Ajouter les exercices si présents
+                    exercices_str = row.get('exercices', '').strip()
+                    if exercices_str:
+                        exercices_list = [ex.strip() for ex in exercices_str.split(',')]
+                        for idx, nom_exercice in enumerate(exercices_list):
+                            if nom_exercice:
+                                # Chercher ou créer la machine
+                                machine, created = Machine.objects.get_or_create(
+                                    nom=nom_exercice,
+                                    defaults={
+                                        'description': 'Créé lors de l\'import CSV',
+                                        'instructions': '',
+                                        'increment_poids': 2.5,
+                                        'poids_minimum': 0.0,
+                                        'poids_maximum': 200.0
+                                    }
+                                )
+
+                                # Créer l'exercice
+                                exercice = ExerciceSeance.objects.create(
+                                    seance=seance,
+                                    machine=machine,
+                                    ordre_dans_seance=idx + 1,
+                                    series_prevues=int(row.get('series', 3)),
+                                    repetitions_prevues=int(row.get('reps', 10)),
+                                    poids_prevu=float(row.get('poids', 20)),
+                                    nombre_series=int(row.get('series', 3)),
+                                    repetitions_realisees=int(row.get('reps', 10)),
+                                    poids_utilise=float(row.get('poids', 20)),
+                                    statut='TERMINE'
+                                )
+
+                    imported_seances.append({
+                        'id': seance.id,
+                        'nom': seance.nom,
+                        'date': seance.date_prevue.isoformat(),
+                        'exercices': exercices_list if 'exercices_list' in locals() else []
+                    })
+
+                except Exception as e:
+                    errors.append(f"Ligne {row_num}: {str(e)}")
+                    continue
+
+            # Préparer la réponse
+            response_data = {
+                'success': True,
+                'message': f'Import CSV réussi. {len(imported_seances)} séances importées.',
+                'data': {
+                    'imported_seances': imported_seances,
+                    'total_imported': len(imported_seances),
+                    'errors': errors
+                }
+            }
+
+            if errors:
+                response_data['message'] += f' {len(errors)} erreurs rencontrées.'
+
+            logger.info(f"Import CSV réussi: {len(imported_seances)} séances importées pour user {request.user.id}")
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except UnicodeDecodeError:
+            return Response({
+                'success': False,
+                'message': 'Erreur de décodage du fichier CSV. Assurez-vous qu\'il est encodé en UTF-8.',
+                'data': []
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    except Exception as e:
+        logger.error(f"Erreur dans import_csv_workouts: {e}")
+        return Response({
+            'success': False,
+            'message': f'Erreur serveur: {str(e)}',
+            'data': []
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

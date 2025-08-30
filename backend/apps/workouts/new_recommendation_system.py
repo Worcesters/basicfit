@@ -18,7 +18,7 @@ class ProgressionBasedRecommendationSystem:
     """
     Système de recommandation basé sur la progression réelle de l'utilisateur
     """
-    
+
     def __init__(self):
         # Configuration des modes d'entraînement
         self.mode_configs = {
@@ -64,39 +64,39 @@ class ProgressionBasedRecommendationSystem:
             }
         }
 
-    def get_recommendations_for_user(self, user: User, mode_entrainement: str, 
+    def get_recommendations_for_user(self, user: User, mode_entrainement: str,
                                    nb_machines: int = 6) -> List[Dict]:
         """
         Génère des recommandations pour un utilisateur basées sur sa progression
-        
+
         Args:
             user: L'utilisateur
             mode_entrainement: Type de session ('FORCE', 'PRISE_MASSE', 'ENDURANCE', 'SECHE')
             nb_machines: Nombre de machines à recommander
-            
+
         Returns:
             Liste des recommandations avec machine, poids, séries, reps, etc.
         """
         if mode_entrainement not in self.mode_configs:
             raise ValueError(f"Mode d'entraînement non supporté: {mode_entrainement}")
-            
+
         config = self.mode_configs[mode_entrainement]
-        
+
         # Récupérer le mode d'entraînement depuis la DB
         try:
             mode_obj = ModeEntrainement.objects.get(nom=mode_entrainement)
         except ModeEntrainement.DoesNotExist:
             # Créer le mode s'il n'existe pas
             mode_obj = self._create_mode_entrainement(mode_entrainement, config)
-        
+
         # Récupérer toutes les progressions de l'utilisateur
         progressions = ProgressionMachine.objects.filter(
             utilisateur=user,
             mode_entrainement=mode_obj
         ).select_related('machine')
-        
+
         recommendations = []
-        
+
         # Si l'utilisateur a des progressions, utiliser ces données
         if progressions.exists():
             recommendations = self._get_recommendations_from_progressions(
@@ -107,16 +107,16 @@ class ProgressionBasedRecommendationSystem:
             recommendations = self._get_default_recommendations(
                 user, mode_obj, config, nb_machines
             )
-        
+
         return recommendations
 
-    def _get_recommendations_from_progressions(self, progressions, config: Dict, 
+    def _get_recommendations_from_progressions(self, progressions, config: Dict,
                                              nb_machines: int) -> List[Dict]:
         """
         Génère des recommandations basées sur les progressions existantes
         """
         recommendations = []
-        
+
         # Trier les progressions par performance et variété
         progressions_list = list(progressions)
         progressions_list.sort(key=lambda p: (
@@ -124,42 +124,42 @@ class ProgressionBasedRecommendationSystem:
             p.nombre_seances_machine,  # Expérience sur la machine
             -p.derniere_progression.timestamp() if p.derniere_progression else 0
         ), reverse=True)
-        
+
         for progression in progressions_list[:nb_machines]:
             recommendation = self._generate_recommendation_from_progression(
                 progression, config
             )
             recommendations.append(recommendation)
-        
+
         # Compléter avec de nouvelles machines si nécessaire
         if len(recommendations) < nb_machines:
             machines_utilisees = {r['machine_id'] for r in recommendations}
             nouvelles_machines = self._get_new_machines_recommendations(
-                progression.utilisateur, config, 
+                progression.utilisateur, config,
                 nb_machines - len(recommendations), machines_utilisees
             )
             recommendations.extend(nouvelles_machines)
-        
+
         return recommendations
 
-    def _generate_recommendation_from_progression(self, progression: ProgressionMachine, 
+    def _generate_recommendation_from_progression(self, progression: ProgressionMachine,
                                                 config: Dict) -> Dict:
         """
         Génère une recommandation basée sur une progression existante
         """
         machine = progression.machine
-        
+
         # Calculer le poids recommandé
         poids_recommande = self._calculate_recommended_weight(progression, config)
-        
+
         # Calculer séries et répétitions selon le mode
         series = self._calculate_series(progression, config)
         reps = self._calculate_reps(progression, config)
         repos = self._calculate_rest_time(config)
-        
+
         # Générer des notes explicatives
         notes = self._generate_recommendation_notes(progression, config)
-        
+
         return {
             'machine_id': machine.id,
             'machine_nom': machine.nom,
@@ -179,7 +179,7 @@ class ProgressionBasedRecommendationSystem:
             'recommandation_source': 'progression_existante'
         }
 
-    def _calculate_recommended_weight(self, progression: ProgressionMachine, 
+    def _calculate_recommended_weight(self, progression: ProgressionMachine,
                                     config: Dict) -> float:
         """
         Calcule le poids recommandé basé sur la progression et le mode d'entraînement
@@ -188,7 +188,7 @@ class ProgressionBasedRecommendationSystem:
         taux_reussite = progression.taux_reussite
         seuil_progression = config['progression_seuil']
         increment = progression.machine.increment_poids
-        
+
         # Logique de progression basée sur le taux de réussite
         if taux_reussite >= seuil_progression:
             # Excellent taux : augmentation
@@ -198,15 +198,15 @@ class ProgressionBasedRecommendationSystem:
                 return nouveau_poids
             else:
                 return progression.machine.poids_maximum
-                
+
         elif taux_reussite >= 70.0:
             # Bon taux : maintien du poids
             return poids_actuel
-            
+
         elif taux_reussite >= 50.0:
             # Taux moyen : léger ajustement ou maintien
             return poids_actuel
-            
+
         else:
             # Faible taux : diminution pour améliorer la technique
             nouveau_poids = poids_actuel - increment
@@ -222,7 +222,7 @@ class ProgressionBasedRecommendationSystem:
         # Utiliser la configuration du mode d'entraînement
         series_min = config['series_min']
         series_max = config['series_max']
-        
+
         # Ajuster selon l'expérience de l'utilisateur
         if progression.nombre_seances_machine <= 5:
             # Débutant sur cette machine : commencer doucement
@@ -240,7 +240,7 @@ class ProgressionBasedRecommendationSystem:
         """
         reps_min = config['reps_min']
         reps_max = config['reps_max']
-        
+
         # Ajuster selon l'expérience et la performance
         if progression.nombre_seances_machine <= 3:
             # Débutant : plus de répétitions pour apprendre le mouvement
@@ -258,13 +258,13 @@ class ProgressionBasedRecommendationSystem:
         """
         return (config['repos_min'] + config['repos_max']) // 2
 
-    def _generate_recommendation_notes(self, progression: ProgressionMachine, 
+    def _generate_recommendation_notes(self, progression: ProgressionMachine,
                                      config: Dict) -> str:
         """
         Génère des notes explicatives pour la recommandation
         """
         taux = progression.taux_reussite
-        
+
         if taux >= config['progression_seuil']:
             return f"Excellent travail ! Taux de réussite: {taux:.1f}%. Augmentation du poids recommandée."
         elif taux >= 70.0:
@@ -274,7 +274,7 @@ class ProgressionBasedRecommendationSystem:
         else:
             return f"Difficultés rencontrées (taux: {taux:.1f}%). Réduction du poids pour améliorer la technique."
 
-    def _get_default_recommendations(self, user: User, mode_obj: ModeEntrainement, 
+    def _get_default_recommendations(self, user: User, mode_obj: ModeEntrainement,
                                    config: Dict, nb_machines: int) -> List[Dict]:
         """
         Génère des recommandations par défaut pour un nouvel utilisateur
@@ -283,21 +283,21 @@ class ProgressionBasedRecommendationSystem:
         machines = Machine.objects.filter(
             is_active=True
         ).select_related('categorie')[:nb_machines * 2]  # Prendre plus pour avoir du choix
-        
+
         recommendations = []
         groupes_utilises = set()
-        
+
         for machine in machines:
             if len(recommendations) >= nb_machines:
                 break
-                
+
             # Éviter de répéter les mêmes groupes musculaires
             if machine.categorie and machine.categorie.nom in groupes_utilises:
                 continue
-                
+
             # Calculer un poids de départ basé sur le profil utilisateur
             poids_depart = self._calculate_starting_weight(user, machine, config)
-            
+
             recommendation = {
                 'machine_id': machine.id,
                 'machine_nom': machine.nom,
@@ -316,11 +316,11 @@ class ProgressionBasedRecommendationSystem:
                 },
                 'recommandation_source': 'premiere_utilisation'
             }
-            
+
             recommendations.append(recommendation)
             if machine.categorie:
                 groupes_utilises.add(machine.categorie.nom)
-        
+
         return recommendations
 
     def _calculate_starting_weight(self, user: User, machine: Machine, config: Dict) -> float:
@@ -335,11 +335,11 @@ class ProgressionBasedRecommendationSystem:
                 base_weight = machine.poids_minimum + (machine.increment_poids * 2)
         else:
             base_weight = machine.poids_minimum + machine.increment_poids
-        
+
         # S'assurer que c'est dans les limites de la machine
         return min(max(base_weight, machine.poids_minimum), machine.poids_maximum)
 
-    def _get_new_machines_recommendations(self, user: User, config: Dict, 
+    def _get_new_machines_recommendations(self, user: User, config: Dict,
                                         nb_needed: int, machines_utilisees: set) -> List[Dict]:
         """
         Recommande de nouvelles machines non encore utilisées
@@ -347,11 +347,11 @@ class ProgressionBasedRecommendationSystem:
         nouvelles_machines = Machine.objects.filter(
             is_active=True
         ).exclude(id__in=machines_utilisees)[:nb_needed]
-        
+
         recommendations = []
         for machine in nouvelles_machines:
             poids_depart = self._calculate_starting_weight(user, machine, config)
-            
+
             recommendation = {
                 'machine_id': machine.id,
                 'machine_nom': machine.nom,
@@ -371,7 +371,7 @@ class ProgressionBasedRecommendationSystem:
                 'recommandation_source': 'nouvelle_machine'
             }
             recommendations.append(recommendation)
-        
+
         return recommendations
 
     def _create_mode_entrainement(self, nom: str, config: Dict) -> ModeEntrainement:
@@ -384,7 +384,7 @@ class ProgressionBasedRecommendationSystem:
             'ENDURANCE': 'Développement de l\'endurance musculaire avec charges légères',
             'SECHE': 'Maintien musculaire en période de sèche avec volume élevé'
         }
-        
+
         return ModeEntrainement.objects.create(
             nom=nom,
             description=descriptions.get(nom, ''),
@@ -427,31 +427,31 @@ class ProgressionBasedRecommendationSystem:
         # Calculer le taux de réussite de cette session
         series_reussies = sum(1 for serie in exercice.series.all() if serie.est_reussie)
         total_series = exercice.series.count()
-        
+
         if total_series > 0:
             taux_seance = (series_reussies / total_series) * 100
-            
+
             # Mettre à jour le taux de réussite global (moyenne pondérée)
             ancien_taux = progression.taux_reussite
             nb_seances = progression.nombre_seances_machine
-            
+
             if nb_seances == 0:
                 progression.taux_reussite = taux_seance
             else:
                 # Moyenne pondérée donnant plus d'importance aux sessions récentes
                 poids_nouvelle_seance = min(0.3, 1.0 / (nb_seances + 1))
                 progression.taux_reussite = (
-                    ancien_taux * (1 - poids_nouvelle_seance) + 
+                    ancien_taux * (1 - poids_nouvelle_seance) +
                     taux_seance * poids_nouvelle_seance
                 )
 
         # Mettre à jour les autres champs
         progression.nombre_seances_machine += 1
         progression.derniere_seance = exercice.seance
-        
+
         if exercice.charge_maximale_theorique:
             progression.dernier_1rm = exercice.charge_maximale_theorique
-            
+
         # Vérifier si on doit progresser en poids
         if progression.evaluer_progression(exercice):
             success, ancien_poids, nouveau_poids = progression.progresser_poids()

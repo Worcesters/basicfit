@@ -17,7 +17,14 @@ import java.util.concurrent.TimeUnit
  */
 object NetworkConfig {
 
-    private const val BASE_URL = "https://basicfit-v2.fly.dev/"
+    // Configuration pour développement vs production
+    private const val DEV_BASE_URL = "http://10.0.2.2:8000/"
+    private const val PROD_BASE_URL = "https://basicfit-v2.fly.dev/"
+
+    // Changer cette valeur pour basculer entre dev et prod
+    private const val IS_DEVELOPMENT = true
+
+    private val BASE_URL = if (IS_DEVELOPMENT) DEV_BASE_URL else PROD_BASE_URL
 
     /**
      * Créer le service API avec configuration Retrofit

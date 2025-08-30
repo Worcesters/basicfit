@@ -11,11 +11,7 @@ from apps.users.models import User
 from apps.machines.models import Machine, VarianteMachine
 from apps.core.models import ModeEntrainement
 
-# Import des nouveaux modèles (les anciens sont obsolètes)
-from .models_refactored import (
-    SeanceEffectuee, ExerciceEffectue, SerieEffectuee,
-    CalendrierSeance, ExercicePlanifie
-)
+# Imports des modèles supprimés - plus nécessaires
 
 
 # ===== MODÈLES OBSOLÈTES (GARDÉS POUR LES MIGRATIONS) =====
@@ -164,10 +160,7 @@ class SeanceEntrainement(TimeStampedModel):
         verbose_name = "Séance d'entraînement"
         verbose_name_plural = "Séances d'entraînement"
         ordering = ['-date_prevue']
-        indexes = [
-            models.Index(fields=['utilisateur', 'date_prevue']),
-            models.Index(fields=['statut']),
-        ]
+        # indexes temporairement supprimés pour corriger les migrations
 
     def __str__(self):
         if self.nom:

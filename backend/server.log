@@ -1,0 +1,34 @@
+Configuration PRODUCTION Django COMPLÈTE chargée 
+Configuration PRODUCTION Django COMPLÈTE chargée 
+INFO Watching for file changes with StatReloader
+Performing system checks...
+
+System check identified some issues:
+
+WARNINGS:
+?: (staticfiles.W004) The directory 'C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\static' in the STATICFILES_DIRS setting does not exist.
+
+System check identified 1 issue (0 silenced).
+August 28, 2025 - 09:24:40
+Django version 4.2.7, using settings 'basicfit_project.settings.development'
+Starting development server at http://127.0.0.1:8000/
+Quit the server with CTRL-BREAK.
+
+INFO C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\basicfit_project\urls.py changed, reloading.
+Configuration PRODUCTION Django COMPLÈTE chargée 
+INFO Watching for file changes with StatReloader
+Performing system checks...
+
+System check identified some issues:
+
+WARNINGS:
+?: (staticfiles.W004) The directory 'C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\static' in the STATICFILES_DIRS setting does not exist.
+
+System check identified 1 issue (0 silenced).
+August 28, 2025 - 09:30:58
+Django version 4.2.7, using settings 'basicfit_project.settings.development'
+Starting development server at http://127.0.0.1:8000/
+Quit the server with CTRL-BREAK.
+
+WARNING Unauthorized: /api/workouts-v2/effectuees/
+WARNING "GET /api/workouts-v2/effectuees/ HTTP/1.1" 401 58

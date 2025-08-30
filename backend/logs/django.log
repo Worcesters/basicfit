@@ -144,3 +144,45 @@ INFO 2025-08-04 22:53:28,601 autoreload 24672 5096 C:\Users\jerem\OneDrive\Docum
 INFO 2025-08-04 22:53:29,157 autoreload 22592 11432 Watching for file changes with StatReloader
 INFO 2025-08-04 22:53:51,625 autoreload 22592 11432 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\workout_service.py changed, reloading.
 INFO 2025-08-04 22:53:52,174 autoreload 24888 25216 Watching for file changes with StatReloader
+INFO 2025-08-26 22:20:28,898 autoreload 17404 13944 Watching for file changes with StatReloader
+WARNING 2025-08-26 22:20:38,635 log 17404 25248 Unauthorized: /api/workouts/exercices-unifies/
+WARNING 2025-08-26 22:20:38,635 basehttp 17404 25248 "GET /api/workouts/exercices-unifies/ HTTP/1.1" 401 183
+WARNING 2025-08-26 22:20:44,853 log 17404 22156 Not Found: /api/workouts/
+WARNING 2025-08-26 22:20:44,853 basehttp 17404 22156 "GET /api/workouts/ HTTP/1.1" 404 9625
+INFO 2025-08-26 22:32:42,376 autoreload 17404 13944 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\admin.py changed, reloading.
+INFO 2025-08-26 22:32:42,982 autoreload 18672 27896 Watching for file changes with StatReloader
+INFO 2025-08-26 23:01:52,218 autoreload 18672 27896 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\api_simple.py changed, reloading.
+INFO 2025-08-26 23:01:52,790 autoreload 28604 16860 Watching for file changes with StatReloader
+INFO 2025-08-26 23:02:36,384 autoreload 28604 16860 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\api_unified.py changed, reloading.
+INFO 2025-08-26 23:02:36,968 autoreload 29872 21024 Watching for file changes with StatReloader
+INFO 2025-08-26 23:02:46,093 autoreload 29872 21024 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\urls.py changed, reloading.
+INFO 2025-08-26 23:02:46,667 autoreload 27276 29936 Watching for file changes with StatReloader
+INFO 2025-08-26 23:02:56,890 autoreload 27276 29936 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\new_recommendation_system.py changed, reloading.
+INFO 2025-08-26 23:02:57,483 autoreload 32436 32440 Watching for file changes with StatReloader
+INFO 2025-08-26 23:03:14,015 autoreload 32436 32440 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\new_recommendation_system.py changed, reloading.
+INFO 2025-08-26 23:03:15,071 autoreload 19568 31764 Watching for file changes with StatReloader
+INFO 2025-08-26 23:03:55,845 autoreload 19568 31764 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\new_recommendation_system.py changed, reloading.
+INFO 2025-08-26 23:03:56,411 autoreload 32416 30680 Watching for file changes with StatReloader
+INFO 2025-08-26 23:07:57,183 autoreload 32416 30680 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\new_recommendation_system.py changed, reloading.
+INFO 2025-08-26 23:07:57,899 autoreload 32080 32240 Watching for file changes with StatReloader
+INFO 2025-08-26 23:22:42,401 autoreload 32080 32240 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\api_unified.py changed, reloading.
+INFO 2025-08-26 23:22:43,071 autoreload 27336 15532 Watching for file changes with StatReloader
+INFO 2025-08-26 23:23:14,270 autoreload 27336 15532 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\basicfit_project\urls.py changed, reloading.
+INFO 2025-08-26 23:23:14,825 autoreload 31224 30604 Watching for file changes with StatReloader
+INFO 2025-08-26 23:29:48,586 autoreload 29576 18692 Watching for file changes with StatReloader
+INFO 2025-08-28 09:24:39,401 autoreload 20724 19868 Watching for file changes with StatReloader
+INFO 2025-08-28 09:30:57,445 autoreload 20724 19868 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\basicfit_project\urls.py changed, reloading.
+INFO 2025-08-28 09:30:57,981 autoreload 25416 25340 Watching for file changes with StatReloader
+INFO 2025-08-28 09:31:15,715 autoreload 13104 13524 Watching for file changes with StatReloader
+WARNING 2025-08-28 09:31:30,650 log 25416 25132 Unauthorized: /api/workouts-v2/effectuees/
+WARNING 2025-08-28 09:31:30,650 basehttp 25416 25132 "GET /api/workouts-v2/effectuees/ HTTP/1.1" 401 58
+INFO 2025-08-30 16:36:55,943 autoreload 5632 21384 Watching for file changes with StatReloader
+INFO 2025-08-30 16:38:13,841 autoreload 5632 21384 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\models.py changed, reloading.
+INFO 2025-08-30 16:38:14,446 autoreload 5452 26132 Watching for file changes with StatReloader
+INFO 2025-08-30 16:38:20,279 autoreload 5452 26132 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\migrations\__init__.py changed, reloading.
+INFO 2025-08-30 16:38:20,840 autoreload 16116 7380 Watching for file changes with StatReloader
+INFO 2025-08-30 16:38:38,874 autoreload 26512 26280 Watching for file changes with StatReloader
+INFO 2025-08-30 20:12:35,927 autoreload 16116 7380 C:\Users\jerem\OneDrive\Documents\Basicfitv2\backend\apps\workouts\views.py changed, reloading.
+INFO 2025-08-30 20:34:09,638 autoreload 19880 23884 Watching for file changes with StatReloader
+INFO 2025-08-30 22:00:51,170 autoreload 30332 30896 Watching for file changes with StatReloader
+INFO 2025-08-30 22:04:52,976 autoreload 15176 16072 Watching for file changes with StatReloader

@@ -43,7 +43,7 @@ urlpatterns = [
 
     # API REST - Version nettoyée
     path('api/users/', include('apps.users.urls')),
-    path('api/workouts/', include('apps.workouts.urls_clean')),
+    path('api/workouts/', include('apps.workouts.urls')),
     path('api/machines/', include('apps.machines.urls')),
     path('api/core/', include('apps.core.urls')),
 ]
